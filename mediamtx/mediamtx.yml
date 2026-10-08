@@ -1,0 +1,38 @@
+# Safe template. Real RTSP sources are generated at container start.
+# This file contains no credentials.
+
+logLevel: info
+api: true
+apiAddress: :9997
+rtsp: false
+rtmp: false
+hls: true
+hlsAddress: :8888
+hlsVariant: mpegts
+webrtc: true
+webrtcAddress: :8889
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: :8189
+webrtcIPsFromInterfaces: false
+webrtcAdditionalHosts: ["127.0.0.1"]
+srt: false
+moq: false
+playback: false
+
+paths:
+  cam1_sub:
+    source: publisher
+  cam1_main:
+    source: publisher
+  cam2_sub:
+    source: publisher
+  cam2_main:
+    source: publisher
+  cam3_sub:
+    source: publisher
+  cam3_main:
+    source: publisher
+  cam4_sub:
+    source: publisher
+  cam4_main:
+    source: publisher

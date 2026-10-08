@@ -1,0 +1,48 @@
+# Home CCTV hub. Run with: podman compose up -d
+# Podman on macOS runs containers in a Linux VM. Outbound traffic to the DVR
+# is NATed through the Mac, which usually reaches the LAN. host network mode
+# does not attach containers to the Mac's LAN, so it is not used here.
+name: home-cctv
+
+services:
+  mediamtx:
+    build:
+      context: .
+      dockerfile: mediamtx/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8888:8888"
+      - "8889:8889"
+      - "8189:8189/tcp"
+      - "8189:8189/udp"
+      - "127.0.0.1:9997:9997"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9997/v3/paths/list"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+      start_period: 8s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_WHEP_URL: http://mediamtx:8889
+      MEDIAMTX_HLS_URL: http://mediamtx:8888
+      DATA_DIR: /app/data
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      mediamtx:
+        condition: service_healthy
+    restart: unless-stopped
