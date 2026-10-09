@@ -9,6 +9,7 @@ import { eventTitle, type CctvEvent } from "@/lib/events";
 import { Messages } from "@/lib/messages";
 import { formatKolkataClock } from "@/lib/time-kolkata";
 import { usePoll } from "@/components/hooks/usePoll";
+import { NotificationPermissionButton } from "@/components/events/NotificationPermissionButton";
 import { Mark } from "@/components/ui/Mark";
 import { StatusLamp } from "@/components/ui/StatusLamp";
 
@@ -17,6 +18,7 @@ const NAV = [
   { href: "/cameras", label: "Cameras" },
   { href: "/playback", label: "Playback" },
   { href: "/events", label: "Events" },
+  { href: "/notifications", label: "Notifications" },
   { href: "/device", label: "Device" },
   { href: "/settings", label: "Settings" },
 ];
@@ -56,12 +58,16 @@ function EventNotifier() {
       window.dispatchEvent(new CustomEvent("cctv-event", { detail: payload }));
       if (!payload.notify || typeof Notification === "undefined" || Notification.permission !== "granted") return;
       const when = formatKolkataClock(new Date(payload.event.timestamp)).slice(0, 5);
+      const eventId = payload.event.id;
       const note = new Notification("Home CCTV", {
         body: `${eventTitle(payload.event.type, payload.event.classification)}\nCamera: ${payload.event.cameraName ?? `Camera ${payload.event.cameraId}`}\nTime: ${when}`,
+        tag: eventId,
       });
+      // Opening the notification goes straight to the event detail page.
       note.onclick = () => {
         window.focus();
-        navigate(`/events?focus=${payload.event?.id ?? ""}`);
+        navigate(`/events/${eventId}`);
+        note.close();
       };
     };
     return () => source.close();
@@ -136,6 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-4">
               <StatusLamp tone={lamp.tone} label={lamp.label} />
               <Clock />
+              <NotificationPermissionButton />
               <button type="button" onClick={() => void logout()} className="text-sm text-muted md:hidden">
                 Log out
               </button>
@@ -146,7 +153,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-6 border-t border-line bg-panel md:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-7 border-t border-line bg-panel md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Primary"
       >

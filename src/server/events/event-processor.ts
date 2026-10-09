@@ -1,17 +1,20 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { unlink } from "node:fs/promises";
 import { getConfig } from "@/lib/config";
-import { shouldNotify } from "@/lib/events";
+import { snapshotFile } from "@/lib/snapshot-path";
 import { formatKolkataIso, kolkataDayBounds, todayInKolkata } from "@/lib/time-kolkata";
+import { defaultPriority } from "@/lib/priority";
 import { createAIProvider } from "@/server/ai/ai-provider";
 import { readCameraNames } from "@/server/cameras/store";
 import { attachStops, parseAlarmLogs, type MotionStart, type MotionStop } from "@/server/events/event-normalizer";
 import { publishLiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type NewEvent } from "@/server/events/event-store";
+import { captureEventSnapshot } from "@/server/events/snapshot";
+import { cooldownBlocks, cooldownWindowStart, evaluateRules } from "@/server/events/rule-engine";
 import { HikvisionClient } from "@/server/hikvision/hikvision-client";
 import { HikvisionError } from "@/server/hikvision/hikvision-types";
 
-const seenDuplicates = new Set<string>();
 let started = false;
 let polling = false;
 let lastPoll: string | null = null;
@@ -99,20 +102,60 @@ async function poll(backfill: boolean): Promise<void> {
     const paired = attachStops(logs.starts, logs.stops);
     const store = openEventStore(config.dataDir);
     const names = await readCameraNames(config.dataDir);
-    const notifyAfter = now.getTime() - Math.max(config.eventPollIntervalMs * 3, 120_000);
     const rules = store.rules();
     const ai = createAIProvider(config.aiEnabled);
     for (const event of paired.events) {
-      const inserted = store.insertEvent(toNewEvent(event));
+      const priority = defaultPriority(event.type, event.classification);
+      const inserted = store.insertEvent({ ...toNewEvent(event), priority });
       if (!inserted) {
-        if (!seenDuplicates.has(event.dedupeKey)) {
-          seenDuplicates.add(event.dedupeKey);
-          console.info("[events] Duplicate event ignored");
-        }
+        // The unique dedupe_key already blocks a repeated DVR message.
+        console.info("[events] Duplicate event ignored");
         continue;
       }
       console.info("[events] New event detected");
-      console.info("[events] Event stored");
+
+      const at = new Date(event.timestamp);
+      const evaluation = evaluateRules(rules, { ...event, priority }, at, {
+        cooldownActive: (rule) =>
+          cooldownBlocks(rule, store.countSentSince(rule.id, formatKolkataIso(cooldownWindowStart(rule, at)))),
+      });
+
+      // Notification history is the durable duplicate guard: an event/rule pair
+      // recorded once is never notified again, even across restarts.
+      let delivered = false;
+      for (const decision of evaluation.decisions) {
+        const fresh = store.recordNotification({
+          eventId: event.id,
+          ruleId: decision.ruleId,
+          ruleName: decision.ruleName,
+          cameraId: event.cameraId,
+          priority: decision.priority,
+          status: decision.notify ? "sent" : "suppressed",
+          reason: decision.reason,
+          eventTimestamp: event.timestamp,
+        });
+        if (!fresh) continue;
+        if (decision.notify) {
+          delivered = true;
+          console.info("[events] Notification rule matched");
+        } else if (decision.reason) {
+          console.info("[events] Notification suppressed", decision.reason);
+        }
+      }
+      if (evaluation.decisions.length === 0) {
+        store.recordNotification({
+          eventId: event.id,
+          ruleId: null,
+          ruleName: null,
+          cameraId: event.cameraId,
+          priority,
+          status: "suppressed",
+          reason: "No notification rule matched",
+          eventTimestamp: event.timestamp,
+        });
+      }
+      if (delivered) store.markNotified(event.id);
+
       if (config.aiEnabled) {
         console.info("[events] AI processing started");
         const analysis = await ai.analyzeImage({ eventId: event.id, classification: event.classification });
@@ -126,15 +169,16 @@ async function poll(backfill: boolean): Promise<void> {
           });
         }
       }
-      const at = new Date(event.timestamp);
-      const recent = at.getTime() >= notifyAfter;
-      const decision = recent ? shouldNotify(rules, event, at) : { matched: false, quiet: false, notify: false };
-      if (decision.matched) console.info("[events] Notification rule matched");
-      if (decision.quiet) console.info("[events] Notification suppressed by quiet hours");
+
+      // A still picture is optional. The event is already stored, so a DVR that
+      // cannot serve one just leaves the snapshot unavailable.
+      const snapshot = await captureEventSnapshot({ cameraId: event.cameraId, eventId: event.id, at, client });
+      if (snapshot) store.setSnapshotPath(event.id, snapshot);
+
       const stored = store.get(event.id);
       if (stored) {
         publishLiveEvent({
-          notify: decision.notify,
+          notify: delivered,
           event: { ...stored, cameraName: names[event.cameraId] ?? `Camera ${event.cameraId}` },
         });
       }
@@ -165,9 +209,21 @@ function cleanup(): void {
     const override = store.setting("retention_days");
     const days = override && /^\d+$/.test(override) ? Number(override) : config.eventRetentionDays;
     if (days <= 0) return;
+    // Stored timestamps carry the Asia/Kolkata offset, so a Kolkata-formatted
+    // cutoff compares correctly and cannot delete "today" early.
     const cutoff = formatKolkataIso(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
+    const doomed = store.snapshotPathsBefore(cutoff);
     const removed = store.deleteOlderThan(cutoff);
+    const prunedNotifications = store.deleteNotificationsOlderThan(cutoff);
     if (removed > 0) console.info("[events] retention removed", removed);
+    if (prunedNotifications > 0) console.info("[events] retention removed notifications", prunedNotifications);
+    // Snapshots belong to the event rows just deleted. This removes files this
+    // hub wrote; it never touches DVR or MediaMTX recordings.
+    for (const relative of doomed) {
+      const target = snapshotFile(config.dataDir, relative);
+      if (!target) continue;
+      void unlink(target).catch(() => undefined);
+    }
   } catch (error) {
     console.error("[events] retention", error instanceof Error ? error.name : "error");
   }

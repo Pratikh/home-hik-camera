@@ -156,14 +156,32 @@ export class HikvisionClient {
     return this.requestText(pathname, { method: "POST", body: xml, timeoutMs });
   }
 
+  /** Fetch a binary resource (a still picture). Same digest handshake as XML calls. */
+  async getBinary(pathname: string, timeoutMs = 8000): Promise<Buffer> {
+    return this.requestRaw(pathname, { timeoutMs, accept: "image/jpeg, image/*, */*" });
+  }
+
   private async requestText(
     pathname: string,
     options?: { method?: "GET" | "POST"; body?: string; timeoutMs?: number },
   ): Promise<string> {
+    const bytes = await this.requestRaw(pathname, {
+      method: options?.method,
+      body: options?.body,
+      timeoutMs: options?.timeoutMs,
+      accept: "application/xml, text/xml, */*",
+    });
+    return bytes.toString("utf8");
+  }
+
+  private async requestRaw(
+    pathname: string,
+    options?: { method?: "GET" | "POST"; body?: string; timeoutMs?: number; accept?: string },
+  ): Promise<Buffer> {
     const method = options?.method ?? "GET";
     const timeoutMs = options?.timeoutMs ?? this.timeoutMs;
     const { url, uri } = this.endpoint(pathname);
-    const headers: Record<string, string> = { Accept: "application/xml, text/xml, */*" };
+    const headers: Record<string, string> = { Accept: options?.accept ?? "application/xml, text/xml, */*" };
     if (options?.body) headers["Content-Type"] = "application/xml";
     try {
       const first = await this.fetchImpl(url, {
@@ -174,7 +192,7 @@ export class HikvisionClient {
         signal: AbortSignal.timeout(timeoutMs),
         headers,
       });
-      if (first.status === 200) return first.text();
+      if (first.status === 200) return Buffer.from(await first.arrayBuffer());
       if (first.status === 401) {
         const challenge = parseDigestChallenge(first.headers.get("www-authenticate") ?? "");
         if (!challenge) throw new HikvisionError("auth_failed", "DVR authentication failed", 401);
@@ -193,18 +211,18 @@ export class HikvisionClient {
           signal: AbortSignal.timeout(timeoutMs),
           headers: { ...headers, Authorization: authorization },
         });
-        const body = await second.text();
+        const body = Buffer.from(await second.arrayBuffer());
         if (second.status === 401 || second.status === 403) {
-          throw new HikvisionError("auth_failed", "DVR authentication failed", second.status, body);
+          throw new HikvisionError("auth_failed", "DVR authentication failed", second.status, body.toString("utf8"));
         }
         if (second.status >= 400) {
-          throw new HikvisionError("http_error", "DVR returned an unexpected response", second.status, body);
+          throw new HikvisionError("http_error", "DVR returned an unexpected response", second.status, body.toString("utf8"));
         }
         return body;
       }
-      const body = await first.text();
+      const body = Buffer.from(await first.arrayBuffer());
       if (first.status >= 400) {
-        throw new HikvisionError("http_error", "DVR returned an unexpected response", first.status, body);
+        throw new HikvisionError("http_error", "DVR returned an unexpected response", first.status, body.toString("utf8"));
       }
       return body;
     } catch (error) {

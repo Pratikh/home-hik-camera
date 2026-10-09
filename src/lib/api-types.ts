@@ -2,6 +2,9 @@ export type DvrState = "connected" | "disconnected" | "not_configured" | "auth_f
 export type GatewayState = "connected" | "disconnected";
 export type HealthDvrState = "connected" | "disconnected" | "not_configured";
 
+import type { CctvEvent, EventStats, NotificationRecord, NotificationRule } from "@/lib/events";
+import type { EventPriority } from "@/lib/priority";
+
 export type CameraView = {
   id: number;
   name: string;
@@ -112,4 +115,42 @@ export type PlaybackSessionResponse = {
   hlsUrl: string | null;
   startTime: string;
   endTime: string;
+};
+
+export type NotificationRulesResponse = {
+  rules: NotificationRule[];
+  retentionDays: string;
+};
+
+export type NotificationsResponse = {
+  notifications: NotificationRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  date: string;
+  stats: { sent: number; suppressed: number; failed: number };
+};
+
+export type EventListResponse = {
+  events: CctvEvent[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type EventRuleTestResponse = {
+  evaluatedAt: string;
+  matched: boolean;
+  priority: EventPriority;
+  notify: boolean;
+  message: string;
+  decisions: { ruleId: string; ruleName: string; notify: boolean; reason: string | null }[];
+  ruleCount: number;
+};
+
+export type EventStatsResponse = EventStats & {
+  range: string;
+  start: string;
+  end: string;
+  days: number;
 };

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { CamerasResponse } from "@/lib/api-types";
+import type { CamerasResponse, EventListResponse } from "@/lib/api-types";
+import { CAMERA_IDS } from "@/lib/cameras";
 import { ApiError, api } from "@/lib/client-api";
 import {
   eventDurationSeconds,
@@ -17,8 +18,17 @@ import {
 import { Messages } from "@/lib/messages";
 import { formatKolkataClock, todayInKolkata } from "@/lib/time-kolkata";
 import { PageIntro } from "@/components/ui/States";
+import { PriorityBadge } from "@/components/events/PriorityBadge";
 
-type EventList = { events: CctvEvent[]; total: number; page: number; pageSize: number };
+type QuickFilter = "all" | "person" | "vehicle" | "motion" | "important";
+
+const QUICK: { id: QuickFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "person", label: "Person" },
+  { id: "vehicle", label: "Vehicle" },
+  { id: "motion", label: "Motion" },
+  { id: "important", label: "Important" },
+];
 
 function dot(classification: EventClassification | null, type: EventType): string {
   if (classification === "person" || type === "alarm") return "bg-offline";
@@ -29,14 +39,17 @@ function dot(classification: EventClassification | null, type: EventType): strin
 export function EventsView({ initialDate }: { initialDate: string }) {
   const params = useSearchParams();
   const [cameras, setCameras] = useState<Record<number, string>>({});
+  const [quick, setQuick] = useState<QuickFilter>("all");
   const [camera, setCamera] = useState("all");
-  const [type, setType] = useState("all");
   const [classification, setClassification] = useState("all");
   const [date, setDate] = useState(initialDate);
   const [startTime, setStartTime] = useState("00:00");
   const [endTime, setEndTime] = useState("23:59");
+  const [read, setRead] = useState("all");
+  const [notified, setNotified] = useState("all");
+  const [priority, setPriority] = useState("all");
   const [page, setPage] = useState(1);
-  const [result, setResult] = useState<EventList | null>(null);
+  const [result, setResult] = useState<EventListResponse | null>(null);
   const [selected, setSelected] = useState<CctvEvent | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,23 +64,39 @@ export function EventsView({ initialDate }: { initialDate: string }) {
       .catch(() => undefined);
   }, []);
 
-  async function search(nextPage = 1, overrides?: { date?: string; camera?: string }) {
+  /**
+   * Server-side filtering. The browser sends the filters and receives one page;
+   * it never downloads the day's events to filter them locally.
+   */
+  async function search(
+    nextPage = 1,
+    overrides?: Partial<{ quick: QuickFilter; date: string; camera: string; classification: string }>,
+  ) {
     setLoading(true);
     setError(null);
+    const activeQuick = overrides?.quick ?? quick;
     const queryDate = overrides?.date ?? date;
     const queryCamera = overrides?.camera ?? camera;
+    const queryClassification = overrides?.classification ?? classification;
+
     const searchParams = new URLSearchParams({
       camera: queryCamera,
-      type,
-      classification,
       date: queryDate,
       startTime,
       endTime,
       page: String(nextPage),
       pageSize: "20",
     });
+    if (activeQuick === "important") searchParams.set("important", "true");
+    if (activeQuick === "person" || activeQuick === "vehicle") searchParams.set("classification", activeQuick);
+    if (activeQuick === "motion") searchParams.set("classification", "none");
+    else if (queryClassification !== "all") searchParams.set("classification", queryClassification);
+    if (read !== "all") searchParams.set("read", read);
+    if (notified !== "all") searchParams.set("notified", notified);
+    if (priority !== "all") searchParams.set("priority", priority);
+
     try {
-      const body = await api<EventList>(`/api/events?${searchParams.toString()}`);
+      const body = await api<EventListResponse>(`/api/events?${searchParams.toString()}`);
       setResult(body);
       setPage(nextPage);
       const focus = params.get("focus");
@@ -81,17 +110,26 @@ export function EventsView({ initialDate }: { initialDate: string }) {
     }
   }
 
+  function chooseQuick(next: QuickFilter) {
+    setQuick(next);
+    void search(1, { quick: next });
+  }
+
   useEffect(() => {
     const timer = setTimeout(() => void search(1), 0);
     const onEvent = () => {
-      if (date === todayInKolkata() && camera === "all" && type === "all" && classification === "all") void search(1);
+      // Only live-refresh the default view; a filtered view is left alone so the
+      // list does not jump while it is being read.
+      if (date === todayInKolkata() && camera === "all" && quick === "all" && read === "all" && notified === "all") {
+        void search(1);
+      }
     };
     window.addEventListener("cctv-event", onEvent);
     return () => {
       clearTimeout(timer);
       window.removeEventListener("cctv-event", onEvent);
     };
-    // The first search uses the initial filters. Later filter changes use the Search button.
+    // The first search uses the initial filters. Later changes use the buttons.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -100,8 +138,25 @@ export function EventsView({ initialDate }: { initialDate: string }) {
   return (
     <div className="min-w-0">
       <PageIntro title="Events" detail="Motion events from the DVR, including person and vehicle labels when the DVR sends them." />
+
+      <div className="mb-3 flex flex-wrap gap-2" role="group" aria-label="Quick filters">
+        {QUICK.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={quick === item.id}
+            onClick={() => chooseQuick(item.id)}
+            className={`h-9 rounded-full border px-3 text-sm ${
+              quick === item.id ? "border-teal bg-teal/10 text-teal" : "border-line text-muted hover:text-ink"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       <form
-        className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-6"
+        className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
         onSubmit={(event) => {
           event.preventDefault();
           void search(1);
@@ -111,14 +166,7 @@ export function EventsView({ initialDate }: { initialDate: string }) {
           <span className="mb-1 block text-muted">Camera</span>
           <select value={camera} onChange={(event) => setCamera(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="Camera">
             <option value="all">All cameras</option>
-            {[1, 2, 3, 4].map((id) => <option key={id} value={id}>{name(id)}</option>)}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Type</span>
-          <select value={type} onChange={(event) => setType(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="Event type">
-            <option value="all">All</option>
-            <option value="motion">Motion</option>
+            {CAMERA_IDS.map((id) => <option key={id} value={id}>{name(id)}</option>)}
           </select>
         </label>
         <label className="text-sm">
@@ -134,25 +182,56 @@ export function EventsView({ initialDate }: { initialDate: string }) {
           <span className="mb-1 block text-muted">Date</span>
           <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="Date" required />
         </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">From</span>
-          <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="Start time" />
-        </label>
-        <div className="flex items-end gap-2">
-          <label className="min-w-0 flex-1 text-sm">
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-sm">
+            <span className="mb-1 block text-muted">From</span>
+            <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="Start time" />
+          </label>
+          <label className="text-sm">
             <span className="mb-1 block text-muted">To</span>
             <input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="End time" />
           </label>
         </div>
-        <button type="submit" className="h-11 rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f] xl:col-span-6 xl:w-fit">
+        <label className="text-sm">
+          <span className="mb-1 block text-muted">Read state</span>
+          <select value={read} onChange={(event) => setRead(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="Read state">
+            <option value="all">Any</option>
+            <option value="false">Unread</option>
+            <option value="true">Read</option>
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block text-muted">Notification</span>
+          <select value={notified} onChange={(event) => setNotified(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="Notification state">
+            <option value="all">Any</option>
+            <option value="true">Notification sent</option>
+            <option value="false">Notification not sent</option>
+          </select>
+        </label>
+        <label className="text-sm">
+          <span className="mb-1 block text-muted">Priority</span>
+          <select value={priority} onChange={(event) => setPriority(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-card px-3" aria-label="Priority">
+            <option value="all">All</option>
+            <option value="LOW">Low</option>
+            <option value="NORMAL">Normal</option>
+            <option value="HIGH">High</option>
+            <option value="CRITICAL">Critical</option>
+          </select>
+        </label>
+        <button type="submit" className="h-11 rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f] sm:col-span-2 xl:col-span-2 xl:w-fit">
           {loading ? "Searching..." : "Search"}
         </button>
       </form>
+
       {error ? <p className="mb-3 text-sm text-warn" role="alert">{error}</p> : null}
+
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <section className="min-w-0" aria-label="Event list">
-          <h2 className="mb-2 text-sm font-semibold">{date === todayInKolkata() ? "Today" : date}</h2>
-          {!loading && result && result.events.length === 0 ? <p className="text-sm text-muted">No events for this period.</p> : null}
+          <h2 className="mb-2 text-sm font-semibold">
+            {date === todayInKolkata() ? "Today" : date}
+            {result ? <span className="ml-2 font-normal text-muted">{result.total} events</span> : null}
+          </h2>
+          {!loading && result && result.events.length === 0 ? <p className="text-sm text-muted">{Messages.noEvents}</p> : null}
           <ul className="flex flex-col gap-2">
             {result?.events.map((event) => (
               <li key={event.id}>
@@ -164,8 +243,15 @@ export function EventsView({ initialDate }: { initialDate: string }) {
                 >
                   <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot(event.classification, event.type)}`} aria-hidden="true" />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">{eventTitle(event.type, event.classification)}</span>
-                    <span className="block truncate text-xs text-muted">{name(event.cameraId)}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">{eventTitle(event.type, event.classification)}</span>
+                      <PriorityBadge priority={event.priority} />
+                      {event.readAt === null ? <span className="text-[11px] text-teal">New</span> : null}
+                    </span>
+                    <span className="block truncate text-xs text-muted">
+                      {name(event.cameraId)}
+                      {event.notified ? " · notified" : ""}
+                    </span>
                   </span>
                   <span className="font-mono text-xs tabular-nums">{formatKolkataClock(new Date(event.timestamp)).slice(0, 5)}</span>
                 </button>
@@ -173,8 +259,9 @@ export function EventsView({ initialDate }: { initialDate: string }) {
             ))}
           </ul>
           {result && result.total > result.pageSize ? (
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex items-center gap-2">
               <button type="button" className="h-10 rounded-lg border border-line px-3 text-sm disabled:opacity-40" disabled={page <= 1} onClick={() => void search(page - 1)}>Previous</button>
+              <span className="text-xs text-muted">Page {page} of {Math.max(1, Math.ceil(result.total / result.pageSize))}</span>
               <button type="button" className="h-10 rounded-lg border border-line px-3 text-sm disabled:opacity-40" disabled={page * result.pageSize >= result.total} onClick={() => void search(page + 1)}>Next</button>
             </div>
           ) : null}
@@ -185,12 +272,30 @@ export function EventsView({ initialDate }: { initialDate: string }) {
   );
 }
 
-function EventDetail({ event, cameraName }: { event: CctvEvent | null; cameraName: string }) {
+export function EventDetail({ event, cameraName }: { event: CctvEvent | null; cameraName: string }) {
   if (!event) return <p className="text-sm text-muted">Select an event.</p>;
   const seconds = eventDurationSeconds(event.timestamp, event.endTimestamp);
   return (
     <article className="min-w-0 rounded-xl border border-line bg-card p-4" aria-label="Event details">
-      <h2 className="text-base font-semibold">{eventTitle(event.type, event.classification)}</h2>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="text-base font-semibold">{eventTitle(event.type, event.classification)}</h2>
+        <PriorityBadge priority={event.priority} />
+      </div>
+      {event.hasSnapshot ? (
+        // Snapshots are served only through the authenticated route, so the
+        // Next.js image optimizer cannot be used: it fetches the URL itself,
+        // without the viewer's session cookie.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`/api/events/${event.id}/snapshot`}
+          alt={`Snapshot for ${eventTitle(event.type, event.classification)}`}
+          className="mt-3 aspect-video w-full rounded-lg border border-line object-cover"
+        />
+      ) : (
+        <p className="mt-3 rounded-lg border border-line bg-black/30 px-3 py-6 text-center text-xs text-muted">
+          {Messages.snapshotUnavailable}
+        </p>
+      )}
       <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
         <dt className="text-muted">Camera</dt><dd>{cameraName}</dd>
         <dt className="text-muted">Time</dt><dd className="font-mono">{formatKolkataClock(new Date(event.timestamp))}</dd>
@@ -198,11 +303,16 @@ function EventDetail({ event, cameraName }: { event: CctvEvent | null; cameraNam
         <dt className="text-muted">Type</dt><dd>{eventLabel(event.type, null)}</dd>
         <dt className="text-muted">Classification</dt><dd>{event.classification ? eventLabel(event.type, event.classification) : Messages.notAvailable}</dd>
         <dt className="text-muted">Confidence</dt><dd>{event.confidence === null ? Messages.notAvailable : `${Math.round(event.confidence * 100)}%`}</dd>
-        <dt className="text-muted">Snapshot</dt><dd>{event.hasSnapshot ? "Available" : Messages.snapshotUnavailable}</dd>
+        <dt className="text-muted">Notified</dt><dd>{event.notified ? "Yes" : "No"}</dd>
       </dl>
-      <Link href={eventPlaybackHref(event)} className="mt-4 inline-flex h-11 items-center rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f]">
-        View recording
-      </Link>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Link href={eventPlaybackHref(event)} className="inline-flex h-11 items-center rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f]">
+          View recording
+        </Link>
+        <Link href={`/events/${event.id}`} className="inline-flex h-11 items-center rounded-lg border border-line px-4 text-sm">
+          Open details
+        </Link>
+      </div>
     </article>
   );
 }

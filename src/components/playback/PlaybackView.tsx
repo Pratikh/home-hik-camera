@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CameraView, CamerasResponse, PlaybackSearchResponse, RecordingView } from "@/lib/api-types";
+import { CAMERA_IDS } from "@/lib/cameras";
 import { ApiError, api } from "@/lib/client-api";
 import { Messages } from "@/lib/messages";
-import { eventOffsetMs, eventTitle, type CctvEvent } from "@/lib/events";
+import type { CctvEvent } from "@/lib/events";
 import { recordingToAutoplay, resolvePlaybackDate } from "@/lib/playback-date";
 import { formatKolkataIso, kolkataDayBounds } from "@/lib/time-kolkata";
+import { buildTimelineMarkers, type TimelineMarker } from "@/lib/timeline-markers";
 import { recordingAt, toTimelineSegment, zoomWindow, type TimelineSegment } from "@/lib/timeline";
 import { PageIntro } from "@/components/ui/States";
 import { PlaybackFilters } from "@/components/playback/PlaybackFilters";
@@ -14,7 +16,7 @@ import { PlaybackPlayer } from "@/components/playback/PlaybackPlayer";
 import { PlaybackTimeline } from "@/components/playback/PlaybackTimeline";
 import { RecordingList } from "@/components/playback/RecordingList";
 
-const FALLBACK = [1, 2, 3, 4].map((id) => ({
+const FALLBACK = CAMERA_IDS.map((id) => ({
   id,
   name: `Camera ${id}`,
   online: null,
@@ -48,10 +50,9 @@ export function PlaybackView({
   const [playNonce, setPlayNonce] = useState(0);
   const [position, setPosition] = useState<number | null>(null);
   const [zoom, setZoom] = useState<24 | 6 | 1>(24);
-  const [downloadNote, setDownloadNote] = useState<string | null>(null);
   const [pointNote, setPointNote] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
-  const [markers, setMarkers] = useState<{ id: string; offsetMs: number; label: string; classification: string | null }[]>([]);
+  const [markers, setMarkers] = useState<TimelineMarker[]>([]);
   const eventSeekRef = useRef<{ camera: number; date: string; time: string } | null>(
     eventTime ? { camera: initialCamera, date: initialDate, time: eventTime } : null,
   );
@@ -103,7 +104,6 @@ export function PlaybackView({
     setSearchError(null);
     setEmpty(false);
     setPointNote(null);
-    setDownloadNote(null);
     setPlayFrom(null);
     setSelectedId(null);
     setPosition(null);
@@ -123,12 +123,8 @@ export function PlaybackView({
           `/api/events?camera=${query.camera}&date=${query.date}&startTime=00:00&endTime=23:59&pageSize=100`,
         ).catch(() => ({ events: [] as CctvEvent[] }));
         if (seq !== requestSeq.current) return;
-        setMarkers(
-          listed.events.flatMap((event) => {
-            const offsetMs = eventOffsetMs(bounds.start.getTime(), event.timestamp);
-            return offsetMs === null ? [] : [{ id: event.id, offsetMs, label: eventTitle(event.type, event.classification), classification: event.classification }];
-          }),
-        );
+        // Nearby events collapse into one marker so a busy day stays readable.
+        setMarkers(buildTimelineMarkers(listed.events, bounds.start.getTime()));
       }
       const seek = eventSeekRef.current;
       if (seek && seek.date === query.date && seek.camera === query.camera) {
@@ -185,16 +181,6 @@ export function PlaybackView({
     playRecording(recording, formatKolkataIso(new Date(from)));
   }
 
-  async function download() {
-    setDownloadNote(null);
-    try {
-      await api("/api/playback/download");
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) return;
-      setDownloadNote(error instanceof Error ? error.message : Messages.downloadUnavailable);
-    }
-  }
-
   return (
     <div className="min-w-0">
       <PageIntro title="CCTV Playback" detail="Today's recordings load on open. Choose another date to look further back." />
@@ -247,15 +233,10 @@ export function PlaybackView({
             emptyMessage={!pending && empty ? Messages.noRecordings : null}
             onSelect={(recording) => playRecording(recording)}
           />
-          <button
-            type="button"
-            disabled={!selected}
-            onClick={() => void download()}
-            className="h-11 rounded-lg border border-line bg-white/5 px-3 text-sm disabled:opacity-40"
-          >
-            Download selected recording
-          </button>
-          {downloadNote ? <p className="text-sm text-muted">{downloadNote}</p> : null}
+          <p className="rounded-lg border border-line bg-white/5 px-3 py-3 text-xs text-muted">
+            {Messages.downloadUnavailable} This DVR&#39;s download API returns a private stream, not a
+            browser-savable file.
+          </p>
         </div>
       </div>
     </div>

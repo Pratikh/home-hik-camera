@@ -11,7 +11,12 @@ export async function GET(request: Request) {
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
   ensureEventProcessor();
-  const limit = Number(new URL(request.url).searchParams.get("limit") ?? "8");
+  const params = new URL(request.url).searchParams;
+  const limit = Number(params.get("limit") ?? "8");
   const size = Number.isInteger(limit) && limit >= 1 && limit <= 20 ? limit : 8;
-  return NextResponse.json({ events: openEventStore(getConfig().dataDir).recent(size) });
+  const store = openEventStore(getConfig().dataDir);
+  // "Important" is a stored priority band, so this stays an indexed lookup
+  // rather than loading a page of events and filtering in the browser.
+  const events = params.get("important") === "true" ? store.recentImportant(size) : store.recent(size);
+  return NextResponse.json({ events });
 }

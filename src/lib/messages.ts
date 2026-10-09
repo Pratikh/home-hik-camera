@@ -35,4 +35,12 @@ export const Messages = {
   recordingNotFound: "Recording not found for this event.",
   snapshotUnavailable: "Snapshot not available",
   notAvailable: "Not available",
+  noEvents: "No events for this period.",
+  eventNotFound: "Event not found",
+  notificationsUnsupported: "This browser does not support notifications.",
+  notificationsDenied: "Notifications were not allowed.",
+  notificationsGranted: "CCTV notifications allowed.",
+  notificationsDefault: "Enable notifications",
+  enableNotifications: "Enable notifications",
+  noNotifications: "No notifications for this period.",
 } as const;

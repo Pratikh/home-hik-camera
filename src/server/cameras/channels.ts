@@ -21,6 +21,18 @@ export function cameraChannels(): CameraChannel[] {
   });
 }
 
+/**
+ * The one source of truth for camera ids. Components and routes that need a
+ * list of cameras use this so a change to CAMERA_COUNT does not require editing
+ * every `[1, 2, 3, 4]` literal.
+ */
+export const CAMERA_IDS: readonly number[] = cameraChannels().map((camera) => camera.id);
+
+/** True when the value is a camera id this system actually has. */
+export function isCameraId(value: unknown): value is number {
+  return typeof value === "number" && CAMERA_IDS.includes(value);
+}
+
 export function playbackPath(): string {
   return "playback";
 }

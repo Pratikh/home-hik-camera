@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
-import { dedupeKey, type EventClassification, type EventType } from "@/lib/events";
+import { dedupeKey, SUPPORTED_EVENT_TYPES, type EventClassification, type EventType } from "@/lib/events";
 import { formatKolkataIso, parseDvrTimestamp } from "@/lib/time-kolkata";
 
 const parser = new XMLParser({
@@ -137,5 +137,5 @@ export function attachStops(starts: MotionStart[], stops: MotionStop[]): { event
 }
 
 export function supportedEventTypes(): EventType[] {
-  return ["motion"];
+  return [...SUPPORTED_EVENT_TYPES];
 }

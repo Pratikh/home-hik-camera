@@ -15,12 +15,19 @@ import { snapshotFile } from "@/app/api/events/[id]/snapshot/route";
 
 const personRule: NotificationRule = {
   id: "rule-person",
+  name: "Person anywhere",
   enabled: true,
   cameraId: null,
   eventType: null,
   classification: "person",
+  minimumPriority: null,
+  scheduleStart: null,
+  scheduleEnd: null,
+  daysOfWeek: [],
   quietHoursStart: "23:00",
   quietHoursEnd: "07:00",
+  quietHoursBehavior: "suppress",
+  cooldownSeconds: 300,
 };
 
 describe("events", () => {

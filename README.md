@@ -60,7 +60,13 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `MEDIAMTX_HLS_URL` | HLS fallback. Default `http://127.0.0.1:8888`. |
 | `WEBRTC_ADDITIONAL_HOST` | This computer's LAN address, so phones can complete WebRTC. |
 | `VIDEO_DEV_PLACEHOLDER` | `true` shows a labeled placeholder. Default off. |
-| `DATA_DIR` | Camera display names. Default `./data` (gitignored). |
+| `EVENT_POLL_INTERVAL_MS` | How often the DVR alarm log is polled. Default `5000`. |
+| `EVENT_RETENTION_DAYS` | Days of this hub's own events to keep. `0` is forever. Default `30`. Also editable at `/settings/notifications`. |
+| `AI_ENABLED` | Records the DVR's own person/vehicle label in `event_ai_results`. Default off. Runs no vision model. |
+| `EVENT_DEV_MOCK` | Development-only event fixtures. Ignored when `NODE_ENV=production`. |
+| `DATA_DIR` | Camera display names, events database, and event snapshots. Default `./data` (gitignored). |
+
+V5 introduces no new environment variables. Notification rules, quiet hours, cooldowns, and retention are configured in the UI and stored in `data/events.sqlite`.
 
 The real `.env` is gitignored. Do not commit it.
 
@@ -141,11 +147,14 @@ Podman Desktop on macOS forwards published ports from the Mac. Containers reach 
 ## What you should see
 
 - `/login` until the session cookie is set.
-- `/` four camera cards.
+- `/` four camera cards, plus recent security events.
 - Full screen uses the main stream. Escape or Close leaves it.
 - `/cameras` renames the four tiles. Names are stored in `data/cameras.json`.
 - `/device` shows whatever the DVR returns. Missing fields say "Not reported".
 - `/settings` shows the host, ports, username, and `********` for the password.
+- `/events` filters stored events; `/events/<id>` shows one with its snapshot.
+- `/notifications` shows every notification decision.
+- `/events/stats` shows counts by range and camera.
 
 Messages you can trust:
 
@@ -215,6 +224,33 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9997/v3/paths/list
 
 `APP_USERNAME`, `APP_PASSWORD`, and `SESSION_SECRET` must be set. The login page lists the missing names. The session cookie is HTTP-only. `COOKIE_SECURE=false` is intentional for HTTP on the LAN. A `Secure` cookie would be dropped by the browser on `http://`.
 
+**No browser notifications**
+
+Check, in order: the browser granted permission (click **Enable notifications** at `/settings/notifications`), the rule is enabled, the event's priority meets the rule's minimum, the current time is inside the rule's schedule, quiet hours are not suppressing it, and the rule's cooldown has elapsed. Then confirm in `/notifications` whether the decision was `sent` or `suppressed`; the reason is recorded for every suppressed decision. A notification is only delivered while the hub is open in a tab or installed PWA window. Background push is not implemented and is explained above.
+
+**Every event is suppressed by cooldown**
+
+That is the cooldown working. Lower the rule's `cooldownSeconds`, or set it to `0` for no cooldown. Continuous motion still stores an event per DVR message; only the notification is throttled.
+
+**Snapshots say unavailable**
+
+The event has no stored JPEG. Legacy events ingested before V5 have no snapshot. For new events, confirm the DVR still answers the still-picture endpoint:
+
+```bash
+curl --digest -u USER:PASSWORD -o /tmp/snap.jpg -w "%{http_code} %{content_type}\n" \
+  "http://DVR_IP/ISAPI/Streaming/channels/102/picture"
+```
+
+`200 image/jpeg` means the DVR is serving pictures. The hub validates the JPEG header and writes nothing if the response is not a JPEG, so a DVR that refuses the endpoint leaves the event without a snapshot rather than storing a broken file.
+
+**Rules do not fire**
+
+Use **Test a rule** at `/settings/notifications`. It reports which rules match a sample event and why others do not, without storing anything. Remember that a rule with a `22:00`-`06:00` schedule is inactive during the day, and a rule limited to one camera ignores the others.
+
+**Statistics look wrong**
+
+Statistics range over whole Asia/Kolkata calendar days, so "today" means 00:00–23:59:59 India time, not the last 24 hours. "Motion" counts unclassified motion only, so person and vehicle events are not counted twice.
+
 ## Security
 
 - Use it on a trusted home LAN.
@@ -223,6 +259,8 @@ curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:9997/v3/paths/list
 - Rotate the DVR password and the hub password if they have been shared.
 - Keep `.env` and `mediamtx/runtime.yml` out of git.
 - DVR credentials stay in the server process and in the MediaMTX process. They are not placed in `NEXT_PUBLIC_*` variables, React props, or stream URLs.
+- Event snapshots are stored under `data/events` with mode `0600` and served only through the authenticated `/api/events/<id>/snapshot` route. They are never placed in `public/`. Stored paths are resolved inside the events directory, and traversal or absolute paths are refused.
+- Notification rule management and the rule test endpoint require ADMIN. Event and notification reads require a session. Role checks run on the server, and ids sent by the browser are validated rather than trusted.
 
 ## Development
 
@@ -237,15 +275,25 @@ npm run build
 
 Unit tests mock the DVR. They do not mark a camera live.
 
+### Reconnect and fullscreen differences
+
+Two video paths re-establish their stream deliberately differently, and that is intentional:
+
+- **Live View** retries with a growing delay (2s, then 4s). A camera being temporarily out of reach recovers without a storm of requests.
+- **Playback** retries a handshake up to 3 times with a fixed 500ms delay. Playback is user-initiated (a seek or a date change), so a quick local retry is more appropriate than a long backoff.
+
+Fullscreen also differs by design: Live View uses an in-app overlay (`FullscreenViewer`) that hides the rest of the page and restores body scroll on close, while Playback uses the browser's native `requestFullscreen()`. Both are kept; native fullscreen is used where the video is the whole point and the overlay where the surrounding controls matter more.
+
 ## Layout
 
 - `src/server/hikvision` — ISAPI client
 - `src/server/video` — MediaMTX health and HLS rewrite
 - `src/server/cameras` — channel map and display names
+- `src/server/events` — ingestion, normalization, rule engine, snapshots, event store
 - `src/app/api` — browser-facing HTTP
 - `mediamtx/` — image entrypoint and a credential-free template
 
-Playback search and the timeline live in `src/server/hikvision/hikvision-playback.ts` and `/playback`. Event ingestion lives in `src/server/events`.
+Playback search and the timeline live in `src/server/hikvision/hikvision-playback.ts` and `/playback`. Event ingestion lives in `src/server/events/event-processor.ts`, the notification rule engine is `src/server/events/rule-engine.ts`, and snapshot capture is `src/server/events/snapshot.ts`. Priority ranking is `src/lib/priority.ts` and timeline marker grouping is `src/lib/timeline-markers.ts`.
 
 ## Users and remote access
 
@@ -263,10 +311,205 @@ The hub can be installed on a phone from the browser. The manifest uses standalo
 
 The hub polls the DVR alarm log (`ISAPI/ContentMgmt/logSearch`) on `EVENT_POLL_INTERVAL_MS` (default 5 seconds). It stores motion start/stop pairs in `data/events.sqlite`. Person and vehicle are classifications on a motion event when the DVR's `additionInformation` says `Human` or `Vehicle`. Confidence is left empty because this DVR does not send a score.
 
-On this DS-7104HGHI-K1 the alarm log contained motion only. Line crossing, intrusion, video loss, storage errors, and external alarm inputs are not written to that log, so the events page does not offer them. The log also has no event snapshot, so snapshots stay unavailable instead of using a live picture. Cloud messages such as Ezviz offline are ignored.
+On this DS-7104HGHI-K1 the alarm log contained motion only. Line crossing, intrusion, video loss, storage errors, and external alarm inputs are not written to that log, so the events page does not offer them. Cloud messages such as Ezviz offline are ignored.
 
-`/events` lists and filters stored events. **View recording** opens `/playback` at that camera, date, and time. The playback timeline shows the same events as markers. The dashboard shows today's counts and the latest events. New events arrive in the browser over a server-sent stream, not by polling.
+`/events` lists and filters stored events. **View recording** opens `/playback` at that camera, date, and time. The playback timeline shows the same events as markers. New events arrive in the browser over a server-sent stream, not by polling.
 
-Browser notifications use the Notification API. Person is on by default. Vehicle and unclassified motion are off. Quiet hours default to 23:00–07:00 India time and only suppress notifications; the event is still stored. Rules and retention are edited at `/settings/notifications`. Retention (`EVENT_RETENTION_DAYS`, default 30, or 0 for forever) deletes this hub's rows only.
+## Smart events and notifications (V5)
 
-`AI_ENABLED` defaults to false. Turning it on records the DVR classification in `event_ai_results`. It does not download or run a vision model. `EVENT_DEV_MOCK` is ignored in production.
+The DVR detects; this hub organizes, filters, correlates, and notifies. **No local AI inference is used anywhere in this project.** There is no YOLO, ONNX, TensorFlow, PyTorch, OpenCV detection, GPU inference, or vision model, and no model is downloaded. `AI_ENABLED` only records the label the DVR already sent into `event_ai_results`.
+
+### Event flow
+
+```
+DVR alarm log
+   ↓  poll every EVENT_POLL_INTERVAL_MS
+Normalize + dedupe (unique dedupe_key)
+   ↓
+Store event (priority derived)
+   ↓
+Rule engine: camera / event / classification / priority / schedule / days
+   ↓
+Quiet hours + cooldown
+   ↓
+notification_history (unique event + rule)
+   ↓
+SSE → browser notification, dashboard, event list
+   ↓
+Snapshot capture (best effort) → /events/<id> → View recording → /playback
+```
+
+### Event priority
+
+`LOW`, `NORMAL`, `HIGH`, `CRITICAL`. Priority is stored with the event and derived from what the DVR reported:
+
+| Event | Priority |
+| --- | --- |
+| Person | HIGH |
+| Vehicle | NORMAL |
+| Unclassified motion | NORMAL |
+| Intrusion | CRITICAL |
+| Video loss, storage error, alarm, line crossing | HIGH |
+
+Only HIGH and CRITICAL count as **Important**, which drives the dashboard feed and the Important quick filter. A rule may raise an event's priority through `minimumPriority`; nothing marks everything critical, and a rule can never lower a priority another rule raised.
+
+### Notification rules
+
+Rules are edited at **/settings/notifications** (ADMIN only). A rule combines:
+
+- **Camera** — one camera or all
+- **Event** — any event, person, vehicle, or unclassified motion
+- **Minimum priority** — ignore events below a floor
+- **Schedule** — an optional `HH:MM`–`HH:MM` window, plus optional days of the week. A window such as `22:00`–`06:00` spans midnight, so a Friday rule also covers early Saturday
+- **Quiet hours** behavior (below)
+- **Cooldown** — seconds between notifications for that rule
+
+Rules are never hard-coded. The shipped defaults are examples only, and every field is editable. **Test a rule** dry-runs the engine and reports which rules would match, without storing an event or sending a notification.
+
+### Quiet hours
+
+Quiet hours never mean "ignore the event". The event is always stored, and a rule decides what happens during its quiet window:
+
+| Behavior | Result |
+| --- | --- |
+| `notify` | Notify anyway (useful for person or intrusion at night) |
+| `suppress` | Store the event, do not notify (default) |
+| `store_only` | Store the event, never notify for this rule |
+
+An event is never deleted because its notification was suppressed.
+
+### Cooldown
+
+A cooldown prevents notification spam. A person walking around for ten minutes produces one event stream, not a hundred notifications. With `cooldownSeconds = 300`, a rule notifies about once every five minutes however many events arrive, and each suppressed decision is recorded with the reason.
+
+### Duplicate notification protection
+
+Notification identity is deterministic: **event ID + rule ID**, enforced by a unique index on `notification_history`. The same combination is recorded once, no matter how often the DVR message is re-read. This is durable across polling overlap, API retries, application restarts, and browser reconnects, because the guard is the database and not memory. An event that matches no rule records a single decision with the reason "No notification rule matched".
+
+### Snapshots
+
+When a new event is ingested the hub requests a still picture from the DVR (`/ISAPI/Streaming/channels/<subChannel>/picture`), validates the JPEG header, and writes it to `DATA_DIR/events/<yyyy>/<mm>/<dd>/<camera>-<eventId>.jpg` with mode `0600`. Verified on this DS-7104HGHI-K1: 704×576 JPEG.
+
+Snapshots are served only through `/api/events/<id>/snapshot`, which requires a session. The path is resolved inside `DATA_DIR/events` and traversal or absolute paths are rejected. Snapshots are never placed in a public directory. If the DVR does not return a picture, the event simply has no snapshot and the page says **Snapshot unavailable**; an image is never fabricated.
+
+### Event history, statistics, and retention
+
+- `/events` — server-side filtering by camera, classification, date, time, important, read state, and notification state, with pagination and quick filters. The browser never downloads a day of events to filter locally.
+- `/events/<id>` — detail page with snapshot, priority, and **View recording**, which opens `/playback?camera=…&date=…&time=…`.
+- `/notifications` — notification history with filters for date, camera, status (sent / suppressed / failed), and priority.
+- `/events/stats` — totals and per-camera activity for today, yesterday, last 7 days, and last 30 days, from real rows only.
+
+Retention (`EVENT_RETENTION_DAYS`, default 30, or `0` for forever; also editable per install) deletes **this hub's own rows only** — events, their snapshot files, and notification history. It never deletes Hikvision DVR recordings, MediaMTX recordings, or user accounts. Cutoffs are formatted in Asia/Kolkata, and stored timestamps carry the `+05:30` offset, so a cutoff cannot delete today's events early.
+
+### Timezone
+
+Asia/Kolkata is used everywhere: event display, rule schedules, quiet hours, cooldown windows, playback timestamps, statistics ranges, and retention. Weekday matching is evaluated in Kolkata, so schedules do not shift with the server's local zone.
+
+### Browser and PWA notifications
+
+Browser notifications use the standard Notification API. Permission is requested only after an explicit click on **Enable notifications**; it is never requested on page load. Clicking a notification opens `/events/<id>`.
+
+**Known limitation:** true background push is not implemented. A service worker push subscription requires a push service, which would mean a cloud dependency, and this project stays local-first. Notifications therefore arrive **while the hub is open in a browser tab or an installed PWA window** and the SSE connection is live. A closed browser, a locked phone, or a suspended tab will not receive a notification. This was not tested as a background push and is not claimed to work.
+
+Delivered notifications depend on the browser being open, permission being granted, a matching enabled rule, the rule's schedule, quiet hours, and cooldown. A notification is only claimed as delivered when the hub records `status = sent` in `/notifications`.
+
+## Users and remote access
+
+The first start creates an administrator from `APP_USERNAME` and `APP_PASSWORD`. Passwords are stored with scrypt. Sessions are HTTP-only cookies checked against the database, so logging out invalidates that session without disconnecting anyone else.
+
+Administrators can open Settings, including users, notification rules, the audit log, and system status. Viewers can use live view, playback, and events. They cannot change users, DVR settings, or notification rules. Those checks run on the server.
+
+MediaMTX keeps one RTSP connection to the DVR per camera path and can hand that stream to more than one browser. Set `MEDIAMTX_AUTH_PASSWORD` and recreate the MediaMTX container if the published MediaMTX ports should reject anonymous viewers. The hub adds that password only on its own server-side requests. Leave it empty to keep the current LAN behavior.
+
+Do not publish the DVR's HTTP or RTSP ports to the Internet. For access away from home, put the computer on a VPN such as Tailscale or WireGuard and open the hub through that private address. Do not port-forward ports 80, 443, or 554 on the DVR, or the MediaMTX ports.
+
+The hub can be installed on a phone from the browser. The manifest uses standalone display. Login attempts are limited in memory on this one computer; a restart clears that limit.
+
+## V5 API
+
+| Method | Route | Role |
+| --- | --- | --- |
+| GET | `/api/events` | any signed-in user |
+| GET | `/api/events/<id>` | any signed-in user |
+| POST | `/api/events/<id>/read` | any signed-in user |
+| GET | `/api/events/<id>/snapshot` | any signed-in user |
+| GET | `/api/events/recent?important=true` | any signed-in user |
+| GET | `/api/events/stats?range=today\|yesterday\|7d\|30d` | any signed-in user |
+| GET | `/api/notifications` | any signed-in user |
+| GET | `/api/notifications/stats` | any signed-in user |
+| GET | `/api/notification-rules` | ADMIN |
+| POST | `/api/notification-rules` | ADMIN |
+| PUT/PATCH | `/api/notification-rules/<id>` | ADMIN |
+| DELETE | `/api/notification-rules/<id>` | ADMIN |
+| POST | `/api/notifications/test` | ADMIN |
+
+Every route checks the session and the role on the server. Camera ids, event ids, rule ids, and notification ids from the browser are validated and never trusted. A viewer receives 403 on rule management, and an unauthenticated caller receives 401.
+
+## Database
+
+`data/events.sqlite` holds events, notification rules, notification history, and this hub's users, sessions, and audit log. V5 adds its columns and tables additively on first start: existing events are kept, priorities are backfilled once from what the DVR reported, and pre-V5 rules receive readable names. The migration is idempotent and runs automatically, so there is no separate migration command.
+
+Indexes cover the query shapes actually used: `(camera_id, timestamp)`, `(type, timestamp)`, `(classification, timestamp)`, `(priority, timestamp)`, plus `notified`, and `notification_history` on `(event_id, rule_id)` unique, `event_id`, `rule_id`, and `created_at`.
+
+### Podman operations
+
+```bash
+podman compose up -d          # start
+podman compose ps             # status
+podman compose logs -f        # logs
+podman compose restart web    # restart one service
+podman compose down           # stop
+```
+
+Data lives in `./data`, mounted into the container, so stopping or recreating a container does not lose events or rules.
+
+## Hardening (V5.1)
+
+### Backup and restore
+
+`scripts/backup.sh` creates a timestamped, consistent backup under `./backups/<timestamp>/`:
+
+- `database.sqlite` — events, notification rules, notification history, users, sessions, audit log. Copied through SQLite's online backup API, so it is consistent even while the hub is running.
+- `events/` — event snapshots written by this hub.
+- `cameras.json` — camera display names.
+- `manifest.json` — what the backup contains and when it was taken.
+
+The backup never copies `.env`, so it cannot leak DVR credentials or the session secret.
+
+```bash
+./scripts/backup.sh                                # -> ./backups/<timestamp>/
+BACKUP_DIR=/path/to/backups ./scripts/backup.sh    # choose another location
+```
+
+`scripts/restore.sh` restores a backup. It refuses to run on a directory without a `manifest.json`, and refuses to run if the hub appears to be listening, so it cannot wipe live data accidentally.
+
+```bash
+podman compose down web           # stop the app first
+./scripts/restore.sh ./backups/2026-10-09_103000
+podman compose up -d web
+```
+
+Set `DRY_RUN=1` to preview without changing anything. A restore keeps the previous database as `data/events.sqlite.pre-restore`.
+
+Backups intentionally exclude Hikvision DVR recordings, MediaMTX streams, `node_modules`, build output, and caches. DVR recordings live on the DVR, not in this hub.
+
+### Sessions and cookies
+
+Login creates a server-side session row. The cookie is HMAC-signed and carries only the session id; the protected routes validate that id against the database on every request. Logout **deletes the server-side session row**, so an old token is rejected even if the cookie itself were replayed — deleting the browser cookie alone is not relied on.
+
+This was verified end-to-end: a token that returned 200 before logout returns 401 immediately after logout.
+
+Cookie flags: `HttpOnly=true`, `SameSite=lax`, `Path=/`, 7-day expiry. `Secure` follows `COOKIE_SECURE`: `false` for plain HTTP on a trusted LAN, `true` in production behind HTTPS (a `Secure` cookie is dropped by the browser on `http://`, which is why it is not forced on).
+
+### Browser notification permission
+
+Any authenticated user — ADMIN and VIEWER alike — can enable browser notifications from an "Enable notifications" control in the app header. Permission is requested only after an explicit click, never on page load. Notification **rule** management remains ADMIN-only.
+
+### Supported event types
+
+This DS-7104HGHI-K1 produces **motion only**. Person and vehicle are not separate event types; they are a classification label the DVR attaches to a motion event. The remaining types in the model (`alarm`, `line_crossing`, `intrusion`, `video_loss`, `storage_error`) are recognized for DVRs that report them but are **not produced by this unit**, so they are not offered in the event list or the rule editor. The rule editor rejects rules that target an unsupported type.
+
+### Playback download
+
+Download is **not available**. This DVR's download API returns a private `IMKH` stream (`Content-Type: Opaque/data`), not a browser-savable MP4. The playback page states this instead of showing a button that fails. The `/api/playback/download` endpoint returns `501` and is not wired to a broken UI control.
+

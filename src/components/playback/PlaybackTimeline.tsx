@@ -2,12 +2,19 @@
 
 import type { RecordingType } from "@/lib/api-types";
 import { DAY_MS, formatKolkataHourMinute } from "@/lib/time-kolkata";
+import { markerTitle, type TimelineMarker } from "@/lib/timeline-markers";
 import { segmentPercents, tickStep, timelineTicks, type TimelineSegment, type TimelineWindow } from "@/lib/timeline";
 
 function barClass(type: RecordingType | null): string {
   if (type === "continuous") return "bg-online";
   if (type === "motion") return "bg-warn";
   if (type === "alarm") return "bg-offline";
+  return "bg-teal";
+}
+
+function markerClass(priority: TimelineMarker["priority"]): string {
+  if (priority === "CRITICAL") return "bg-offline";
+  if (priority === "HIGH") return "bg-warn";
   return "bg-teal";
 }
 
@@ -33,7 +40,7 @@ export function PlaybackTimeline({
   zoom: 24 | 6 | 1;
   onZoom: (zoom: 24 | 6 | 1) => void;
   onSeek: (offsetMs: number) => void;
-  events?: { id: string; offsetMs: number; label: string; classification: string | null }[];
+  events?: TimelineMarker[];
 }) {
   const ticks = timelineTicks(window, tickStep(zoom));
   const playhead =
@@ -94,14 +101,16 @@ export function PlaybackTimeline({
         {events.map((event) => {
           const box = segmentPercents({ startMs: event.offsetMs, endMs: event.offsetMs + 1 }, window);
           if (!box) return null;
-          const color = event.classification === "person" ? "bg-offline" : event.classification === "vehicle" ? "bg-warn" : "bg-teal";
+          const label = markerTitle(event, clock(dayStartMs, event.offsetMs));
           return (
             <button
               key={event.id}
               type="button"
-              title={event.label}
-              aria-label={event.label}
-              className={`absolute top-1 h-3 w-3 -translate-x-1/2 rounded-full ${color}`}
+              title={label}
+              aria-label={label}
+              className={`absolute top-1 -translate-x-1/2 rounded-full ${markerClass(event.priority)} ${
+                event.count > 1 ? "h-3.5 w-3.5 ring-2 ring-black/40" : "h-3 w-3"
+              }`}
               style={{ left: `${box.left}%` }}
               onClick={(click) => {
                 click.stopPropagation();
@@ -130,6 +139,9 @@ export function PlaybackTimeline({
         <li className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-warn" /> Motion</li>
         <li className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-offline" /> Alarm</li>
         <li className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-teal" /> Recording</li>
+        <li className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-warn" /> Event (high)</li>
+        <li className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-offline" /> Event (critical)</li>
+        <li className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-teal ring-2 ring-black/40" /> Grouped</li>
       </ul>
     </section>
   );

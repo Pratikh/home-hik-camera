@@ -13,10 +13,23 @@ export function UsersView() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"ADMIN" | "VIEWER">("VIEWER");
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<UserRow | null>(null);
 
   async function reload() {
     const body = await api<{ users: UserRow[] }>("/api/users");
     setUsers(body.users);
+  }
+
+  async function deleteUser(user: UserRow) {
+    setError(null);
+    setConfirmDelete(null);
+    try {
+      await api(`/api/users/${user.id}`, { method: "DELETE" });
+      await reload();
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 401) return;
+      setError(caught instanceof Error ? caught.message : Messages.backendDown);
+    }
   }
 
   useEffect(() => {
@@ -65,10 +78,19 @@ export function UsersView() {
             <span className={user.enabled ? "text-online" : "text-offline"}>{user.enabled ? "Enabled" : "Disabled"}</span>
             <button type="button" className="h-10 rounded-lg border border-line px-3" onClick={() => void update(user.id, { enabled: !user.enabled })}>{user.enabled ? "Disable" : "Enable"}</button>
             <button type="button" className="h-10 rounded-lg border border-line px-3" onClick={() => void update(user.id, { role: user.role === "ADMIN" ? "VIEWER" : "ADMIN" })}>Switch role</button>
-            <button type="button" className="h-10 rounded-lg border border-line px-3" onClick={() => void api(`/api/users/${user.id}`, { method: "DELETE" }).then(() => reload()).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : Messages.backendDown))}>Delete</button>
+            <button type="button" className="h-10 rounded-lg border border-line px-3 text-warn" onClick={() => setConfirmDelete(user)}>Delete</button>
           </li>
         ))}
       </ul>
+      {confirmDelete ? (
+        <div className="mb-4 rounded-xl border border-warn/50 bg-card p-4" role="alertdialog" aria-label="Confirm delete user">
+          <p className="text-sm">Delete user <span className="font-medium">{confirmDelete.username}</span>? This cannot be undone.</p>
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={() => setConfirmDelete(null)} className="h-10 rounded-lg border border-line px-4 text-sm">Cancel</button>
+            <button type="button" onClick={() => void deleteUser(confirmDelete)} className="h-10 rounded-lg bg-warn px-4 text-sm font-semibold text-black">Delete</button>
+          </div>
+        </div>
+      ) : null}
       <form onSubmit={(event) => void create(event)} className="grid max-w-xl gap-3 rounded-xl border border-line bg-card p-4">
         <h2 className="text-sm font-semibold">Create user</h2>
         <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Username" aria-label="Username" className="h-11 rounded-lg border border-line bg-bg px-3" required />

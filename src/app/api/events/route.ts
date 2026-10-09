@@ -22,6 +22,10 @@ export async function GET(request: Request) {
     endTime: url.searchParams.get("endTime"),
     page: url.searchParams.get("page"),
     pageSize: url.searchParams.get("pageSize"),
+    important: url.searchParams.get("important"),
+    notified: url.searchParams.get("notified"),
+    read: url.searchParams.get("read"),
+    priority: url.searchParams.get("priority"),
   });
   if (!parsed.ok) return NextResponse.json({ error: parsed.message }, { status: 400 });
   const store = openEventStore(getConfig().dataDir);
