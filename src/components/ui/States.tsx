@@ -27,7 +27,22 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: (
   );
 }
 
-export function PageIntro({ title, detail }: { title: string; detail: string }) {
+/**
+ * Page heading.
+ *
+ * `compact` drops the bottom margin (for a parent that already applies `gap`)
+ * and tightens the type, so a page that must fit the viewport does not spend
+ * ~30px on a double gap plus oversized text.
+ */
+export function PageIntro({ title, detail, compact = false }: { title: string; detail: string; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="min-w-0">
+        <h1 className="text-base font-semibold tracking-tight">{title}</h1>
+        <p className="text-xs text-muted">{detail}</p>
+      </div>
+    );
+  }
   return (
     <div className="mb-4 min-w-0">
       <h1 className="text-lg font-semibold tracking-tight md:text-xl">{title}</h1>

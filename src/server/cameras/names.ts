@@ -44,7 +44,7 @@ export function resolveCameraNames(
   const names: Record<number, string> = {};
   let fromDvr = false;
   for (let id = 1; id <= CAMERA_COUNT; id += 1) {
-    const override = overrides[id];
+    const override = usableOverride(id, overrides[id]);
     if (override) {
       names[id] = override;
       continue;
@@ -58,6 +58,19 @@ export function resolveCameraNames(
     names[id] = defaultCameraName(id);
   }
   return { names, fromDvr };
+}
+
+/**
+ * A saved name that is just the generic fallback ("Camera 2") is treated as no
+ * override at all.
+ *
+ * Without this, an install that previously stored the default would keep showing
+ * "Camera 2" forever and never pick up the name already configured on the DVR.
+ * An explicit, non-default override still wins.
+ */
+function usableOverride(id: number, value: string | undefined): string | null {
+  if (!value) return null;
+  return value === defaultCameraName(id) ? null : value;
 }
 
 /**

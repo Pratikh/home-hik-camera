@@ -3,6 +3,7 @@
 import { FormEvent } from "react";
 import type { CameraView } from "@/lib/api-types";
 import { Messages } from "@/lib/messages";
+import { DatePickerField } from "@/components/playback/DatePickerField";
 
 export function PlaybackFilters({
   cameras,
@@ -11,11 +12,17 @@ export function PlaybackFilters({
   startTime,
   endTime,
   pending,
+  month,
+  recorded,
+  availabilityStatus,
+  availabilityError,
   onCamera,
-  onDate,
   onStartTime,
   onEndTime,
   onSearch,
+  onMonthChange,
+  onDate,
+  onReloadAvailability,
 }: {
   cameras: CameraView[];
   camera: number;
@@ -23,11 +30,19 @@ export function PlaybackFilters({
   startTime: string;
   endTime: string;
   pending: boolean;
+  /** Month shown by the date popover. */
+  month: string;
+  /** Dates with a recording, from the DVR. */
+  recorded: string[];
+  availabilityStatus: "idle" | "loading" | "ready" | "error";
+  availabilityError: string | null;
   onCamera: (id: number) => void;
-  onDate: (value: string) => void;
   onStartTime: (value: string) => void;
   onEndTime: (value: string) => void;
   onSearch: () => void;
+  onMonthChange: (month: string) => void;
+  onDate: (date: string) => void;
+  onReloadAvailability: () => void;
 }) {
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -51,17 +66,17 @@ export function PlaybackFilters({
           ))}
         </select>
       </label>
-      <label className="block text-sm">
-        <span className="mb-1 block text-muted">Date</span>
-        <input
-          type="date"
-          value={date}
-          onChange={(event) => onDate(event.target.value)}
-          className="h-11 w-full rounded-lg border border-line bg-card px-3"
-          aria-label="Date"
-          required
-        />
-      </label>
+      {/* The popover is anchored here and takes no layout space until opened. */}
+      <DatePickerField
+        date={date}
+        month={month}
+        recorded={recorded}
+        status={availabilityStatus}
+        error={availabilityError}
+        onMonthChange={onMonthChange}
+        onSelect={onDate}
+        onReload={onReloadAvailability}
+      />
       <label className="block text-sm">
         <span className="mb-1 block text-muted">From</span>
         <input

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getConfig } from "@/lib/config";
 import { Messages } from "@/lib/messages";
 import { mockRecordings, parseSearchParams, playbackMockAllowed, DOWNLOAD_UNAVAILABLE } from "@/lib/recording";
-import { readCameraNames } from "@/server/cameras/store";
+import { getCameraNameMap } from "@/server/cameras/names";
 import { requireUser } from "@/server/http/require-user";
 import { HikvisionClient } from "@/server/hikvision/hikvision-client";
 import { playbackClientFrom } from "@/server/hikvision/hikvision-playback";
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
   try {
     const config = getConfig();
-    const names = await readCameraNames(config.dataDir);
+    const names = await getCameraNameMap(config.dataDir);
     const recordings = playbackMockAllowed(process.env)
       ? mockRecordings(parsed.query.camera, parsed.query.date)
       : await playbackClientFrom(

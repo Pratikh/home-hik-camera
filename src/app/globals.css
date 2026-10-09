@@ -1,4 +1,6 @@
 @import "tailwindcss";
+/* Base structure for the playback calendar; the visual layer is overridden below. */
+@import "react-day-picker/style.css";
 
 @theme {
   --color-bg: #080b10;
@@ -68,5 +70,81 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse {
     animation: none;
+  }
+}
+
+/*
+ * Playback calendar (react-day-picker).
+ *
+ * The library supplies layout only; the palette and shapes are driven from the
+ * application's own theme variables so the calendar reads as part of the app
+ * rather than a drop-in widget.
+ */
+@layer components {
+  .rdp-app {
+    --rdp-accent-color: var(--color-teal);
+    --rdp-accent-background-color: color-mix(in srgb, var(--color-teal) 22%, transparent);
+    --rdp-today-color: var(--color-teal);
+    /* Fluid cells: the panel is narrower than seven fixed 36px columns, so the
+       widths must be allowed to shrink or the calendar overflows its sidebar. */
+    --rdp-day-height: 2.25rem;
+    --rdp-day-width: auto;
+    --rdp-day_button-height: 2.25rem;
+    --rdp-day_button-width: auto;
+    --rdp-disabled-opacity: 1;
+    --rdp-outside-opacity: 1;
+    --rdp-nav-height: 2.5rem;
+    width: 100%;
+  }
+
+  .rdp-app .rdp-month_grid {
+    width: 100%;
+  }
+
+  /* Centre the day cells so the grid fills the panel evenly. */
+  .rdp-app .rdp-day {
+    text-align: center;
+  }
+
+  /* A recording exists on this date: a dot marker, not colour alone. */
+  .rdp-app .rdp-recorded .rdp-day_button::after {
+    content: "";
+    position: absolute;
+    bottom: 0.2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0.25rem;
+    height: 0.25rem;
+    border-radius: 9999px;
+    background: var(--color-teal);
+  }
+
+  .rdp-app .rdp-recorded .rdp-day_button {
+    font-weight: 600;
+  }
+
+  /* Selected day keeps the accent fill and its marker. */
+  .rdp-app .rdp-selected .rdp-day_button,
+  .rdp-app .rdp-selected-app .rdp-day_button {
+    background: var(--color-teal);
+    color: #08110f;
+    font-weight: 700;
+  }
+
+  .rdp-app .rdp-selected .rdp-day_button::after {
+    background: #08110f;
+  }
+
+  /* A date with no recording is genuinely disabled, and reads as such. */
+  .rdp-app .rdp-disabled .rdp-day_button {
+    opacity: 0.35;
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--color-muted) 70%, transparent);
+  }
+
+  /* Only provide a focus ring where the library does not already draw one. */
+  .rdp-app .rdp-day_button:focus-visible {
+    outline: 2px solid var(--color-teal);
+    outline-offset: 2px;
   }
 }

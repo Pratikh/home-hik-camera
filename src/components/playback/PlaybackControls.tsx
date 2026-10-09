@@ -23,9 +23,9 @@ export function PlaybackControls({
   onVolume: (volume: number) => void;
   onFullscreen: () => void;
 }) {
-  const button = "inline-flex h-11 min-w-11 items-center justify-center rounded-lg border border-line bg-white/5 px-3 text-sm hover:bg-white/10 disabled:opacity-40";
+  const button = "inline-flex h-11 shrink-0 items-center justify-center rounded-lg border border-line bg-white/5 px-3 text-sm hover:bg-white/10 disabled:opacity-40";
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5">
       <button type="button" className={button} onClick={onBack} disabled={disabled} aria-label="Seek backward 15 seconds">
         −15s
       </button>
@@ -38,7 +38,7 @@ export function PlaybackControls({
       <button type="button" className={button} onClick={onMute} disabled={disabled} aria-pressed={!muted} aria-label={muted ? "Unmute" : "Mute"}>
         {muted ? "Unmute" : "Mute"}
       </button>
-      <label className="flex min-w-28 flex-1 items-center gap-2 text-xs text-muted">
+      <label className="flex min-w-24 flex-1 items-center gap-2 text-xs text-muted">
         <span className="sr-only">Volume</span>
         <input
           type="range"

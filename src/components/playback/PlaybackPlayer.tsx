@@ -37,6 +37,13 @@ export function PlaybackPlayer({
    * leaving the player blank until a reload.
    */
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+  /*
+   * Real media aspect ratio, read from the element once metadata arrives. The
+   * sub streams are 704x576 (~1.22:1), not 16:9, so assuming a ratio either
+   * stretches the picture or surrounds it with bars. Null until known, which
+   * lets the stage simply fill the frame for the idle and error states.
+   */
+  const [aspect, setAspect] = useState<number | null>(null);
   const attachVideo = useCallback((node: HTMLVideoElement | null) => {
     videoRef.current = node;
     setVideo(node);
@@ -292,62 +299,82 @@ export function PlaybackPlayer({
   }
 
   return (
-    <section className="min-w-0" aria-label="Playback">
-      <div ref={frameRef} className="relative aspect-video overflow-hidden rounded-xl border border-line bg-black">
-        <video
-          ref={attachVideo}
-          className={`h-full w-full object-contain ${showVideo ? "block" : "hidden"}`}
-          playsInline
-          muted={muted}
-          aria-label="Recording playback"
-        />
-        {visiblePhase === "connecting" || visiblePhase === "loading" ? (
-          <div className="absolute inset-0">
-            <FrameSkeleton />
-            <p className="absolute inset-x-0 bottom-4 text-center text-sm text-white/80">{detail}</p>
-          </div>
-        ) : null}
-        {visiblePhase === "idle" ? <MessagePanel message="Choose a recording" /> : null}
-        {visiblePhase === "error" ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
-            {/* State the cause rather than a bare "unavailable". */}
-            <p className="text-sm text-white/90">{detail ?? Messages.playbackUnavailable}</p>
+    <section className="flex min-w-0 flex-col md:min-h-0 md:flex-1" aria-label="Playback">
+      <div
+        ref={frameRef}
+        className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-line bg-black md:aspect-auto md:min-h-0 md:flex-1 md:basis-0"
+      >
+        {/*
+          The stage takes the stream's own ratio, driven by the frame's height.
+          Because the frame is height-limited on desktop, the stage hugs the
+          picture instead of leaving wide black bars; on a narrow window
+          `max-w-full` clamps it and the video letterboxes vertically instead.
+        */}
+        <div
+          className="relative h-full max-h-full w-full max-w-full"
+          style={aspect ? { width: "auto", aspectRatio: `${aspect}` } : undefined}
+          >
+          <video
+            ref={attachVideo}
+            className={`h-full w-full object-contain ${showVideo ? "block" : "hidden"}`}
+            playsInline
+            muted={muted}
+            aria-label="Recording playback"
+            onLoadedMetadata={(event) => {
+              const node = event.currentTarget;
+              if (node.videoWidth > 0 && node.videoHeight > 0) {
+                setAspect(node.videoWidth / node.videoHeight);
+              }
+            }}
+          />
+          {visiblePhase === "connecting" || visiblePhase === "loading" ? (
+            <div className="absolute inset-0">
+              <FrameSkeleton />
+              <p className="absolute inset-x-0 bottom-4 text-center text-sm text-white/80">{detail}</p>
+            </div>
+          ) : null}
+          {visiblePhase === "idle" ? <MessagePanel message="Choose a recording" /> : null}
+          {visiblePhase === "error" ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
+              {/* State the cause rather than a bare "unavailable". */}
+              <p className="text-sm text-white/90">{detail ?? Messages.playbackUnavailable}</p>
+              <button
+                type="button"
+                onClick={retry}
+                disabled={!bounds}
+                className="h-10 rounded-lg border border-white/30 px-4 text-sm text-white hover:bg-white/10 disabled:opacity-40"
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
+          {visiblePhase === "gesture" ? (
             <button
               type="button"
-              onClick={retry}
-              disabled={!bounds}
-              className="h-10 rounded-lg border border-white/30 px-4 text-sm text-white hover:bg-white/10 disabled:opacity-40"
+              className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm font-medium"
+              onClick={() =>
+              void videoRef.current
+                ?.play()
+                .then(() => {
+                  clockRef.current = { base: positionRef.current ?? Date.now(), started: Date.now() };
+                  playingRef.current = true;
+                  setPhase("playing");
+                })
+                .catch(() => setPhase("error"))
+            }
             >
-              Retry
+              Start video
             </button>
-          </div>
-        ) : null}
-        {visiblePhase === "gesture" ? (
-          <button
-            type="button"
-            className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm font-medium"
-            onClick={() =>
-            void videoRef.current
-              ?.play()
-              .then(() => {
-                clockRef.current = { base: positionRef.current ?? Date.now(), started: Date.now() };
-                playingRef.current = true;
-                setPhase("playing");
-              })
-              .catch(() => setPhase("error"))
-          }
-          >
-            Start video
-          </button>
-        ) : null}
-        {visiblePhase === "paused" ? (
-          <p className="absolute left-3 top-3 rounded-md bg-black/60 px-2 py-1 text-xs">Paused</p>
-        ) : null}
+          ) : null}
+          {visiblePhase === "paused" ? (
+            <p className="absolute left-3 top-3 rounded-md bg-black/60 px-2 py-1 text-xs">Paused</p>
+          ) : null}
+        </div>
       </div>
-      <p className="mt-3 font-mono text-lg tabular-nums" aria-live="polite">
+      <p className="mt-2 font-mono text-base tabular-nums" aria-live="polite">
         {clock}
       </p>
-      <div className="mt-3">
+      <div className="mt-2">
         <PlaybackControls
           playing={visiblePhase === "playing" || visiblePhase === "loading" || visiblePhase === "connecting"}
           muted={muted}

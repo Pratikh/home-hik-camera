@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { EventRuleTestResponse, NotificationRulesResponse } from "@/lib/api-types";
 import { CAMERA_IDS } from "@/lib/cameras";
+import { cameraName, useCameraNames } from "@/components/hooks/useCameraNames";
 import { ApiError, api } from "@/lib/client-api";
 import { useEscapeToDismiss } from "@/components/hooks/useEscapeToDismiss";
 import {
@@ -55,6 +56,7 @@ export function NotificationRules() {
   const [loading, setLoading] = useState(true);
   const [testResult, setTestResult] = useState<EventRuleTestResponse | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<NotificationRule | null>(null);
+  const names = useCameraNames();
   const dismissConfirm = useCallback(() => setConfirmDelete(null), []);
   useEscapeToDismiss(confirmDelete !== null, dismissConfirm);
 
@@ -197,7 +199,7 @@ export function NotificationRules() {
               </span>
             </div>
             <p className="mt-1 text-xs text-muted">
-              {rule.cameraId ? `Camera ${rule.cameraId}` : "All cameras"} · {describeEvent(rule)} ·{" "}
+              {rule.cameraId ? cameraName(names, rule.cameraId) : "All cameras"} · {describeEvent(rule)} ·{" "}
               {rule.scheduleStart && rule.scheduleEnd ? `${rule.scheduleStart}–${rule.scheduleEnd}` : "Any time"} ·
               Cooldown {formatCooldown(rule.cooldownSeconds)}
             </p>
@@ -239,6 +241,7 @@ export function NotificationRules() {
       {draft ? (
         <RuleForm
           rule={draft}
+          names={names}
           onChange={setDraft}
           onSubmit={(event) => void saveRule(draft, event)}
           onCancel={() => setDraft(null)}
@@ -268,7 +271,7 @@ export function NotificationRules() {
         </label>
       </section>
 
-      <RuleTester onResult={setTestResult} result={testResult} />
+      <RuleTester names={names} onResult={setTestResult} result={testResult} />
     </div>
   );
 }
@@ -289,11 +292,13 @@ function formatCooldown(seconds: number): string {
 
 function RuleForm({
   rule,
+  names,
   onChange,
   onSubmit,
   onCancel,
 }: {
   rule: NotificationRule;
+  names: Record<number, string>;
   onChange: (rule: NotificationRule) => void;
   onSubmit: (event: FormEvent) => void;
   onCancel: () => void;
@@ -334,7 +339,7 @@ function RuleForm({
             className="h-11 w-full rounded-lg border border-line bg-bg px-3"
           >
             <option value="all">All cameras</option>
-            {CAMERA_IDS.map((id) => <option key={id} value={id}>Camera {id}</option>)}
+            {CAMERA_IDS.map((id) => <option key={id} value={id}>{cameraName(names, id)}</option>)}
           </select>
         </label>
         <label className="text-sm">
@@ -484,9 +489,11 @@ function RuleForm({
 }
 
 function RuleTester({
+  names,
   onResult,
   result,
 }: {
+  names: Record<number, string>;
   onResult: (result: EventRuleTestResponse | null) => void;
   result: EventRuleTestResponse | null;
 }) {
@@ -527,7 +534,7 @@ function RuleTester({
         <label className="text-sm">
           <span className="mb-1 block text-muted">Camera</span>
           <select value={cameraId} onChange={(event) => setCameraId(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-bg px-3">
-            {CAMERA_IDS.map((id) => <option key={id} value={id}>Camera {id}</option>)}
+            {CAMERA_IDS.map((id) => <option key={id} value={id}>{cameraName(names, id)}</option>)}
           </select>
         </label>
         <label className="text-sm">

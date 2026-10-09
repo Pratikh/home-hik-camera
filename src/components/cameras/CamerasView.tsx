@@ -60,9 +60,42 @@ export function CamerasView() {
     }
   }
 
+  async function applyDvrName(id: number) {
+    setPendingId(id);
+    setNotices((current) => ({ ...current, [id]: "" }));
+    try {
+      const saved = await api<{ id: number; name: string }>(`/api/cameras/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ useDvrName: true }),
+      });
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              cameras: current.cameras.map((camera) => (camera.id === id ? { ...camera, name: saved.name } : camera)),
+            }
+          : current,
+      );
+      setDrafts((current) => ({ ...current, [id]: saved.name }));
+      setNotices((current) => ({ ...current, [id]: "Using the DVR name" }));
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 401) return;
+      setNotices((current) => ({
+        ...current,
+        [id]: caught instanceof Error ? caught.message : Messages.backendDown,
+      }));
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   return (
     <section>
-      <PageIntro title="Cameras" detail="Display names are stored on this hub. The DVR camera setup stays unchanged." />
+      <PageIntro
+        title="Cameras"
+        detail="Names come from the DVR channel configuration. Saving a name here overrides it on this hub only; the DVR keeps its own name."
+      />
       {error && !data ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}
       {data ? (
         <div className="mb-4">
@@ -90,7 +123,7 @@ export function CamerasView() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <label className="text-xs uppercase tracking-wide text-muted" htmlFor={`camera-${camera.id}`}>
-                    Camera {camera.id}
+                    Channel {camera.id}
                   </label>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <input
@@ -107,6 +140,15 @@ export function CamerasView() {
                       className="rounded-lg bg-teal px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
                     >
                       {pendingId === camera.id ? "Saving" : "Save"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void applyDvrName(camera.id)}
+                      disabled={pendingId === camera.id}
+                      className="rounded-lg border border-line px-4 py-2 text-sm disabled:opacity-60"
+                      title="Discard the local override and show the name configured on the DVR"
+                    >
+                      Use DVR name
                     </button>
                   </div>
                   {notices[camera.id] ? <p className="mt-2 text-xs text-muted">{notices[camera.id]}</p> : null}

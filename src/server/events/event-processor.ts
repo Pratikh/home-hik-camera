@@ -6,7 +6,7 @@ import { snapshotFile } from "@/lib/snapshot-path";
 import { formatKolkataIso, kolkataDayBounds, todayInKolkata } from "@/lib/time-kolkata";
 import { defaultPriority } from "@/lib/priority";
 import { createAIProvider } from "@/server/ai/ai-provider";
-import { readCameraNames } from "@/server/cameras/store";
+import { getCameraNameMap } from "@/server/cameras/names";
 import { attachStops, parseAlarmLogs, type MotionStart, type MotionStop } from "@/server/events/event-normalizer";
 import { publishLiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type NewEvent } from "@/server/events/event-store";
@@ -101,7 +101,7 @@ async function poll(backfill: boolean): Promise<void> {
     const logs = await fetchLogs(client, start, now);
     const paired = attachStops(logs.starts, logs.stops);
     const store = openEventStore(config.dataDir);
-    const names = await readCameraNames(config.dataDir);
+    const names = await getCameraNameMap(config.dataDir);
     const rules = store.rules();
     const ai = createAIProvider(config.aiEnabled);
     for (const event of paired.events) {

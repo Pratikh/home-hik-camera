@@ -7,14 +7,18 @@ import { ApiError, api } from "@/lib/client-api";
 import { Messages } from "@/lib/messages";
 import type { CctvEvent } from "@/lib/events";
 import { recordingToAutoplay, resolvePlaybackDate } from "@/lib/playback-date";
-import { formatKolkataIso, kolkataDayBounds } from "@/lib/time-kolkata";
-import { buildTimelineMarkers, markerGroupMsForZoom, type TimelineMarker } from "@/lib/timeline-markers";
+import { formatKolkataClock, formatKolkataIso, kolkataDayBounds } from "@/lib/time-kolkata";
 import { recordingAt, toTimelineSegment, zoomWindow, type TimelineSegment } from "@/lib/timeline";
 import { PageIntro } from "@/components/ui/States";
 import { PlaybackFilters } from "@/components/playback/PlaybackFilters";
+import {
+  findNearestAvailableDate,
+  monthOf,
+  nearestRecorded,
+  useRecordingDates,
+} from "@/components/hooks/useRecordingDates";
 import { PlaybackPlayer } from "@/components/playback/PlaybackPlayer";
 import { PlaybackTimeline } from "@/components/playback/PlaybackTimeline";
-import { RecordingList } from "@/components/playback/RecordingList";
 
 const FALLBACK = CAMERA_IDS.map((id) => ({
   id,
@@ -39,9 +43,36 @@ export function PlaybackView({
 }) {
   const [cameras, setCameras] = useState<CameraView[]>(FALLBACK);
   const [camera, setCamera] = useState(initialCamera);
-  const [date, setDate] = useState(() => resolvePlaybackDate({ today: initialDate, selected: null, userChoseDate: false }));
+  const [pickedDate, setPickedDate] = useState(() => resolvePlaybackDate({ today: initialDate, selected: null, userChoseDate: false }));
   const [startTime, setStartTime] = useState("00:00");
   const [endTime, setEndTime] = useState("23:59");
+  /*
+   * The calendar's visible month. Availability is fetched per camera + month, so
+   * paging months or switching camera issues exactly one request each.
+   */
+  const [month, setMonth] = useState(() => initialDate.slice(0, 7));
+  const availability = useRecordingDates(camera, month);
+  /* Launching from an event timestamp must not silently jump to another date. */
+  const fromEvent = eventTime !== null;
+
+  /*
+   * The effective date is derived rather than synced: it is always a day this
+   * camera has a recording on, when such a day exists in the month on screen.
+   *
+   * Deriving it keeps the displayed date and the played date identical without
+   * an extra render, and means the calendar highlights exactly what will play.
+   * Arriving from an event never re-routes: the requested date is kept so a
+   * missing recording is reported instead of silently playing another day.
+   */
+  const date = useMemo(() => {
+    if (fromEvent) return pickedDate;
+    if (availability.status !== "ready") return pickedDate;
+    if (availability.dates.includes(pickedDate)) return pickedDate;
+    // Only correct within the month being browsed; another month is intentional.
+    if (!pickedDate.startsWith(month)) return pickedDate;
+    return nearestRecorded(availability.dates, pickedDate) ?? pickedDate;
+  }, [availability.status, availability.dates, pickedDate, month, fromEvent]);
+
   const [pending, setPending] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [recordings, setRecordings] = useState<RecordingView[]>([]);
@@ -51,22 +82,14 @@ export function PlaybackView({
   const [position, setPosition] = useState<number | null>(null);
   const [zoom, setZoom] = useState<24 | 6 | 1>(24);
   const [pointNote, setPointNote] = useState<string | null>(null);
-  const [empty, setEmpty] = useState(false);
   // Raw events for the day; markers are grouped from these so the grouping can
   // follow the zoom level without another network request.
   const [dayEvents, setDayEvents] = useState<CctvEvent[]>([]);
-  const [dayStartMs, setDayStartMs] = useState<number | null>(null);
-  const markers = useMemo<TimelineMarker[]>(
-    () => (dayStartMs === null ? [] : buildTimelineMarkers(dayEvents, dayStartMs, markerGroupMsForZoom(zoom))),
-    [dayEvents, dayStartMs, zoom],
-  );
   const eventSeekRef = useRef<{ camera: number; date: string; time: string } | null>(
     eventTime ? { camera: initialCamera, date: initialDate, time: eventTime } : null,
   );
   const requestSeq = useRef(0);
   const loadRef = useRef<(query: PlaybackQuery) => Promise<void>>(async () => undefined);
-  const openedRef = useRef(false);
-  const bootRef = useRef({ camera: initialCamera, date: initialDate });
 
   useEffect(() => {
     let ignore = false;
@@ -95,6 +118,8 @@ export function PlaybackView({
   const focus = positionMs ?? 12 * 60 * 60 * 1000;
   const visible = zoomWindow(zoom, Math.min(Math.max(focus, 0), 24 * 60 * 60 * 1000 - 1));
   const selected = recordings.find((recording) => recording.id === selectedId) ?? null;
+  /* No recordings for this day. Not the same as a failed search or a gap. */
+  const noRecordings = !pending && !searchError && recordings.length === 0;
 
   function playRecording(recording: RecordingView, fromIso?: string) {
     setSelectedId(recording.id);
@@ -109,7 +134,6 @@ export function PlaybackView({
     requestSeq.current = seq;
     setPending(true);
     setSearchError(null);
-    setEmpty(false);
     setPointNote(null);
     setPlayFrom(null);
     setSelectedId(null);
@@ -130,9 +154,8 @@ export function PlaybackView({
           `/api/events?camera=${query.camera}&date=${query.date}&startTime=00:00&endTime=23:59&pageSize=100`,
         ).catch(() => ({ events: [] as CctvEvent[] }));
         if (seq !== requestSeq.current) return;
-        // Keep the raw events; grouping is derived from them and the zoom.
+        // Keep the raw events; the timeline groups them by available width.
         setDayEvents(listed.events);
-        setDayStartMs(bounds.start.getTime());
       }
       const seek = eventSeekRef.current;
       if (seek && seek.date === query.date && seek.camera === query.camera) {
@@ -141,7 +164,6 @@ export function PlaybackView({
         const cover = recordingAt(body.recordings, instant);
         if (!cover) {
           setPointNote(Messages.recordingNotFound);
-          setEmpty(body.recordings.length === 0);
           return;
         }
         const from = Math.max(instant, new Date(cover.startTime).getTime());
@@ -149,13 +171,11 @@ export function PlaybackView({
         return;
       }
       const autoplay = recordingToAutoplay(body.recordings);
-      setEmpty(!autoplay);
       if (autoplay) playRecording(autoplay);
     } catch (error) {
       if (seq !== requestSeq.current || (error instanceof ApiError && error.status === 401)) return;
       setRecordings([]);
-      setEmpty(false);
-      setSearchError(error instanceof Error ? error.message : Messages.backendDown);
+        setSearchError(error instanceof Error ? error.message : Messages.backendDown);
     } finally {
       if (seq === requestSeq.current) setPending(false);
     }
@@ -165,24 +185,60 @@ export function PlaybackView({
     loadRef.current = load;
   });
 
-  useEffect(() => {
-    if (openedRef.current) return;
-    openedRef.current = true;
-    void loadRef.current({ camera: bootRef.current.camera, date: bootRef.current.date, startTime: "00:00", endTime: "23:59" });
-  }, []);
-
   function chooseDate(next: string) {
     const resolved = resolvePlaybackDate({ today: initialDate, selected: next, userChoseDate: true });
-    setDate(resolved);
-    void load({ camera, date: resolved, startTime, endTime });
+    // The date drives the load effect, so playback and the calendar stay in step.
+    loadedQuery.current = "";
+    setPickedDate(resolved);
+    setMonth(monthOf(resolved));
   }
+
+  /*
+   * One load per camera + date change, driven through the ref so the query always
+   * uses the latest closure. A time-range edit is applied by the Search button
+   * instead, so typing in those fields does not fire a request.
+   */
+  const loadedQuery = useRef("");
+  /* Read the latest time range without making it an effect dependency. */
+  const timeRange = useRef({ start: startTime, end: endTime });
+  useEffect(() => {
+    timeRange.current = { start: startTime, end: endTime };
+  }, [startTime, endTime]);
+  useEffect(() => {
+    const key = `${camera}|${date}`;
+    if (loadedQuery.current === key) return;
+    loadedQuery.current = key;
+    void loadRef.current({ camera, date, startTime: timeRange.current.start, endTime: timeRange.current.end });
+  }, [camera, date]);
+
+  /*
+   * If the month on screen has no recordings at all, step back to the nearest
+   * earlier month that does. The state update happens after the await, so it is
+   * not a synchronous cascading render.
+   */
+  const backSearched = useRef("");
+  useEffect(() => {
+    if (fromEvent) return;
+    if (availability.status !== "ready") return;
+    if (availability.dates.length > 0) return;
+    const key = `${camera}|${month}`;
+    if (backSearched.current === key) return;
+    backSearched.current = key;
+    void findNearestAvailableDate(camera, pickedDate).then((found) => {
+      if (!found) return;
+      setPickedDate(found);
+      setMonth(monthOf(found));
+    });
+  }, [availability.status, availability.dates, camera, month, pickedDate, fromEvent]);
+
 
   function seekDay(offsetMs: number) {
     if (!day) return;
     const instant = day.start.getTime() + offsetMs;
     const recording = recordingAt(recordings, instant);
     if (!recording) {
-      setPointNote(Messages.noRecordingAtTime);
+      // Name the exact time so the gap is unambiguous.
+      setPointNote(`No recording at ${formatKolkataClock(new Date(instant))}`);
       return;
     }
     const from = Math.max(instant, new Date(recording.startTime).getTime());
@@ -190,63 +246,64 @@ export function PlaybackView({
   }
 
   return (
-    <div className="min-w-0">
-      <PageIntro title="CCTV Playback" detail="Today's recordings load on open. Choose another date to look further back." />
-      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="flex min-w-0 flex-col gap-4">
-          <PlaybackFilters
-            cameras={cameras}
-            camera={camera}
-            date={date}
-            startTime={startTime}
-            endTime={endTime}
-            pending={pending}
-            onCamera={setCamera}
-            onDate={chooseDate}
-            onStartTime={setStartTime}
-            onEndTime={setEndTime}
-            onSearch={() => void load({ camera, date, startTime, endTime })}
-          />
-          {searchError ? (
-            <p className="text-sm text-warn" role="status">
-              {searchError}
-            </p>
-          ) : null}
-          <PlaybackPlayer
-            camera={camera}
-            bounds={selected ? { start: selected.startTime, end: selected.endTime } : null}
-            playFrom={playFrom}
-            playNonce={playNonce}
-            onPosition={setPosition}
-          />
-          {day ? (
-            <PlaybackTimeline
-              dayStartMs={day.start.getTime()}
-              segments={segments}
-              window={visible}
-              positionMs={positionMs}
-              zoom={zoom}
-              onZoom={setZoom}
-              onSeek={seekDay}
-              events={markers}
-            />
-          ) : null}
-          {pointNote ? <p className="text-sm text-muted">{pointNote}</p> : null}
-        </div>
-        <div className="flex min-w-0 flex-col gap-3">
-          <RecordingList
-            recordings={recordings}
-            selectedId={selectedId}
-            pending={pending}
-            emptyMessage={!pending && empty ? Messages.noRecordings : null}
-            onSelect={(recording) => playRecording(recording)}
-          />
-          <p className="rounded-lg border border-line bg-white/5 px-3 py-3 text-xs text-muted">
-            {Messages.downloadUnavailable} This DVR&#39;s download API returns a private stream, not a
-            browser-savable file.
-          </p>
-        </div>
-      </div>
+    /*
+      One viewport-fitting column: the player takes the space left after the
+      chrome and the timeline, so the timeline is never pushed below the fold.
+      Mobile keeps natural flow and scrolls.
+    */
+    <div className="flex min-w-0 flex-col gap-3 md:h-full md:min-h-0">
+      <PageIntro
+        compact
+        title="CCTV Playback"
+        detail="Today's recordings load on open. Choose a date, then scrub the timeline."
+      />
+      <PlaybackFilters
+        cameras={cameras}
+        camera={camera}
+        date={date}
+        startTime={startTime}
+        endTime={endTime}
+        pending={pending}
+        month={month}
+        recorded={availability.dates}
+        availabilityStatus={availability.status}
+        availabilityError={availability.error}
+        onCamera={setCamera}
+        onStartTime={setStartTime}
+        onEndTime={setEndTime}
+        onSearch={() => void load({ camera, date, startTime, endTime })}
+        onMonthChange={setMonth}
+        onDate={chooseDate}
+        onReloadAvailability={availability.reload}
+      />
+      {searchError ? (
+        <p className="text-sm text-warn" role="status">
+          {searchError}
+        </p>
+      ) : null}
+      <PlaybackPlayer
+        camera={camera}
+        bounds={selected ? { start: selected.startTime, end: selected.endTime } : null}
+        playFrom={playFrom}
+        playNonce={playNonce}
+        onPosition={setPosition}
+      />
+      {day ? (
+        <PlaybackTimeline
+          dayStartMs={day.start.getTime()}
+          segments={segments}
+          window={visible}
+          positionMs={positionMs}
+          zoom={zoom}
+          onZoom={setZoom}
+          /* Dragging previews locally; this runs once when the gesture ends. */
+          onSeek={seekDay}
+          events={dayEvents}
+          cameraName={cameras.find((item) => item.id === camera)?.name}
+        />
+      ) : null}
+      {noRecordings ? <p className="text-sm text-muted">{Messages.noRecordings}</p> : null}
+      {pointNote ? <p className="text-sm text-muted">{pointNote}</p> : null}
     </div>
   );
 }

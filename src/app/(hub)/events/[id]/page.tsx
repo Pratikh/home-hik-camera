@@ -4,7 +4,7 @@ import { getConfig } from "@/lib/config";
 import { eventDurationSeconds, eventLabel, eventPlaybackHref, eventTitle } from "@/lib/events";
 import { Messages } from "@/lib/messages";
 import { formatKolkataClock } from "@/lib/time-kolkata";
-import { readCameraNames } from "@/server/cameras/store";
+import { getCameraNameMap } from "@/server/cameras/names";
 import { openEventStore } from "@/server/events/event-store";
 import { PageIntro } from "@/components/ui/States";
 import { PriorityBadge } from "@/components/events/PriorityBadge";
@@ -23,7 +23,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   const event = openEventStore(config.dataDir).get(id);
   if (!event) notFound();
 
-  const names = await readCameraNames(config.dataDir);
+  const names = await getCameraNameMap(config.dataDir);
   const cameraName = names[event.cameraId] ?? `Camera ${event.cameraId}`;
   const seconds = eventDurationSeconds(event.timestamp, event.endTimestamp);
 
