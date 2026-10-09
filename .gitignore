@@ -11,3 +11,13 @@ mediamtx/runtime.yml
 *.log
 *.tsbuildinfo
 .DS_Store
+
+# Playwright QA
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+# Session cookies captured by the Playwright global setup. Never commit.
+tests/e2e/.auth/
+# Local QA credentials (never commit)
+.env.qa

@@ -8,13 +8,32 @@ import { safeNext } from "@/lib/redirect";
 
 export const dynamic = "force-dynamic";
 
+/** Reason codes the login endpoint may redirect back with. Never credentials. */
+function errorMessage(code: string | undefined): string | null {
+  if (code === "auth") return Messages.authFailed;
+  if (code === "rate") return "Too many attempts. Try again shortly.";
+  if (code === "config") return Messages.invalidConfig;
+  return null;
+}
+
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; password?: string }>;
 }) {
   const config = readConfig(process.env);
-  const nextPath = safeNext((await searchParams).next);
+  const params = await searchParams;
+
+  /*
+   * Defence in depth: a credential must never sit in the address bar. The form
+   * posts its body (see LoginForm), so this only fires for a hand-built URL or a
+   * bookmark left over from an older build. Redirecting to the clean path drops
+   * it from the URL immediately.
+   */
+  if (typeof params.password === "string") redirect("/login");
+
+  const nextPath = safeNext(params.next);
+  const initialError = errorMessage(params.error);
   if (config.appConfigured) {
     const session = await currentSession();
     if (session) redirect(nextPath);
@@ -40,7 +59,7 @@ export default async function LoginPage({
             </ul>
           </div>
         ) : (
-          <LoginForm nextPath={nextPath} />
+          <LoginForm nextPath={nextPath} initialError={initialError} />
         )}
       </div>
     </main>

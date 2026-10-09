@@ -3,7 +3,15 @@ import nextTypescript from "eslint-config-next/typescript";
 
 const eslintConfig = [
   {
-    ignores: ["data/**", "coverage/**", "mediamtx/runtime.yml"],
+    ignores: [
+      "data/**",
+      "coverage/**",
+      "mediamtx/runtime.yml",
+      "test-results/**",
+      "playwright-report/**",
+      "blob-report/**",
+      "tests/e2e/.auth/**",
+    ],
   },
   ...nextCoreWebVitals,
   ...nextTypescript,

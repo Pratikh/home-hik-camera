@@ -4,8 +4,21 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { Messages } from "@/lib/messages";
 import { navigate } from "@/lib/client-api";
 
-export function LoginForm({ nextPath }: { nextPath: string }) {
-  const [error, setError] = useState<string | null>(null);
+/**
+ * Sign-in form.
+ *
+ * Credentials are submitted as a POST body, never as query parameters.
+ *
+ * The form is also wired to work as a plain HTML POST to the login endpoint, so
+ * a click that lands *before* React has hydrated still signs the user in instead
+ * of degrading to a native GET. That earlier behaviour put the password in the
+ * URL: the form had no `method`, so the browser default of GET serialised the
+ * named fields into `?username=…&password=…`. Declaring `method="post"` makes
+ * that impossible at the HTML level, and the endpoint accepts a form body so the
+ * un-hydrated click succeeds on the first try.
+ */
+export function LoginForm({ nextPath, initialError = null }: { nextPath: string; initialError?: string | null }) {
+  const [error, setError] = useState<string | null>(initialError);
   const [pending, setPending] = useState(false);
   const errorRef = useRef<HTMLParagraphElement>(null);
 
@@ -17,6 +30,7 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   }, [error]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    // Once hydrated this intercepts the submit and no navigation occurs.
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     setPending(true);
@@ -46,7 +60,17 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <form onSubmit={(event) => void onSubmit(event)} className="mt-6 grid gap-4" noValidate={false}>
+    /*
+      `method="post"` is a security requirement, not a style choice: it is what
+      keeps the password out of the URL if the submit is ever handled natively.
+      The action lets that native path complete a real sign-in.
+    */
+    <form
+      method="post"
+      action="/api/auth/login"
+      onSubmit={(event) => void onSubmit(event)}
+      className="mt-6 grid gap-4"
+    >
       <label className="grid gap-1 text-sm">
         Username
         <input
@@ -68,6 +92,8 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           className="rounded-lg border border-line bg-bg px-3 py-2"
         />
       </label>
+      {/* Carries the post-login destination through a native submit. */}
+      <input type="hidden" name="next" value={nextPath} />
       {/* role="alert" announces the message; tabIndex allows it to take focus. */}
       {error ? (
         <p ref={errorRef} tabIndex={-1} className="text-sm text-offline" role="alert">
