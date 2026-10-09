@@ -1,0 +1,7 @@
+# Face-detection worker (detection only, local and offline).
+#
+# opencv-python-headless provides cv2.FaceDetectorYN and ships manylinux and
+# macOS arm64 wheels as cp37-abi3, so the same pin works on the Linux container
+# (Python 3.12) and on a developer Mac. It has no GUI dependency.
+opencv-python-headless==4.12.0.88
+numpy>=1.26,<3

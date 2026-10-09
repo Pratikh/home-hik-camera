@@ -65,6 +65,9 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `AI_ENABLED` | Records the DVR's own person/vehicle label in `event_ai_results`. Default off. Runs no vision model. |
 | `EVENT_DEV_MOCK` | Development-only event fixtures. Ignored when `NODE_ENV=production`. |
 | `DATA_DIR` | Camera display names, events database, and event snapshots. Default `./data` (gitignored). |
+| `FACE_DETECTION_ENABLED` | Local, offline face **detection** on event snapshots. Default `false`. Detection only — no recognition. |
+| `FACE_DETECTION_CONFIDENCE` | Detections below this score are discarded. Default `0.60`. |
+| `FACE_DETECTION_MAX_FACES` | Highest-confidence faces kept per snapshot. Default `10`. |
 
 V5 introduces no new environment variables. Notification rules, quiet hours, cooldowns, and retention are configured in the UI and stored in `data/events.sqlite`.
 
@@ -317,7 +320,7 @@ On this DS-7104HGHI-K1 the alarm log contained motion only. Line crossing, intru
 
 ## Smart events and notifications (V5)
 
-The DVR detects; this hub organizes, filters, correlates, and notifies. **No local AI inference is used anywhere in this project.** There is no YOLO, ONNX, TensorFlow, PyTorch, OpenCV detection, GPU inference, or vision model, and no model is downloaded. `AI_ENABLED` only records the label the DVR already sent into `event_ai_results`.
+The DVR detects; this hub organizes, filters, correlates, and notifies. `AI_ENABLED` only records the label the DVR already sent into `event_ai_results`; it runs no vision model by itself. The only local inference in the project is the optional, off-by-default **face detection** worker described in [Face detection](#face-detection-detection-only) below — it never identifies anyone.
 
 ### Event flow
 
@@ -512,4 +515,17 @@ This DS-7104HGHI-K1 produces **motion only**. Person and vehicle are not separat
 ### Playback download
 
 Download is **not available**. This DVR's download API returns a private `IMKH` stream (`Content-Type: Opaque/data`), not a browser-savable MP4. The playback page states this instead of showing a button that fails. The `/api/playback/download` endpoint returns `501` and is not wired to a broken UI control.
+
+### Face detection (detection only)
+
+Optional and **off by default**. When `FACE_DETECTION_ENABLED=true`, a separate local worker (`face-worker/`) analyses **existing event snapshots** — never the live stream and never the H.265 recordings — with OpenCV's YuNet model on the CPU, and stores what it finds in `event_faces` plus JPEG crops under `data/face-crops/`. Everything is offline: no cloud AI, no image upload.
+
+It reports **that** a face is present and where it is. It does **not** recognise anyone: no embeddings, no matching, and every detected face is **Unassigned**. `/faces` lists detections; `/events/<id>` shows them for one event.
+
+```bash
+python3 face-worker/scripts/download_model.py      # once, 232 KB, MIT, checksum-verified
+FACE_DETECTION_ENABLED=true python3 face-worker/worker.py
+```
+
+Set `FACE_DETECTION_ENABLED`, `FACE_DETECTION_CONFIDENCE` (default `0.60`) and `FACE_DETECTION_MAX_FACES` (default `10`) in `.env`. See [docs/Face-Detection.md](docs/Face-Detection.md) for the model's provenance, security and privacy model, measured performance, retention and the future recognition plan.
 

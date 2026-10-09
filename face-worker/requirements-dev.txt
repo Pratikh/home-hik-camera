@@ -1,0 +1,4 @@
+# Test-only dependencies for the worker. Kept separate so the runtime image
+# stays minimal.
+-r requirements.txt
+pytest>=8.0

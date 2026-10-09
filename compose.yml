@@ -46,3 +46,34 @@ services:
       mediamtx:
         condition: service_healthy
     restart: unless-stopped
+
+  # Local face DETECTION worker (optional, off by default).
+  #
+  # It is behind a compose profile so `podman compose up -d` does not start it
+  # and FACE_DETECTION_ENABLED=false stays the default. To use it:
+  #   1. python3 face-worker/scripts/download_model.py     # once, on the host
+  #   2. FACE_DETECTION_ENABLED=true in .env
+  #   3. podman compose --profile faces up -d face-worker
+  #
+  # It shares ./data with the web service, so it uses the same SQLite database
+  # and the same face-crops directory. No separate database, no broker.
+  face-worker:
+    build:
+      context: .
+      dockerfile: face-worker/Dockerfile
+    profiles: ["faces"]
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+      FACE_DETECTION_MODEL_PATH: /app/models/face_detection_yunet_2023mar.onnx
+    volumes:
+      - ./data:/app/data
+      - ./face-worker/models:/app/models:ro
+    depends_on:
+      web:
+        condition: service_started
+    # It exits 0 immediately when detection is disabled, so a stray start is
+    # harmless. A crash retries and then stops rather than looping forever.
+    restart: on-failure
+

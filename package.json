@@ -13,6 +13,10 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
+    "face:model": "python3 face-worker/scripts/download_model.py",
+    "face:worker": "python3 face-worker/worker.py",
+    "face:worker:once": "python3 face-worker/worker.py --once",
+    "test:face": "python3 -m pytest -q face-worker/tests",
     "mediamtx:config": "node scripts/render-mediamtx-config.mjs"
   },
   "dependencies": {

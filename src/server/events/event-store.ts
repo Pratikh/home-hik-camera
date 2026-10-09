@@ -14,6 +14,7 @@ import type {
   Weekday,
 } from "@/lib/events";
 import { DEFAULT_COOLDOWN_SECONDS, isEventType, WEEKDAYS } from "@/lib/events";
+import { isFaceId, type DetectedFace, type FaceProcessingSummary, type FaceQuery } from "@/lib/faces";
 import { defaultPriority, isEventPriority, priorityRank, type EventPriority } from "@/lib/priority";
 
 export type NewEvent = {
@@ -176,6 +177,70 @@ CREATE TABLE IF NOT EXISTS viewer_presence (
   seen_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, path)
 );
+-- ---------------------------------------------------------------------------
+-- Face DETECTION (phase one: detection only, no recognition).
+--
+-- event_faces stores a detected face: where it is and how confident the
+-- detector was. person_id is NULL for every row in this phase, which is what
+-- "Unassigned" means. The people and person_face_references tables are created
+-- empty so a future recognition phase can assign people and store reference
+-- images without migrating event_faces. No code in this project writes them,
+-- and no embeddings are generated.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS people (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS person_face_references (
+  id TEXT PRIMARY KEY,
+  person_id TEXT NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+  image_path TEXT NOT NULL,
+  -- Reserved for a future local embedding. Never written in this phase.
+  embedding BLOB,
+  embedding_model TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS person_face_references_person_id ON person_face_references(person_id);
+CREATE TABLE IF NOT EXISTS event_faces (
+  id TEXT PRIMARY KEY,
+  event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  person_id TEXT REFERENCES people(id) ON DELETE SET NULL,
+  confidence REAL NOT NULL,
+  x INTEGER NOT NULL,
+  y INTEGER NOT NULL,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  crop_path TEXT,
+  detector TEXT NOT NULL,
+  model TEXT,
+  detection_index INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  -- The duplicate guard: one event can never hold two faces at the same index,
+  -- so a re-processed snapshot replaces its rows instead of appending them.
+  UNIQUE(event_id, detection_index)
+);
+CREATE INDEX IF NOT EXISTS event_faces_event_id ON event_faces(event_id);
+CREATE INDEX IF NOT EXISTS event_faces_person_id ON event_faces(person_id);
+CREATE INDEX IF NOT EXISTS event_faces_created_at ON event_faces(created_at);
+-- Idempotent work queue for the local face worker. One row per event, cascaded
+-- away with the event.
+CREATE TABLE IF NOT EXISTS face_processing (
+  event_id TEXT PRIMARY KEY REFERENCES events(id) ON DELETE CASCADE,
+  status TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  faces_found INTEGER NOT NULL DEFAULT 0,
+  detector TEXT,
+  model TEXT,
+  error TEXT,
+  started_at TEXT,
+  finished_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS face_processing_status ON face_processing(status);
 `;
 
 function mapEvent(row: Record<string, unknown>): CctvEvent {
@@ -199,6 +264,39 @@ function mapEvent(row: Record<string, unknown>): CctvEvent {
     priority: isEventPriority(storedPriority) ? storedPriority : defaultPriority(type, castClassification),
     notified: row.notified === 1,
     readAt: row.read_at ? String(row.read_at) : null,
+  };
+}
+
+/** Detected-face rows always come back joined to the event they belong to. */
+const FACE_SELECT = `
+SELECT f.id, f.event_id, f.person_id, f.confidence, f.x, f.y, f.width, f.height, f.crop_path,
+       f.detector, f.model, f.created_at,
+       e.camera_id AS camera_id, e.timestamp AS event_timestamp,
+       e.type AS event_type, e.classification AS event_classification
+FROM event_faces f
+JOIN events e ON e.id = f.event_id`;
+
+function mapFace(row: Record<string, unknown>): DetectedFace {
+  const type = isEventType(String(row.event_type)) ? (String(row.event_type) as EventType) : "motion";
+  const classification = row.event_classification;
+  return {
+    id: String(row.id),
+    eventId: String(row.event_id),
+    // NULL in this phase: the face is detected but not assigned to a person.
+    personId: row.person_id ? String(row.person_id) : null,
+    confidence: Number(row.confidence),
+    x: Number(row.x),
+    y: Number(row.y),
+    width: Number(row.width),
+    height: Number(row.height),
+    hasCrop: typeof row.crop_path === "string" && row.crop_path.length > 0,
+    detector: String(row.detector ?? ""),
+    model: row.model ? String(row.model) : null,
+    createdAt: String(row.created_at),
+    cameraId: Number(row.camera_id),
+    eventTimestamp: String(row.event_timestamp),
+    eventType: type,
+    eventClassification: classification === "person" || classification === "vehicle" ? classification : null,
   };
 }
 
@@ -726,6 +824,121 @@ export class EventStore {
   setSetting(key: string, value: string): void {
     this.db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
   }
+
+  // -------------------------------------------------------------------------
+  // Detected faces (read-only here: the local face worker owns every write).
+  // -------------------------------------------------------------------------
+
+  faceById(id: string): DetectedFace | null {
+    if (!isFaceId(id)) return null;
+    const row = this.db.prepare(`${FACE_SELECT} WHERE f.id = ?`).get(id) as Record<string, unknown> | undefined;
+    return row ? mapFace(row) : null;
+  }
+
+  faces(query: FaceQuery): { faces: DetectedFace[]; total: number } {
+    const where: string[] = [];
+    const params: Array<string | number> = [];
+    if (query.cameraId !== null) {
+      where.push("e.camera_id = ?");
+      params.push(query.cameraId);
+    }
+    if (query.start) {
+      where.push("e.timestamp >= ?");
+      params.push(query.start);
+    }
+    if (query.end) {
+      where.push("e.timestamp <= ?");
+      params.push(query.end);
+    }
+    if (query.assigned === true) where.push("f.person_id IS NOT NULL");
+    if (query.assigned === false) where.push("f.person_id IS NULL");
+    if (query.minConfidence !== null) {
+      where.push("f.confidence >= ?");
+      params.push(query.minConfidence);
+    }
+    if (query.eventId) {
+      where.push("f.event_id = ?");
+      params.push(query.eventId);
+    }
+    const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const total = this.db
+      .prepare(`SELECT COUNT(*) AS count FROM event_faces f JOIN events e ON e.id = f.event_id ${clause}`)
+      .get(...params) as { count: number };
+    const offset = (query.page - 1) * query.pageSize;
+    const rows = this.db
+      .prepare(
+        `${FACE_SELECT} ${clause} ORDER BY e.timestamp DESC, f.confidence DESC, f.detection_index ASC LIMIT ? OFFSET ?`,
+      )
+      .all(...params, query.pageSize, offset) as Array<Record<string, unknown>>;
+    return { faces: rows.map(mapFace), total: total.count };
+  }
+
+  /** Faces for one event, strongest first. Used by the event detail panel. */
+  facesForEvent(eventId: string): DetectedFace[] {
+    const rows = this.db
+      .prepare(`${FACE_SELECT} WHERE f.event_id = ? ORDER BY f.confidence DESC, f.detection_index ASC`)
+      .all(eventId) as Array<Record<string, unknown>>;
+    return rows.map(mapFace);
+  }
+
+  faceProcessing(eventId: string): {
+    status: string;
+    facesFound: number;
+    attempts: number;
+    detector: string | null;
+    model: string | null;
+    error: string | null;
+    updatedAt: string;
+  } | null {
+    const row = this.db
+      .prepare("SELECT status, faces_found, attempts, detector, model, error, updated_at FROM face_processing WHERE event_id = ?")
+      .get(eventId) as
+      | { status: string; faces_found: number; attempts: number; detector: string | null; model: string | null; error: string | null; updated_at: string }
+      | undefined;
+    if (!row) return null;
+    return {
+      status: row.status,
+      facesFound: row.faces_found,
+      attempts: row.attempts,
+      detector: row.detector,
+      model: row.model,
+      error: row.error,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  faceProcessingSummary(): FaceProcessingSummary {
+    const summary: FaceProcessingSummary = { pending: 0, processing: 0, completed: 0, failed: 0 };
+    const rows = this.db
+      .prepare("SELECT status, COUNT(*) AS count FROM face_processing GROUP BY status")
+      .all() as Array<{ status: string; count: number }>;
+    for (const row of rows) {
+      if (row.status === "PENDING") summary.pending += row.count;
+      else if (row.status === "PROCESSING") summary.processing += row.count;
+      else if (row.status === "COMPLETED") summary.completed += row.count;
+      else if (row.status === "FAILED") summary.failed += row.count;
+    }
+    return summary;
+  }
+
+  /** Every crop path still referenced, used by the orphan sweep. */
+  allFaceCropPaths(): string[] {
+    const rows = this.db
+      .prepare("SELECT crop_path FROM event_faces WHERE crop_path IS NOT NULL AND crop_path <> ''")
+      .all() as Array<{ crop_path: string }>;
+    return rows.map((row) => row.crop_path);
+  }
+
+  /** Crop paths belonging to events that retention is about to delete. */
+  faceCropPathsBefore(cutoffIso: string): string[] {
+    const rows = this.db
+      .prepare(
+        `SELECT f.crop_path FROM event_faces f JOIN events e ON e.id = f.event_id
+         WHERE e.timestamp < ? AND f.crop_path IS NOT NULL AND f.crop_path <> ''`,
+      )
+      .all(cutoffIso) as Array<{ crop_path: string }>;
+    return rows.map((row) => row.crop_path);
+  }
 }
 
 const stores = new Map<string, EventStore>();
@@ -735,13 +948,27 @@ export function openEventStore(dataDir: string): EventStore {
   if (existing) return existing;
   mkdirSync(dataDir, { recursive: true });
   const db = new DatabaseSync(path.join(dataDir, "events.sqlite"));
+  /*
+   * The local face worker reads and writes this same database from a separate
+   * process. WAL lets the two read concurrently, busy_timeout makes a brief
+   * write overlap wait instead of throwing, and foreign_keys makes the
+   * ON DELETE CASCADE on event_faces and face_processing real, so retention
+   * cannot leave face rows behind.
+   */
+  db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA busy_timeout = 5000");
+  db.exec("PRAGMA foreign_keys = ON");
+  db.exec("PRAGMA synchronous = NORMAL");
   const store = new EventStore(db);
   stores.set(dataDir, store);
   return store;
 }
 
 export function memoryEventStore(): EventStore {
-  return new EventStore(new DatabaseSync(":memory:"));
+  const db = new DatabaseSync(":memory:");
+  // Foreign keys are off by default in SQLite; the cascade tests depend on them.
+  db.exec("PRAGMA foreign_keys = ON");
+  return new EventStore(db);
 }
 
 export function newRuleId(): string {

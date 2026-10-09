@@ -43,4 +43,13 @@ export const Messages = {
   notificationsDefault: "Enable notifications",
   enableNotifications: "Enable notifications",
   noNotifications: "No notifications for this period.",
+  faceDetectionDisabled: "Face detection is disabled.",
+  faceDetectionDisabledDetail:
+    "Enable it by setting FACE_DETECTION_ENABLED=true and running the local face worker. Detected faces stay on this server.",
+  noFaces: "No detected faces for this period.",
+  faceNotFound: "Face not found",
+  faceImageUnavailable: "Face image unavailable",
+  faceProcessingPending: "Face detection pending",
+  noFacesDetected: "No faces detected",
+  facesDetected: "faces detected",
 } as const;

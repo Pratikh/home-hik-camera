@@ -21,3 +21,11 @@ playwright/.cache/
 tests/e2e/.auth/
 # Local QA credentials (never commit)
 .env.qa
+
+# Face-detection worker
+# The ONNX model is fetched once on the host, never committed.
+face-worker/models/*.onnx
+.venv-face/
+__pycache__/
+*.pyc
+.pytest_cache/

@@ -1,8 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { unlink } from "node:fs/promises";
 import { getConfig } from "@/lib/config";
-import { snapshotFile } from "@/lib/snapshot-path";
 import { formatKolkataIso, kolkataDayBounds, todayInKolkata } from "@/lib/time-kolkata";
 import { defaultPriority } from "@/lib/priority";
 import { createAIProvider } from "@/server/ai/ai-provider";
@@ -10,6 +8,7 @@ import { getCameraNameMap } from "@/server/cameras/names";
 import { attachStops, parseAlarmLogs, type MotionStart, type MotionStop } from "@/server/events/event-normalizer";
 import { publishLiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type NewEvent } from "@/server/events/event-store";
+import { runRetention } from "@/server/events/retention";
 import { captureEventSnapshot } from "@/server/events/snapshot";
 import { cooldownBlocks, cooldownWindowStart, evaluateRules } from "@/server/events/rule-engine";
 import { HikvisionClient } from "@/server/hikvision/hikvision-client";
@@ -212,18 +211,20 @@ function cleanup(): void {
     // Stored timestamps carry the Asia/Kolkata offset, so a Kolkata-formatted
     // cutoff compares correctly and cannot delete "today" early.
     const cutoff = formatKolkataIso(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
-    const doomed = store.snapshotPathsBefore(cutoff);
-    const removed = store.deleteOlderThan(cutoff);
-    const prunedNotifications = store.deleteNotificationsOlderThan(cutoff);
-    if (removed > 0) console.info("[events] retention removed", removed);
-    if (prunedNotifications > 0) console.info("[events] retention removed notifications", prunedNotifications);
-    // Snapshots belong to the event rows just deleted. This removes files this
-    // hub wrote; it never touches DVR or MediaMTX recordings.
-    for (const relative of doomed) {
-      const target = snapshotFile(config.dataDir, relative);
-      if (!target) continue;
-      void unlink(target).catch(() => undefined);
-    }
+    /*
+     * Snapshots and face crops belong to the event rows just deleted. This
+     * removes files this hub wrote; it never touches DVR or MediaMTX
+     * recordings. Face crops are cleaned in the same pass so detection cannot
+     * leave orphaned files behind.
+     */
+    void runRetention({ store, dataDir: config.dataDir, cutoffIso: cutoff })
+      .then((result) => {
+        if (result.events > 0) console.info("[events] retention removed", result.events);
+        if (result.notifications > 0) console.info("[events] retention removed notifications", result.notifications);
+        if (result.crops > 0) console.info("[events] retention removed face crops", result.crops);
+        if (result.orphanedCrops > 0) console.info("[events] retention removed orphan face crops", result.orphanedCrops);
+      })
+      .catch((error) => console.error("[events] retention", error instanceof Error ? error.name : "error"));
   } catch (error) {
     console.error("[events] retention", error instanceof Error ? error.name : "error");
   }

@@ -9,6 +9,7 @@ import { openEventStore } from "@/server/events/event-store";
 import { PageIntro } from "@/components/ui/States";
 import { PriorityBadge } from "@/components/events/PriorityBadge";
 import { SnapshotPanel } from "@/components/events/SnapshotPanel";
+import { EventFacesPanel } from "@/components/events/EventFacesPanel";
 import { MarkReadOnView } from "@/components/events/MarkReadOnView";
 
 export const dynamic = "force-dynamic";
@@ -41,6 +42,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
         </div>
 
         <SnapshotPanel eventId={event.id} hasSnapshot={event.hasSnapshot} title={eventTitle(event.type, event.classification)} />
+
+        {/*
+          Face DETECTION only. It renders nothing when the feature is disabled,
+          so an event detail page never reports "0 faces" for a feature that is
+          switched off.
+        */}
+        <EventFacesPanel eventId={event.id} />
 
         <dl className="mt-4 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 text-sm">
           <dt className="text-muted">Time</dt><dd className="font-mono">{formatKolkataClock(new Date(event.timestamp))}</dd>

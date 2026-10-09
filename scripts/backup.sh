@@ -7,6 +7,7 @@
 #                           backup API so the copy is consistent even while the
 #                           hub is running.
 #   - data/events/        (event snapshots, written by this hub only)
+#   - data/face-crops/    (detected-face crops, when face detection is on)
 #   - data/cameras.json   (camera display names)
 #
 # What is intentionally NOT backed up:
@@ -63,6 +64,12 @@ if [ -d "$DATA_DIR/events" ]; then
   cp -R "$DATA_DIR/events" "$DEST/events"
 fi
 
+# 2b. Face crops. They belong to the events above, so restoring one without the
+# other would leave face rows pointing at missing images.
+if [ -d "$DATA_DIR/face-crops" ]; then
+  cp -R "$DATA_DIR/face-crops" "$DEST/face-crops"
+fi
+
 # 3. Camera display names.
 if [ -f "$DATA_DIR/cameras.json" ]; then
   cp "$DATA_DIR/cameras.json" "$DEST/cameras.json"
@@ -74,6 +81,7 @@ cat > "$DEST/manifest.json" <<EOF
   "created_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "database": "database.sqlite",
   "snapshots": "events/",
+  "face_crops": "face-crops/",
   "cameras": "cameras.json",
   "notes": "Application data only. No DVR recordings, no secrets (.env is excluded)."
 }
@@ -82,4 +90,5 @@ EOF
 echo "backup: $DEST"
 echo "backup: database      $(du -h "$DEST/database.sqlite" 2>/dev/null | cut -f1 || echo 'n/a')"
 echo "backup: snapshots     $(find "$DEST/events" -type f 2>/dev/null | wc -l | tr -d ' ') files"
+echo "backup: face crops    $(find "$DEST/face-crops" -type f 2>/dev/null | wc -l | tr -d ' ') files"
 echo "backup: done"

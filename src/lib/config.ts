@@ -28,6 +28,12 @@ export type AppConfig = {
   eventDevMock: boolean;
   mediamtxAuthUser: string;
   mediamtxAuthPassword: string;
+  /** Face detection is opt-in and off by default. */
+  faceDetectionEnabled: boolean;
+  /** Detections below this score are discarded. Never hardcoded in logic. */
+  faceDetectionConfidence: number;
+  /** Upper bound on faces stored per snapshot; the strongest are kept. */
+  faceDetectionMaxFaces: number;
 };
 
 function cleanUrl(value: string | undefined, fallback: string): string {
@@ -95,7 +101,24 @@ export function readConfig(env: Env): AppConfig {
     eventDevMock: (env.NODE_ENV ?? "") !== "production" && (env.EVENT_DEV_MOCK ?? "").trim().toLowerCase() === "true",
     mediamtxAuthUser: (env.MEDIAMTX_AUTH_USER ?? "hub").trim() || "hub",
     mediamtxAuthPassword: env.MEDIAMTX_AUTH_PASSWORD ?? "",
+    faceDetectionEnabled: (env.FACE_DETECTION_ENABLED ?? "").trim().toLowerCase() === "true",
+    faceDetectionConfidence: readFloat(env.FACE_DETECTION_CONFIDENCE, DEFAULT_FACE_CONFIDENCE, 0, 1),
+    faceDetectionMaxFaces: readBoundedInt(env.FACE_DETECTION_MAX_FACES, DEFAULT_FACE_MAX_FACES, 1, 100),
   };
+}
+
+export const DEFAULT_FACE_CONFIDENCE = 0.6;
+export const DEFAULT_FACE_MAX_FACES = 10;
+
+/**
+ * A confidence threshold outside 0..1 is meaningless; fall back rather than
+ * failing the whole application configuration over an optional feature.
+ */
+function readFloat(value: string | undefined, fallback: number, min: number, max: number): number {
+  if (value === undefined || value.trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return fallback;
+  return parsed;
 }
 
 function readBoundedInt(value: string | undefined, fallback: number, min: number, max: number): number {

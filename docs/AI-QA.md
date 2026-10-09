@@ -119,6 +119,7 @@ Actual routes discovered from `src/app`:
 | `/events` | Event list + detail panel, filters. |
 | `/events/[id]` | Single event detail (server-rendered). |
 | `/events/stats` | Event statistics. |
+| `/faces` | Detected faces (detection only; every face is Unassigned). |
 | `/notifications` | Notification history (decisions, not rules). |
 | `/device` | DVR device information. |
 | `/settings` | Read-only environment summary. ADMIN. |
@@ -134,7 +135,8 @@ the protected layouts (`src/app/(hub)/layout.tsx`,
 
 Selected API routes: `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`,
 `/api/health` (public), `/api/cameras`, `/api/cameras/[id]`, `/api/dvr/status`,
-`/api/dvr/info`, `/api/events*`, `/api/notifications*`,
+`/api/dvr/info`, `/api/events*`, `/api/events/[id]/faces`, `/api/faces`,
+`/api/faces/[id]`, `/api/faces/[id]/image`, `/api/notifications*`,
 `/api/notification-rules*`, `/api/audit`, `/api/users*`, `/api/settings`,
 `/api/system/sessions`, `/api/streams/*`, `/api/webrtc/*`, `/api/hls/*`,
 `/api/playback/search`, `/api/playback/recording-dates`, `/api/playback/session`.
@@ -228,6 +230,28 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
 - A snapshot is either rendered from the authenticated
   `/api/events/<id>/snapshot` route or explicitly reported as unavailable.
 
+## Face detection (detection only)
+
+- `/faces` is a gallery of faces found in **existing event snapshots**. It is
+  not a recognition screen: every card shows **Unassigned**, because no identity
+  is computed. Filters: camera, date, assignment (All/Unassigned/Assigned) and
+  minimum confidence.
+- The page always renders one honest state — gallery, empty, or
+  "Face detection is disabled." It never invents a count and never shows an
+  error for a switched-off feature.
+- The event detail page (`/events/[id]`) gains a **Face Detection** section only
+  when detection is enabled *and* the event has faces. When detection is off the
+  section is absent: the page must never say "0 faces" for a disabled feature.
+- Face crops are served only by `GET /api/faces/<id>/image`, which requires a
+  session and resolves the stored path inside `DATA_DIR/face-crops`. There is no
+  static mapping to that directory and no path ever appears in a response.
+- Detection runs in a separate local Python worker (`face-worker/`) that reads
+  the queue from the same SQLite database. It never touches the live stream, the
+  recordings, the rule engine, notification history or the audit log.
+- Processing is idempotent: `face_processing` holds one row per event and
+  `event_faces` has `UNIQUE(event_id, detection_index)`; a restart or a retry
+  converges on the same rows. See `docs/Face-Detection.md`.
+
 ## Notifications
 
 - `/notifications` is **history**: every notification decision the hub made
@@ -298,6 +322,23 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
   normal application behaviour and cannot be avoided by browser QA. No events,
   notification rules, notification history, camera names or accounts are
   created or changed by the suite.
+- **The face gallery fixtures live at the network boundary.** FACE-UI-002/003/
+  005/006/007 serve `/api/faces` and `/api/events/<id>/faces` with
+  `page.route`, so no fake face row, crop or person is ever written to the
+  production database. The authentication checks in FACE-UI-004 hit the real
+  server. Retention, cascade, duplicate protection, thresholds and path safety
+  are covered by the worker (pytest) and hub (vitest) suites instead.
+- **Face detection is off by default**, so the browser suite normally exercises
+  the *disabled* path (FACE-UI-001/008). With detection enabled on the host,
+  FACE-UI-001 accepts a real gallery too, and FACE-UI-002…007 still run against
+  their fixtures.
+- **A running `next dev` can serve a stale RSC payload for one route** after a
+  shared layout changes (for example adding the `Faces` nav item). The symptom
+  is a React hydration mismatch on that route only, while other routes render the
+  new markup. Restart the dev server before treating it as an application bug.
+- **The face worker needs a one-time model download.** `face-worker/tests/`
+  skips the real-model test when the model is absent; run
+  `python3 face-worker/scripts/download_model.py`.
 
 ## Known intentional behavior
 
@@ -312,6 +353,11 @@ Do not report these as defects:
   `Date` control is used. It intentionally adds no layout height.
 - Event **"Motion"** quick filter means "unclassified motion"; it maps to
   `classification=none`.
+- **Detected faces are Unassigned.** This is the design, not a bug: the phase
+  implements detection only, and no identity is computed or stored.
+- **Face detection is off unless `FACE_DETECTION_ENABLED=true`.** With it off,
+  `/faces` explains the disabled state and the event detail page has no face
+  section at all — that absence is correct, not a missing feature.
 - Browsing the playback calendar to a month with **no recordings** snaps back to
   the nearest month that has one (`findNearestAvailableDate`). The calendar is
   not a free month browser by design.
@@ -352,6 +398,22 @@ desired behaviour.
 | USER-001 … USER-009 | `tests/e2e/users.spec.ts` |
 | SYSTEM-001 … SYSTEM-007 | `tests/e2e/system.spec.ts` |
 | SEC-001 … SEC-008 | `tests/e2e/security.spec.ts` |
+| FACE-UI-001 … FACE-UI-008 | `tests/e2e/faces.spec.ts` |
+
+Face detection is split across three suites; the full mapping is in
+[Face-Detection.md](Face-Detection.md#16-tests):
+
+| Test ID | Where |
+| --- | --- |
+| FACE-001 (off by default) | `src/lib/config.test.ts` |
+| FACE-002 (no detector when off) | `face-worker/tests/test_flag_and_detector.py` |
+| FACE-003 … FACE-011, FACE-013, FACE-014 | `face-worker/tests/test_pipeline.py`, `test_worker_flow.py` |
+| FACE-012 (path containment) | `face-worker/tests/test_crop_paths.py`, `src/lib/face-path.test.ts` |
+| FACE-015, FACE-016 (image endpoint auth) | `src/app/api/faces/faces-api.test.ts` |
+| FACE-017, FACE-018 (relationship + cleanup) | `face-worker/tests/test_pipeline.py`, `src/server/events/retention-face.test.ts` |
+
+Worker tests: `npm run test:face` (pytest, from `face-worker/tests/`). They use
+an injected stub detector, so they are deterministic and need no face image.
 
 Support code lives in `tests/e2e/support/`:
 `qa-env.ts` (viewport, routes, credentials), `fixtures.ts` (per-test source
@@ -401,3 +463,8 @@ Future AI agents must:
 9. Never modify DVR/MediaMTX unless explicitly instructed.
 10. Never modify the production database during browser tests.
 11. Clearly distinguish environmental limitations from application defects.
+12. Never analyse the live stream or the H.265 recordings for face detection —
+    snapshots only, and only through the worker.
+13. Never add face recognition, embeddings, person matching or a cloud vision
+    call without an explicit new phase. This phase is detection only, and every
+    detected face stays Unassigned.

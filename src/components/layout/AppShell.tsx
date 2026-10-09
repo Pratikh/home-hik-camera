@@ -24,6 +24,7 @@ const NAV = [
   { href: "/cameras", label: "Cameras", short: "Cameras" },
   { href: "/playback", label: "Playback", short: "Playback" },
   { href: "/events", label: "Events", short: "Events" },
+  { href: "/faces", label: "Faces", short: "Faces" },
   { href: "/notifications", label: "Notifications", short: "Alerts" },
   { href: "/device", label: "Device", short: "Device" },
   { href: "/settings", label: "Settings", short: "Settings" },
@@ -186,10 +187,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           <main className={isFocused ? "min-h-0" : "min-h-0 px-3 pb-28 pt-4 md:flex-1 md:overflow-y-auto md:px-6 md:pb-6"}>{children}</main>
         </div>
       </div>
-      {/* Mobile bottom bar: min-w-0 + truncate means a long label can never
-          overlap its neighbour. */}
+      {/*
+        Mobile bottom bar: min-w-0 + truncate means a long label can never
+        overlap its neighbour. Eight items now that Faces is part of the nav.
+      */}
       <nav
-        className={`${isFocused ? "hidden" : "fixed inset-x-0 bottom-0 z-40 grid"} grid-cols-7 border-t border-line bg-panel md:hidden`}
+        className={`${isFocused ? "hidden" : "fixed inset-x-0 bottom-0 z-40 grid"} grid-cols-8 border-t border-line bg-panel md:hidden`}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label="Primary"
       >

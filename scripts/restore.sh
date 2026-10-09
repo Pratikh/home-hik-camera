@@ -55,6 +55,7 @@ if [ "${DRY_RUN:-0}" = "1" ]; then
   echo "restore: DRY RUN — no files were changed."
   if [ -f "$SRC/database.sqlite" ]; then echo "restore: would restore database.sqlite"; fi
   if [ -d "$SRC/events" ]; then echo "restore: would restore events/ ($(find "$SRC/events" -type f | wc -l | tr -d ' ') files)"; fi
+  if [ -d "$SRC/face-crops" ]; then echo "restore: would restore face-crops/ ($(find "$SRC/face-crops" -type f | wc -l | tr -d ' ') files)"; fi
   if [ -f "$SRC/cameras.json" ]; then echo "restore: would restore cameras.json"; fi
   exit 0
 fi
@@ -76,6 +77,14 @@ if [ -d "$SRC/events" ]; then
   rm -rf "$DATA_DIR/events"
   cp -R "$SRC/events" "$DATA_DIR/events"
   echo "restore: restored event snapshots -> data/events/"
+fi
+
+# Face crops belong to the restored events. Replacing them together keeps the
+# face rows in the restored database pointing at files that exist.
+if [ -d "$SRC/face-crops" ]; then
+  rm -rf "$DATA_DIR/face-crops"
+  cp -R "$SRC/face-crops" "$DATA_DIR/face-crops"
+  echo "restore: restored face crops -> data/face-crops/"
 fi
 
 if [ -f "$SRC/cameras.json" ]; then

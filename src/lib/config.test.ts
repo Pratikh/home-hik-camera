@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readConfig } from "@/lib/config";
+import { DEFAULT_FACE_CONFIDENCE, DEFAULT_FACE_MAX_FACES, readConfig } from "@/lib/config";
 
 const secret = "session-secret-value";
 
@@ -67,5 +67,54 @@ describe("readConfig", () => {
     });
     expect(config.dvrConfigured).toBe(false);
     expect(config.dvrErrors[0]).toContain("DVR_HTTP_PORT");
+  });
+});
+
+/**
+ * FACE-001 — face detection is opt-in.
+ *
+ * A missing or malformed face setting must leave the rest of the application
+ * untouched, so these values never appear in `appErrors`.
+ */
+describe("readConfig — face detection", () => {
+  it("FACE-001 is disabled by default with the documented defaults", () => {
+    const config = readConfig({});
+    expect(config.faceDetectionEnabled).toBe(false);
+    expect(config.faceDetectionConfidence).toBe(DEFAULT_FACE_CONFIDENCE);
+    expect(config.faceDetectionConfidence).toBe(0.6);
+    expect(config.faceDetectionMaxFaces).toBe(DEFAULT_FACE_MAX_FACES);
+    expect(config.faceDetectionMaxFaces).toBe(10);
+  });
+
+  it("FACE-001 only enables for the exact string true", () => {
+    expect(readConfig({ FACE_DETECTION_ENABLED: "true" }).faceDetectionEnabled).toBe(true);
+    // Surrounding whitespace and case do not matter, matching every other flag.
+    expect(readConfig({ FACE_DETECTION_ENABLED: " TRUE " }).faceDetectionEnabled).toBe(true);
+    for (const value of ["false", "1", "yes", "", "true!"]) {
+      expect(readConfig({ FACE_DETECTION_ENABLED: value }).faceDetectionEnabled).toBe(false);
+    }
+  });
+
+  it("reads the threshold and the cap, and falls back when they are nonsense", () => {
+    const configured = readConfig({ FACE_DETECTION_CONFIDENCE: "0.75", FACE_DETECTION_MAX_FACES: "4" });
+    expect(configured.faceDetectionConfidence).toBe(0.75);
+    expect(configured.faceDetectionMaxFaces).toBe(4);
+
+    expect(readConfig({ FACE_DETECTION_CONFIDENCE: "2" }).faceDetectionConfidence).toBe(DEFAULT_FACE_CONFIDENCE);
+    expect(readConfig({ FACE_DETECTION_CONFIDENCE: "abc" }).faceDetectionConfidence).toBe(DEFAULT_FACE_CONFIDENCE);
+    expect(readConfig({ FACE_DETECTION_MAX_FACES: "0" }).faceDetectionMaxFaces).toBe(DEFAULT_FACE_MAX_FACES);
+    expect(readConfig({ FACE_DETECTION_MAX_FACES: "lots" }).faceDetectionMaxFaces).toBe(DEFAULT_FACE_MAX_FACES);
+  });
+
+  it("never reports a bad face setting as an application configuration error", () => {
+    const config = readConfig({
+      APP_USERNAME: "home",
+      APP_PASSWORD: "correct-horse",
+      SESSION_SECRET: secret,
+      FACE_DETECTION_CONFIDENCE: "not-a-number",
+      FACE_DETECTION_MAX_FACES: "-1",
+    });
+    expect(config.appErrors).toEqual([]);
+    expect(config.appConfigured).toBe(true);
   });
 });
