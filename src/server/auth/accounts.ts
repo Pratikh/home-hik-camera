@@ -203,7 +203,13 @@ export class AccountStore {
       );
   }
 
-  listAudit(input: { user?: string | null; action?: string | null; date?: string | null }): Array<{ id: string; username: string | null; action: string; resource: string | null; metadata: string | null; ipAddress: string | null; createdAt: string }> {
+  listAudit(input: {
+    user?: string | null;
+    action?: string | null;
+    date?: string | null;
+    limit?: number | null;
+    offset?: number | null;
+  }): { logs: Array<{ id: string; username: string | null; action: string; resource: string | null; metadata: string | null; ipAddress: string | null; createdAt: string }>; total: number } {
     const where: string[] = [];
     const params: string[] = [];
     if (input.user) {
@@ -219,22 +225,31 @@ export class AccountStore {
       params.push(`${input.date}%`);
     }
     const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+    const total = this.db
+      .prepare(`SELECT COUNT(*) AS count FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id ${clause}`)
+      .get(...params) as { count: number };
+    // Clamp so a caller can never request an unbounded page.
+    const limit = typeof input.limit === "number" && input.limit > 0 ? Math.min(input.limit, 100) : 100;
+    const offset = typeof input.offset === "number" && input.offset > 0 ? input.offset : 0;
     const rows = this.db
       .prepare(
         `SELECT a.id, u.username, a.action, a.resource, a.metadata, a.ip_address, a.created_at
          FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
-         ${clause} ORDER BY a.created_at DESC LIMIT 100`,
+         ${clause} ORDER BY a.created_at DESC LIMIT ? OFFSET ?`,
       )
-      .all(...params) as Array<{ id: string; username: string | null; action: string; resource: string | null; metadata: string | null; ip_address: string | null; created_at: string }>;
-    return rows.map((row) => ({
-      id: row.id,
-      username: row.username,
-      action: row.action,
-      resource: row.resource,
-      metadata: row.metadata,
-      ipAddress: row.ip_address,
-      createdAt: row.created_at,
-    }));
+      .all(...params, limit, offset) as Array<{ id: string; username: string | null; action: string; resource: string | null; metadata: string | null; ip_address: string | null; created_at: string }>;
+    return {
+      total: total.count,
+      logs: rows.map((row) => ({
+        id: row.id,
+        username: row.username,
+        action: row.action,
+        resource: row.resource,
+        metadata: row.metadata,
+        ipAddress: row.ip_address,
+        createdAt: row.created_at,
+      })),
+    };
   }
 
   touchPresence(userId: string, streamPath: string): void {

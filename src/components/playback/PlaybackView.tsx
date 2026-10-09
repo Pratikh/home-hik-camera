@@ -8,7 +8,7 @@ import { Messages } from "@/lib/messages";
 import type { CctvEvent } from "@/lib/events";
 import { recordingToAutoplay, resolvePlaybackDate } from "@/lib/playback-date";
 import { formatKolkataIso, kolkataDayBounds } from "@/lib/time-kolkata";
-import { buildTimelineMarkers, type TimelineMarker } from "@/lib/timeline-markers";
+import { buildTimelineMarkers, markerGroupMsForZoom, type TimelineMarker } from "@/lib/timeline-markers";
 import { recordingAt, toTimelineSegment, zoomWindow, type TimelineSegment } from "@/lib/timeline";
 import { PageIntro } from "@/components/ui/States";
 import { PlaybackFilters } from "@/components/playback/PlaybackFilters";
@@ -52,7 +52,14 @@ export function PlaybackView({
   const [zoom, setZoom] = useState<24 | 6 | 1>(24);
   const [pointNote, setPointNote] = useState<string | null>(null);
   const [empty, setEmpty] = useState(false);
-  const [markers, setMarkers] = useState<TimelineMarker[]>([]);
+  // Raw events for the day; markers are grouped from these so the grouping can
+  // follow the zoom level without another network request.
+  const [dayEvents, setDayEvents] = useState<CctvEvent[]>([]);
+  const [dayStartMs, setDayStartMs] = useState<number | null>(null);
+  const markers = useMemo<TimelineMarker[]>(
+    () => (dayStartMs === null ? [] : buildTimelineMarkers(dayEvents, dayStartMs, markerGroupMsForZoom(zoom))),
+    [dayEvents, dayStartMs, zoom],
+  );
   const eventSeekRef = useRef<{ camera: number; date: string; time: string } | null>(
     eventTime ? { camera: initialCamera, date: initialDate, time: eventTime } : null,
   );
@@ -123,8 +130,9 @@ export function PlaybackView({
           `/api/events?camera=${query.camera}&date=${query.date}&startTime=00:00&endTime=23:59&pageSize=100`,
         ).catch(() => ({ events: [] as CctvEvent[] }));
         if (seq !== requestSeq.current) return;
-        // Nearby events collapse into one marker so a busy day stays readable.
-        setMarkers(buildTimelineMarkers(listed.events, bounds.start.getTime()));
+        // Keep the raw events; grouping is derived from them and the zoom.
+        setDayEvents(listed.events);
+        setDayStartMs(bounds.start.getTime());
       }
       const seek = eventSeekRef.current;
       if (seek && seek.date === query.date && seek.camera === query.camera) {

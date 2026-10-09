@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { EventRuleTestResponse, NotificationRulesResponse } from "@/lib/api-types";
 import { CAMERA_IDS } from "@/lib/cameras";
 import { ApiError, api } from "@/lib/client-api";
+import { useEscapeToDismiss } from "@/components/hooks/useEscapeToDismiss";
 import {
   DEFAULT_COOLDOWN_SECONDS,
   MAX_COOLDOWN_SECONDS,
@@ -54,6 +55,8 @@ export function NotificationRules() {
   const [loading, setLoading] = useState(true);
   const [testResult, setTestResult] = useState<EventRuleTestResponse | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<NotificationRule | null>(null);
+  const dismissConfirm = useCallback(() => setConfirmDelete(null), []);
+  useEscapeToDismiss(confirmDelete !== null, dismissConfirm);
 
   const load = useCallback(async () => {
     setLoading(true);

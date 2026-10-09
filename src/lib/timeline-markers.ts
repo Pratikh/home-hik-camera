@@ -18,6 +18,16 @@ export type TimelineMarker = {
 /** Markers closer together than this collapse into one. */
 export const MARKER_GROUP_MS = 2 * 60 * 1000;
 
+/**
+ * Grouping window for a given zoom, so a full-day view does not pack hundreds of
+ * markers into a ~340px bar. Zooming in narrows the window and reveals detail.
+ */
+export function markerGroupMsForZoom(zoomHours: 24 | 6 | 1): number {
+  if (zoomHours === 24) return 10 * 60 * 1000;
+  if (zoomHours === 6) return 4 * 60 * 1000;
+  return MARKER_GROUP_MS;
+}
+
 const RANK: Record<EventPriority, number> = { LOW: 0, NORMAL: 1, HIGH: 2, CRITICAL: 3 };
 
 /**

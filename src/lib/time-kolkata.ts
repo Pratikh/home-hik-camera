@@ -50,6 +50,27 @@ export function formatKolkataHourMinute(date: Date): string {
   return `${parts.hour}:${parts.minute}`;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
+/**
+ * Human-readable India-time stamp, e.g. "09 Oct 2026, 10:40:59".
+ *
+ * Used wherever a full date and time is shown to a person, so a raw UTC ISO
+ * string is never displayed as if it were local time.
+ */
+export function formatKolkataDateTime(date: Date): string {
+  const parts = kolkataParts(date);
+  const month = MONTHS[Number(parts.month) - 1] ?? parts.month;
+  return `${parts.day} ${month} ${parts.year}, ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+/** Accepts an ISO string (including raw UTC from the database) and formats it. */
+export function formatKolkataDateTimeFromIso(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return formatKolkataDateTime(date);
+}
+
 export function todayInKolkata(now = new Date()): string {
   const parts = kolkataParts(now);
   return `${parts.year}-${parts.month}-${parts.day}`;

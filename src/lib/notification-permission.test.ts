@@ -95,3 +95,21 @@ describe("hydration invariant across every permission", () => {
     }
   });
 });
+describe("Kolkata date-time formatting", () => {
+  it("formats a raw UTC timestamp in India time, not UTC", async () => {
+    const { formatKolkataDateTimeFromIso } = await import("@/lib/time-kolkata");
+    // 05:10:59Z is 10:40:59 IST — the audit log previously showed the UTC value.
+    expect(formatKolkataDateTimeFromIso("2026-10-09T05:10:59.183Z")).toBe("09 Oct 2026, 10:40:59");
+  });
+
+  it("keeps the India calendar day across a UTC day boundary", async () => {
+    const { formatKolkataDateTimeFromIso } = await import("@/lib/time-kolkata");
+    // 20:00Z on the 8th is 01:30 IST on the 9th.
+    expect(formatKolkataDateTimeFromIso("2026-10-08T20:00:00.000Z")).toBe("09 Oct 2026, 01:30:00");
+  });
+
+  it("returns the original value when it cannot be parsed", async () => {
+    const { formatKolkataDateTimeFromIso } = await import("@/lib/time-kolkata");
+    expect(formatKolkataDateTimeFromIso("not-a-date")).toBe("not-a-date");
+  });
+});

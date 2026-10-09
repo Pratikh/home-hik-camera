@@ -13,6 +13,33 @@
   --color-warn: #f0c36a;
   --font-sans: "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "SF Mono", ui-monospace, monospace;
+
+  /*
+   * Vertical space the dashboard grid must leave for the chrome above it: the
+   * sticky header, main's own padding, and the page intro. Expressed as
+   * variables so the grid height is derived from the viewport instead of a
+   * hardcoded pixel value, and so a change to the chrome is a one-line edit.
+   */
+  --app-header-h: 3.8125rem;
+  --app-main-pad-y: 1.5rem;
+  --app-page-intro-h: 4.25rem;
+  --app-grid-chrome: calc(var(--app-header-h) + var(--app-main-pad-y) + var(--app-page-intro-h));
+}
+
+@layer utilities {
+  /*
+   * Height the 2x2 camera grid may use so all four tiles fit without scrolling.
+   *
+   * The `lg` breakpoint is written into the rule itself rather than applied as a
+   * Tailwind variant: a hand-written class in `@layer utilities` has no `lg:`
+   * form for Tailwind to generate, so `lg:camera-grid-h` silently produced no
+   * CSS and the grid lost its height (the tiles collapsed to their captions).
+   */
+  @media (min-width: 64rem) {
+    .camera-grid-h {
+      height: max(22rem, calc(100dvh - var(--app-grid-chrome)));
+    }
+  }
 }
 
 @layer base {

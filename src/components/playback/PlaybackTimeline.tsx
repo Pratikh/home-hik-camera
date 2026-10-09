@@ -103,20 +103,30 @@ export function PlaybackTimeline({
           if (!box) return null;
           const label = markerTitle(event, clock(dayStartMs, event.offsetMs));
           return (
+            /*
+              The visible dot stays small, but the button carries a larger
+              invisible hit area (p-2.5 -> ~32px) so an individual marker can be
+              tapped on a phone instead of needing pixel-accurate aim.
+            */
             <button
               key={event.id}
               type="button"
               title={label}
               aria-label={label}
-              className={`absolute top-1 -translate-x-1/2 rounded-full ${markerClass(event.priority)} ${
-                event.count > 1 ? "h-3.5 w-3.5 ring-2 ring-black/40" : "h-3 w-3"
-              }`}
+              className="absolute top-0 -translate-x-1/2 p-2.5"
               style={{ left: `${box.left}%` }}
               onClick={(click) => {
                 click.stopPropagation();
                 onSeek(event.offsetMs);
               }}
-            />
+            >
+              <span
+                aria-hidden="true"
+                className={`block rounded-full ${markerClass(event.priority)} ${
+                  event.count > 1 ? "h-3.5 w-3.5 ring-2 ring-black/40" : "h-3 w-3"
+                }`}
+              />
+            </button>
           );
         })}
         {playhead ? (

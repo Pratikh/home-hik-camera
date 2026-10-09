@@ -70,7 +70,17 @@ export function EventsView({ initialDate }: { initialDate: string }) {
    */
   async function search(
     nextPage = 1,
-    overrides?: Partial<{ quick: QuickFilter; date: string; camera: string; classification: string }>,
+    overrides?: Partial<{
+      quick: QuickFilter;
+      date: string;
+      camera: string;
+      classification: string;
+      read: string;
+      notified: string;
+      priority: string;
+      startTime: string;
+      endTime: string;
+    }>,
   ) {
     setLoading(true);
     setError(null);
@@ -78,12 +88,17 @@ export function EventsView({ initialDate }: { initialDate: string }) {
     const queryDate = overrides?.date ?? date;
     const queryCamera = overrides?.camera ?? camera;
     const queryClassification = overrides?.classification ?? classification;
+    const queryRead = overrides?.read ?? read;
+    const queryNotified = overrides?.notified ?? notified;
+    const queryPriority = overrides?.priority ?? priority;
+    const queryStart = overrides?.startTime ?? startTime;
+    const queryEnd = overrides?.endTime ?? endTime;
 
     const searchParams = new URLSearchParams({
       camera: queryCamera,
       date: queryDate,
-      startTime,
-      endTime,
+      startTime: queryStart,
+      endTime: queryEnd,
       page: String(nextPage),
       pageSize: "20",
     });
@@ -91,9 +106,9 @@ export function EventsView({ initialDate }: { initialDate: string }) {
     if (activeQuick === "person" || activeQuick === "vehicle") searchParams.set("classification", activeQuick);
     if (activeQuick === "motion") searchParams.set("classification", "none");
     else if (queryClassification !== "all") searchParams.set("classification", queryClassification);
-    if (read !== "all") searchParams.set("read", read);
-    if (notified !== "all") searchParams.set("notified", notified);
-    if (priority !== "all") searchParams.set("priority", priority);
+    if (queryRead !== "all") searchParams.set("read", queryRead);
+    if (queryNotified !== "all") searchParams.set("notified", queryNotified);
+    if (queryPriority !== "all") searchParams.set("priority", queryPriority);
 
     try {
       const body = await api<EventListResponse>(`/api/events?${searchParams.toString()}`);
@@ -101,7 +116,14 @@ export function EventsView({ initialDate }: { initialDate: string }) {
       setPage(nextPage);
       const focus = params.get("focus");
       const focused = body.events.find((event) => event.id === focus) ?? null;
-      setSelected((current) => focused ?? current ?? body.events[0] ?? null);
+      // The detail panel must always describe the current result set. Keeping a
+      // previously selected event here would show an event that contradicts the
+      // active filters (and the "0 events" count).
+      setSelected((current) => {
+        if (focused) return focused;
+        const stillListed = current && body.events.some((event) => event.id === current.id) ? current : null;
+        return stillListed ?? body.events[0] ?? null;
+      });
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 401) return;
       setError(caught instanceof Error ? caught.message : Messages.backendDown);
@@ -113,6 +135,38 @@ export function EventsView({ initialDate }: { initialDate: string }) {
   function chooseQuick(next: QuickFilter) {
     setQuick(next);
     void search(1, { quick: next });
+  }
+
+  /** True when anything beyond the date is narrowing the result set. */
+  const filtersActive =
+    quick !== "all" ||
+    camera !== "all" ||
+    classification !== "all" ||
+    read !== "all" ||
+    notified !== "all" ||
+    priority !== "all" ||
+    startTime !== "00:00" ||
+    endTime !== "23:59";
+
+  function clearFilters() {
+    setQuick("all");
+    setCamera("all");
+    setClassification("all");
+    setRead("all");
+    setNotified("all");
+    setPriority("all");
+    setStartTime("00:00");
+    setEndTime("23:59");
+    void search(1, {
+      quick: "all",
+      camera: "all",
+      classification: "all",
+      read: "all",
+      notified: "all",
+      priority: "all",
+      startTime: "00:00",
+      endTime: "23:59",
+    });
   }
 
   useEffect(() => {
@@ -218,9 +272,16 @@ export function EventsView({ initialDate }: { initialDate: string }) {
             <option value="CRITICAL">Critical</option>
           </select>
         </label>
-        <button type="submit" className="h-11 rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f] sm:col-span-2 xl:col-span-2 xl:w-fit">
-          {loading ? "Searching..." : "Search"}
-        </button>
+        <div className="flex flex-wrap gap-2 sm:col-span-2 xl:col-span-2">
+          <button type="submit" className="h-11 rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f]">
+            {loading ? "Searching..." : "Search"}
+          </button>
+          {filtersActive ? (
+            <button type="button" onClick={clearFilters} className="h-11 rounded-lg border border-line px-4 text-sm">
+              Clear filters
+            </button>
+          ) : null}
+        </div>
       </form>
 
       {error ? <p className="mb-3 text-sm text-warn" role="alert">{error}</p> : null}
@@ -231,7 +292,12 @@ export function EventsView({ initialDate }: { initialDate: string }) {
             {date === todayInKolkata() ? "Today" : date}
             {result ? <span className="ml-2 font-normal text-muted">{result.total} events</span> : null}
           </h2>
-          {!loading && result && result.events.length === 0 ? <p className="text-sm text-muted">{Messages.noEvents}</p> : null}
+          {!loading && result && result.events.length === 0 ? (
+            // Name the actual cause: filters are the common reason, not the date.
+            <p className="text-sm text-muted">
+              {filtersActive ? "No events match your filters." : Messages.noEvents}
+            </p>
+          ) : null}
           <ul className="flex flex-col gap-2">
             {result?.events.map((event) => (
               <li key={event.id}>

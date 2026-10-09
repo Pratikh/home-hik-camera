@@ -58,6 +58,43 @@ export async function readCameraNames(dataDir: string): Promise<Record<number, s
   return names;
 }
 
+/**
+ * Only the names an admin explicitly saved, with no fallback applied.
+ *
+ * `readCameraNames` cannot be used to decide precedence because it fills in
+ * "Camera N" for every missing entry, which would make a fallback look like an
+ * intentional override and mask the name configured on the DVR.
+ */
+export async function readCameraNameOverrides(dataDir: string): Promise<Record<number, string>> {
+  const stored = await readRaw(dataDir);
+  const overrides: Record<number, string> = {};
+  for (let id = 1; id <= CAMERA_COUNT; id += 1) {
+    const value = stored[String(id)];
+    if (value) overrides[id] = value;
+  }
+  return overrides;
+}
+
+/**
+ * Drop a saved override so the DVR name applies again.
+ * Returns true when an override was actually removed.
+ */
+export async function clearCameraName(dataDir: string, id: number): Promise<boolean> {
+  if (!Number.isInteger(id) || id < 1 || id > CAMERA_COUNT) throw new CameraNameError();
+  return enqueue(dataDir, async () => {
+    const stored = await readRaw(dataDir);
+    const key = String(id);
+    if (!(key in stored)) return false;
+    delete stored[key];
+    await mkdir(dataDir, { recursive: true });
+    const target = filePath(dataDir);
+    const temporary = `${target}.tmp`;
+    await writeFile(temporary, JSON.stringify({ names: stored }, null, 2), "utf8");
+    await rename(temporary, target);
+    return true;
+  });
+}
+
 export async function writeCameraName(dataDir: string, id: number, name: string): Promise<string> {
   if (!Number.isInteger(id) || id < 1 || id > CAMERA_COUNT) {
     throw new CameraNameError();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { StreamResponse } from "@/lib/api-types";
 import { ApiError, api } from "@/lib/client-api";
 import { Messages } from "@/lib/messages";
@@ -146,15 +146,27 @@ export function LivePlayer({
   const [detail, setDetail] = useState<string>(Messages.connecting);
   const [muted, setMuted] = useState(true);
   const [retryKey, setRetryKey] = useState(0);
+  /*
+   * The <video> node is also kept in state so the start effect re-runs once the
+   * element actually attaches. Reading only a ref here raced hydration: on the
+   * first load the ref could still be null, the effect returned early, and the
+   * tile stayed blank until a reload.
+   */
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+
+  const attachVideo = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    setVideo(node);
+  }, []);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (video) video.muted = muted;
-  }, [muted]);
+    // `muted` is a DOM property, so set it on the element via the ref rather
+    // than treating the node itself as mutable React state.
+    if (videoRef.current) videoRef.current.muted = muted;
+  }, [muted, video]);
 
   useEffect(() => {
     if (!active) return;
-    const video = videoRef.current;
     if (!video) return;
     const abort = new AbortController();
     const bag: { pc?: RTCPeerConnection; hls?: { destroy: () => void }; session?: string | null } = {};
@@ -259,14 +271,14 @@ export function LivePlayer({
       video.removeAttribute("src");
       window.clearInterval(presence);
     };
-  }, [active, path, retryKey]);
+  }, [active, path, retryKey, video]);
 
   const showVideo = phase === "live" || phase === "hls" || phase === "gesture" || phase === "connecting";
 
   return (
     <div className="absolute inset-0 bg-black">
       <video
-        ref={videoRef}
+        ref={attachVideo}
         className={`h-full w-full object-contain ${showVideo ? "block" : "hidden"}`}
         autoPlay
         playsInline
@@ -287,22 +299,33 @@ export function LivePlayer({
       {phase === "gesture" ? (
         <button
           type="button"
-          className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm font-medium"
-          onClick={() => void videoRef.current?.play().then(() => setPhase("live")).catch(() => setPhase("error"))}
+          className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 text-sm font-medium"
+          onClick={(event) => {
+            event.stopPropagation();
+            void videoRef.current?.play().then(() => setPhase("live")).catch(() => setPhase("error"));
+          }}
         >
           Start video
         </button>
       ) : null}
       {phase === "live" || phase === "hls" ? (
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-2">
-          <span className="rounded-md bg-black/60 px-2 py-1 text-xs text-white">{detail}</span>
+        /*
+          Placed at the bottom centre: the DVR burns its own timestamp into the
+          top of the picture, and the Mute/Full-screen controls occupy the
+          corners, so the middle of the lower edge is the only clear area.
+        */
+        <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center">
+          <span className="rounded-md bg-black/70 px-2 py-0.5 text-[11px] text-white">{detail}</span>
         </div>
       ) : null}
       {phase === "live" || phase === "hls" || phase === "gesture" ? (
         <button
           type="button"
-          className="absolute bottom-2 left-2 inline-flex h-11 min-w-11 items-center justify-center rounded-lg border border-white/20 bg-black/60 px-3 text-xs font-medium text-white"
-          onClick={() => setMuted((value) => !value)}
+          className="absolute bottom-2 left-2 z-20 inline-flex h-11 min-w-11 items-center justify-center rounded-lg border border-white/20 bg-black/60 px-3 text-xs font-medium text-white"
+          onClick={(event) => {
+            event.stopPropagation();
+            setMuted((value) => !value);
+          }}
           aria-pressed={!muted}
           aria-label={muted ? `Unmute ${label}` : `Mute ${label}`}
         >
@@ -312,8 +335,11 @@ export function LivePlayer({
       {phase === "error" ? (
         <button
           type="button"
-          className="absolute bottom-2 right-2 rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-white"
-          onClick={() => setRetryKey((value) => value + 1)}
+          className="absolute bottom-2 right-2 z-20 rounded-lg border border-white/20 bg-black/60 px-3 py-2 text-xs text-white"
+          onClick={(event) => {
+            event.stopPropagation();
+            setRetryKey((value) => value + 1);
+          }}
         >
           Retry
         </button>

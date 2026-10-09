@@ -1,12 +1,20 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Messages } from "@/lib/messages";
 import { navigate } from "@/lib/client-api";
 
 export function LoginForm({ nextPath }: { nextPath: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  // Announce a failed sign-in to assistive technology and move focus to the
+  // error, so a screen-reader user is told something happened.
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.focus();
+  }, [error]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,13 +46,14 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   }
 
   return (
-    <form onSubmit={(event) => void onSubmit(event)} className="mt-6 grid gap-4">
+    <form onSubmit={(event) => void onSubmit(event)} className="mt-6 grid gap-4" noValidate={false}>
       <label className="grid gap-1 text-sm">
         Username
         <input
           name="username"
           autoComplete="username"
           required
+          aria-invalid={error ? true : undefined}
           className="rounded-lg border border-line bg-bg px-3 py-2"
         />
       </label>
@@ -55,11 +64,13 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
           type="password"
           autoComplete="current-password"
           required
+          aria-invalid={error ? true : undefined}
           className="rounded-lg border border-line bg-bg px-3 py-2"
         />
       </label>
+      {/* role="alert" announces the message; tabIndex allows it to take focus. */}
       {error ? (
-        <p className="text-sm text-offline" role="alert">
+        <p ref={errorRef} tabIndex={-1} className="text-sm text-offline" role="alert">
           {error}
         </p>
       ) : null}

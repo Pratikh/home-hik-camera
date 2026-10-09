@@ -11,12 +11,6 @@ import { formatKolkataClock } from "@/lib/time-kolkata";
 import { PageIntro } from "@/components/ui/States";
 import { PriorityBadge } from "@/components/events/PriorityBadge";
 
-const STATUS_TONE: Record<string, string> = {
-  sent: "text-online",
-  suppressed: "text-muted",
-  failed: "text-warn",
-};
-
 export function NotificationsView({ initialDate }: { initialDate: string }) {
   const [cameras, setCameras] = useState<Record<number, string>>({});
   const [date, setDate] = useState(initialDate);
@@ -145,6 +139,27 @@ export function NotificationsView({ initialDate }: { initialDate: string }) {
   );
 }
 
+/**
+ * Status is encoded with a border, a distinct glyph, and a text label, so it is
+ * never conveyed by colour alone. The pill treatment matches the priority badge
+ * on the same row.
+ */
+const STATUS_STYLE: Record<string, { className: string; glyph: string; label: string }> = {
+  sent: { className: "border-online/60 bg-online/15 text-online", glyph: "✓", label: "Sent" },
+  suppressed: { className: "border-line bg-white/5 text-muted", glyph: "⊘", label: "Suppressed" },
+  failed: { className: "border-warn/60 bg-warn/15 text-warn", glyph: "!", label: "Failed" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const style = STATUS_STYLE[status] ?? { className: "border-line bg-white/5 text-muted", glyph: "•", label: status };
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${style.className}`}>
+      <span aria-hidden="true">{style.glyph}</span>
+      {style.label}
+    </span>
+  );
+}
+
 function NotificationRow({ record, cameraName }: { record: NotificationRecord; cameraName: string }) {
   const label = record.eventType ? eventTitle(record.eventType, record.classification ?? null) : "Event";
   const when = record.eventTimestamp ? formatKolkataClock(new Date(record.eventTimestamp)) : formatKolkataClock(new Date(record.createdAt));
@@ -155,8 +170,8 @@ function NotificationRow({ record, cameraName }: { record: NotificationRecord; c
         <span className="text-sm font-medium">{label}</span>
         <span className="text-xs text-muted">{cameraName}</span>
         <PriorityBadge priority={record.priority} />
-        <span className={`ml-auto text-xs font-medium uppercase ${STATUS_TONE[record.status] ?? "text-muted"}`}>
-          {record.status}
+        <span className="ml-auto">
+          <StatusBadge status={record.status} />
         </span>
       </div>
       <p className="mt-1 text-xs text-muted">

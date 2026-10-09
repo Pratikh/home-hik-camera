@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PlaybackSessionResponse } from "@/lib/api-types";
 import { ApiError, api } from "@/lib/client-api";
 import { Messages } from "@/lib/messages";
@@ -31,6 +31,16 @@ export function PlaybackPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const onPositionRef = useRef(onPosition);
+  /*
+   * The <video> node is mirrored into state so the start effect re-runs once the
+   * element attaches. Reading only the ref raced hydration on the first load,
+   * leaving the player blank until a reload.
+   */
+  const [video, setVideo] = useState<HTMLVideoElement | null>(null);
+  const attachVideo = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    setVideo(node);
+  }, []);
   const [phase, setPhase] = useState<Phase>("idle");
   const [detail, setDetail] = useState("Choose a recording");
   const [muted, setMuted] = useState(true);
@@ -58,15 +68,14 @@ export function PlaybackPlayer({
   }, [onPosition]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = muted;
-    video.volume = volume;
-  }, [muted, volume]);
+    const node = videoRef.current;
+    if (!node) return;
+    node.muted = muted;
+    node.volume = volume;
+  }, [muted, volume, video]);
 
   useEffect(() => {
     if (!runStart || !runEnd || runNonce === null) return;
-    const video = videoRef.current;
     if (!video) return;
     const abort = new AbortController();
     const bag: { pc?: RTCPeerConnection; hls?: { destroy: () => void }; session?: string | null } = {};
@@ -196,7 +205,7 @@ export function PlaybackPlayer({
       video.removeAttribute("src");
       window.clearInterval(timer);
     };
-  }, [camera, runStart, runEnd, runNonce]);
+  }, [camera, runStart, runEnd, runNonce, video]);
 
   function jump(deltaMs: number) {
     if (!bounds || positionRef.current === null) return;
@@ -269,13 +278,24 @@ export function PlaybackPlayer({
     visiblePhase === "gesture" ||
     visiblePhase === "loading" ||
     visiblePhase === "ended";
-  const controlsDisabled = !bounds;
+  // Controls that cannot do anything must be disabled: without a recording
+  // bound, and while the stream is in the error state.
+  const controlsDisabled = !bounds || visiblePhase === "error";
+
+  function retry() {
+    if (!bounds) return;
+    const startMs = Math.min(new Date(bounds.end).getTime() - 1000, positionRef.current ?? new Date(bounds.start).getTime());
+    setOverride({
+      nonce: playNonce,
+      run: { start: formatKolkataIso(new Date(startMs)), end: bounds.end, nonce: Date.now() },
+    });
+  }
 
   return (
     <section className="min-w-0" aria-label="Playback">
       <div ref={frameRef} className="relative aspect-video overflow-hidden rounded-xl border border-line bg-black">
         <video
-          ref={videoRef}
+          ref={attachVideo}
           className={`h-full w-full object-contain ${showVideo ? "block" : "hidden"}`}
           playsInline
           muted={muted}
@@ -287,7 +307,21 @@ export function PlaybackPlayer({
             <p className="absolute inset-x-0 bottom-4 text-center text-sm text-white/80">{detail}</p>
           </div>
         ) : null}
-        {visiblePhase === "idle" || visiblePhase === "error" ? <MessagePanel message={visiblePhase === "idle" ? "Choose a recording" : detail} /> : null}
+        {visiblePhase === "idle" ? <MessagePanel message="Choose a recording" /> : null}
+        {visiblePhase === "error" ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
+            {/* State the cause rather than a bare "unavailable". */}
+            <p className="text-sm text-white/90">{detail ?? Messages.playbackUnavailable}</p>
+            <button
+              type="button"
+              onClick={retry}
+              disabled={!bounds}
+              className="h-10 rounded-lg border border-white/30 px-4 text-sm text-white hover:bg-white/10 disabled:opacity-40"
+            >
+              Retry
+            </button>
+          </div>
+        ) : null}
         {visiblePhase === "gesture" ? (
           <button
             type="button"

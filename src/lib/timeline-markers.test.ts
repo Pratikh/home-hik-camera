@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CctvEvent } from "@/lib/events";
 import { kolkataDayBounds } from "@/lib/time-kolkata";
-import { buildTimelineMarkers, MARKER_GROUP_MS, markerTitle } from "@/lib/timeline-markers";
+import { buildTimelineMarkers, MARKER_GROUP_MS, markerGroupMsForZoom, markerTitle } from "@/lib/timeline-markers";
 
 function event(id: string, time: string, patch: Partial<CctvEvent> = {}): CctvEvent {
   return {
@@ -98,5 +98,33 @@ describe("playback timeline markers", () => {
 
   it("uses a two-minute grouping window", () => {
     expect(MARKER_GROUP_MS).toBe(2 * 60 * 1000);
+  });
+});
+
+describe("zoom-aware marker grouping", () => {
+  it("groups more aggressively at the full-day zoom than when zoomed in", () => {
+    // 24h view packs a ~340px bar, so the window must be wider than the 1h view.
+    expect(markerGroupMsForZoom(24)).toBeGreaterThan(markerGroupMsForZoom(6));
+    expect(markerGroupMsForZoom(6)).toBeGreaterThan(markerGroupMsForZoom(1));
+  });
+
+  it("collapses a dense day into far fewer markers at 24h", () => {
+    // 20 events, one per minute: at 1h zoom they stay separate; at 24h they group.
+    const many = Array.from({ length: 20 }, (_, index) =>
+      event(`evt_${index}`, `10:${String(index).padStart(2, "0")}:00`),
+    );
+    const dayView = buildTimelineMarkers(many, dayStart, markerGroupMsForZoom(24));
+    const hourView = buildTimelineMarkers(many, dayStart, markerGroupMsForZoom(1));
+    expect(dayView.length).toBeLessThan(hourView.length);
+    expect(dayView.length).toBeLessThanOrEqual(3);
+  });
+
+  it("keeps every event represented after grouping", () => {
+    const many = Array.from({ length: 12 }, (_, index) =>
+      event(`evt_${index}`, `10:${String(index).padStart(2, "0")}:00`),
+    );
+    const grouped = buildTimelineMarkers(many, dayStart, markerGroupMsForZoom(24));
+    const total = grouped.reduce((sum, marker) => sum + marker.count, 0);
+    expect(total).toBe(12);
   });
 });
