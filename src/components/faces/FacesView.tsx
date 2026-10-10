@@ -7,8 +7,17 @@ import type { FaceListResponse } from "@/lib/faces";
 import { DEFAULT_FACE_PAGE_SIZE } from "@/lib/faces";
 import { ApiError, api } from "@/lib/client-api";
 import { Messages } from "@/lib/messages";
+import { formatKolkataDateTimeFromIso } from "@/lib/time-kolkata";
 import { PageIntro } from "@/components/ui/States";
 import { FaceCard } from "@/components/faces/FaceCard";
+
+/** "5 minutes" / "1 minute" / "30 seconds", for the test-mode status line. */
+function formatCooldown(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "no";
+  if (seconds < 60) return `${Math.round(seconds)} seconds`;
+  const minutes = seconds / 60;
+  return `${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} minutes`;
+}
 
 const CONFIDENCE_OPTIONS = ["all", "0.5", "0.6", "0.7", "0.8", "0.9"] as const;
 
@@ -181,6 +190,20 @@ export function FacesView() {
                 <span className="text-warn">{data.processing.failed} snapshot(s) could not be processed</span>
               ) : null}
             </div>
+          ) : null}
+
+          {/*
+            Temporary test mode status. Read-only: it only says whether a face
+            detection will raise a browser notification, and until when.
+          */}
+          {data?.testNotifications?.active ? (
+            <p className="mb-3 text-xs text-teal" role="status">
+              Face test notifications active until{" "}
+              {data.testNotifications.until
+                ? formatKolkataDateTimeFromIso(data.testNotifications.until)
+                : "(unset)"}{" "}
+              · cooldown {formatCooldown(data.testNotifications.cooldownSeconds)} / camera
+            </p>
           ) : null}
 
           {!loading && data && data.faces.length === 0 ? (

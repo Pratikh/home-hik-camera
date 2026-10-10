@@ -17,6 +17,10 @@ const CONFIG = {
   appConfigured: true,
   dataDir: "",
   faceDetectionEnabled: true,
+  // Temporary notification test mode: off unless a test turns it on.
+  faceDetectionTestNotifications: false,
+  faceDetectionTestUntil: "",
+  faceDetectionTestNotificationCooldownSeconds: 300,
 };
 
 const currentUser = vi.fn();
@@ -89,6 +93,9 @@ beforeEach(async () => {
   dataDir = mkdtempSync(path.join(os.tmpdir(), "face-api-"));
   CONFIG.dataDir = dataDir;
   CONFIG.faceDetectionEnabled = true;
+  CONFIG.faceDetectionTestNotifications = false;
+  CONFIG.faceDetectionTestUntil = "";
+  CONFIG.faceDetectionTestNotificationCooldownSeconds = 300;
   currentUser.mockReset();
   currentUser.mockReturnValue({ ok: true, username: "home", role: "ADMIN", userId: "u1", sessionId: "s1" });
 
@@ -172,7 +179,58 @@ describe("GET /api/faces", () => {
       page: 1,
       pageSize: 24,
       processing: { pending: 0, processing: 0, completed: 0, failed: 0 },
+      // The test-mode status is reported even when detection is off, so the
+      // page never has to guess about it.
+      testNotifications: {
+        enabled: false,
+        active: false,
+        until: null,
+        cooldownSeconds: 300,
+        reason: "DISABLED",
+      },
     });
+  });
+
+  it("reports the temporary notification test mode and fails closed on a bad expiry", async () => {
+    const { getConfig } = await import("@/lib/config");
+    const config = getConfig() as unknown as Record<string, unknown>;
+    const original = {
+      flag: config.faceDetectionTestNotifications,
+      until: config.faceDetectionTestUntil,
+      cooldown: config.faceDetectionTestNotificationCooldownSeconds,
+    };
+    try {
+      config.faceDetectionTestNotifications = true;
+      config.faceDetectionTestUntil = "2099-01-01T00:00:00+05:30";
+      config.faceDetectionTestNotificationCooldownSeconds = 120;
+      const active = (await (await listFaces(new Request("http://localhost/api/faces"))).json()) as {
+        testNotifications: Record<string, unknown>;
+      };
+      expect(active.testNotifications).toEqual({
+        enabled: true,
+        active: true,
+        until: "2099-01-01T00:00:00+05:30",
+        cooldownSeconds: 120,
+        reason: "ACTIVE",
+      });
+
+      // Enabled but no expiry: still off, and the reason is explicit.
+      config.faceDetectionTestUntil = "";
+      const missing = (await (await listFaces(new Request("http://localhost/api/faces"))).json()) as {
+        testNotifications: Record<string, unknown>;
+      };
+      expect(missing.testNotifications).toMatchObject({ enabled: true, active: false, reason: "MISSING_UNTIL" });
+
+      config.faceDetectionTestUntil = "2020-01-01T00:00:00+05:30";
+      const expired = (await (await listFaces(new Request("http://localhost/api/faces"))).json()) as {
+        testNotifications: Record<string, unknown>;
+      };
+      expect(expired.testNotifications).toMatchObject({ enabled: true, active: false, reason: "TEST_WINDOW_EXPIRED" });
+    } finally {
+      config.faceDetectionTestNotifications = original.flag;
+      config.faceDetectionTestUntil = original.until;
+      config.faceDetectionTestNotificationCooldownSeconds = original.cooldown;
+    }
   });
 
   it("requires a session", async () => {

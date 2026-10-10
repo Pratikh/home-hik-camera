@@ -68,6 +68,9 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `FACE_DETECTION_ENABLED` | Local, offline face **detection** on event snapshots. Default `false`. Detection only — no recognition. |
 | `FACE_DETECTION_CONFIDENCE` | Detections below this score are discarded. Default `0.60`. |
 | `FACE_DETECTION_MAX_FACES` | Highest-confidence faces kept per snapshot. Default `10`. |
+| `FACE_DETECTION_TEST_NOTIFICATIONS` | Temporary face-notification test mode. Default `false`. Additive; never identifies anyone. |
+| `FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS` | Per-camera cooldown for the test notification. Default `300`. |
+| `FACE_DETECTION_TEST_UNTIL` | ISO-8601 expiry with a timezone offset, e.g. `2026-10-12T10:00:00+05:30`. Empty or invalid means test notifications stay off. |
 
 V5 introduces no new environment variables. Notification rules, quiet hours, cooldowns, and retention are configured in the UI and stored in `data/events.sqlite`.
 
@@ -527,5 +530,7 @@ python3 face-worker/scripts/download_model.py      # once, 232 KB, MIT, checksum
 FACE_DETECTION_ENABLED=true python3 face-worker/worker.py
 ```
 
-Set `FACE_DETECTION_ENABLED`, `FACE_DETECTION_CONFIDENCE` (default `0.60`) and `FACE_DETECTION_MAX_FACES` (default `10`) in `.env`. See [docs/Face-Detection.md](docs/Face-Detection.md) for the model's provenance, security and privacy model, measured performance, retention and the future recognition plan.
+Set `FACE_DETECTION_ENABLED`, `FACE_DETECTION_CONFIDENCE` (default `0.60`) and `FACE_DETECTION_MAX_FACES` (default `10`) in `.env`.
+
+For a bounded real-world trial you can also raise a browser notification when a face is detected: set `FACE_DETECTION_TEST_NOTIFICATIONS=true` and `FACE_DETECTION_TEST_UNTIL` to the end of your window (ISO-8601 with an offset, for example `2026-10-12T10:00:00+05:30`). It is a temporary, additive test mode — motion notifications are unchanged, notifications are anonymous ("Face detected"), the per-camera cooldown defaults to 5 minutes, and the mode stops by itself at the expiry while face detection keeps running. See [docs/Face-Detection.md](docs/Face-Detection.md) for the model's provenance, security and privacy model, measured performance, retention and the future recognition plan.
 

@@ -182,6 +182,14 @@ Read by the worker only (all optional, defaults shown):
 `DATA_DIR` is shared with the hub, so the worker always uses the same database
 and the same `face-crops` directory.
 
+Read by the **hub** for the temporary notification test mode (see section 16):
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `FACE_DETECTION_TEST_NOTIFICATIONS` | `false` | Enables the temporary face notification. Off unless exactly `true`. |
+| `FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS` | `300` | Per-camera cooldown between test notifications. `0` disables the cooldown. |
+| `FACE_DETECTION_TEST_UNTIL` | *(empty)* | ISO-8601 expiry **with a timezone offset**. Empty or invalid means test notifications stay off. |
+
 ## 7. Database changes
 
 All in the existing `data/events.sqlite`. No second database.
@@ -384,6 +392,15 @@ Every failure is recorded on the job row (`error`, `attempts`, `finished_at`) so
   queued in `PENDING`; the hub keeps working and `/faces` says so.
 - **The model file is not committed.** A fresh clone must fetch it once; the
   worker will refuse to start (clearly) until it exists.
+- **The face test notification is temporary and anonymous.** It reports "Face
+  detected" with a count and a confidence; it cannot name anyone, and it stops
+  by itself at `FACE_DETECTION_TEST_UNTIL`. Do not build on it as the final
+  notification design — see section 15 for the intended recognition phase.
+- **The test notification needs an open browser tab.** It is delivered over the
+  app's own server-sent event stream, exactly like an ordinary event
+  notification, so a notification is only shown while a tab with notification
+  permission is connected. The decision is still recorded in
+  `/notifications` either way.
 
 ## 15. Future recognition architecture (not implemented)
 
@@ -420,7 +437,218 @@ Deliberately deferred: person management UI, embeddings, matching, automatic
 assignment. The `/faces` page already renders the assignment slot
 (`faceAssignmentLabel()`), so step 1 is a UI change, not a redesign.
 
-## 16. Tests
+## 16. Temporary Face Detection Notification Test
+
+### Purpose
+
+A **temporary** mode, for a bounded window (typically 24–48 hours), that raises a
+browser notification when a face is detected. It exists so real-world behaviour
+can be observed: how many faces are detected, false positives, confidence
+levels, which cameras produce detections, how often, whether browser
+notifications arrive, and whether `/faces` fills up correctly.
+
+It is **not** the final notification architecture. It is additive: motion and
+person event notifications, their rules, their priorities and their cooldowns
+are untouched. It never identifies anyone — a notification says **"Face
+detected"**, never a name. No image is attached to the notification and nothing
+leaves the machine.
+
+### How it works
+
+```
+event snapshot ─► face worker ─► event_faces + face_processing (COMPLETED)
+                                        │
+                          hub poller (every 5 s, hub only)
+                                        │
+                     per-camera cooldown + expiry window
+                                        │
+                 existing notification_history  +  existing SSE stream
+                                        │
+                        existing browser Notification
+```
+
+- The **worker stays detection-only**; the hub makes the notification decision,
+  because the notification history and the browser delivery channel live there.
+- The decision is recorded in the existing `notification_history` table with the
+  rule id `face-detection-test` and the rule name `Face detected (test mode)`, so
+  it is visible in `/notifications` next to the ordinary decisions.
+- Delivery reuses the existing `/api/events/stream` server-sent events and the
+  existing `EventNotifier` client. There is no second notification system.
+- Only detections that complete **after** the mode becomes active are
+  considered. A cursor in `app_settings` is parked on the newest completed job
+  when the window activates, so enabling the test never replays old detections.
+
+### Environment variables
+
+```bash
+FACE_DETECTION_ENABLED=true
+FACE_DETECTION_TEST_NOTIFICATIONS=true
+FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS=300
+FACE_DETECTION_TEST_UNTIL=2026-10-12T10:00:00+05:30
+```
+
+Change `FACE_DETECTION_TEST_UNTIL` to your own test window; the value above is
+only an example. `.env.example` ships it empty and the flag `false`, so a fresh
+checkout never sends test notifications.
+
+`FACE_DETECTION_TEST_UNTIL` must be ISO-8601 **with an explicit timezone
+offset**, and is interpreted as an absolute instant — the same convention the
+rest of the hub uses for stored timestamps:
+
+- `2026-10-12T10:00:00+05:30` — India time (what the UI displays)
+- `2026-10-12T04:30:00Z` — the same instant in UTC
+- `2026-10-12T10:00+05:30` — seconds are optional
+
+Rejected, and therefore **off**: `2026-10-12` (no time), `2026-10-12T10:00:00`
+(no zone), `tomorrow`, anything unparseable.
+
+### Automatic expiry, and failing closed
+
+Test notifications are active only when **all** of these hold:
+
+1. `FACE_DETECTION_TEST_NOTIFICATIONS=true`, and
+2. `FACE_DETECTION_TEST_UNTIL` is present and valid, and
+3. the current time is **before** that instant.
+
+Anything else means test notifications are **off**, and the hub logs why:
+
+```
+[face-test-notify] result=DISABLED reason=NOT_ENABLED
+[face-test-notify] result=DISABLED reason=MISSING_UNTIL
+[face-test-notify] result=DISABLED reason=INVALID_UNTIL
+[face-test-notify] result=DISABLED reason=TEST_WINDOW_EXPIRED
+```
+
+With `FACE_DETECTION_TEST_NOTIFICATIONS=true` and an empty
+`FACE_DETECTION_TEST_UNTIL`, the hub logs a clear configuration warning and
+sends nothing. That is deliberate: a forgotten expiry cannot silently keep
+notifying.
+
+**Expiry only stops the notifications.** Face detection itself keeps running:
+`FACE_DETECTION_ENABLED=true` continues to analyse snapshots, write `event_faces`
+rows and crops, and fill `/faces`. The worker does not read the test variables at
+all.
+
+### Cooldown
+
+Default **300 seconds (5 minutes), per camera**. The cooldown is measured
+between *detections*, and the anchor is the most recent **sent** decision for
+that camera in the notification history — so it survives a worker restart, a hub
+restart, a browser refresh and a database reopen. Suppressed detections do not
+extend it.
+
+```
+10:01  Parking                  → SENT
+10:02  Parking                  → SUPPRESSED (cooldown)
+10:03  Parking                  → SUPPRESSED (cooldown)
+10:04  Parking                  → SUPPRESSED (cooldown)
+10:06  Parking                  → SENT          (5 minutes since the last send)
+10:02  Right Side Outside       → SENT          (its own cooldown)
+```
+
+Set `FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS=0` to notify on every
+detection.
+
+### Duplicate safety
+
+A single event produces **at most one** test notification, even across worker
+retries, a hub restart, a browser refresh or a repeated pass:
+
+- `notification_history` already has `UNIQUE(event_id, rule_id)`, so a second
+  decision for the same event is impossible at the database level.
+- The candidate query additionally excludes any event that already has a
+  decision for this rule.
+- The `(finished_at, event_id)` cursor means a restart resumes exactly where it
+  stopped instead of re-scanning, and a busy second cannot be skipped.
+
+### What the notification says
+
+Title: `👤 Face detected`
+
+Body, from real detected data:
+
+| Detections | Body |
+| --- | --- |
+| 1 face | `Parking · 1 face · 82% confidence` |
+| 3 faces | `Parking · 3 faces · max confidence 91%` |
+
+Confidence is always a whole percentage. Clicking the notification opens the
+**event detail page** (`/events/<id>`) — the snapshot, the crop, the confidence,
+the camera and the timestamp in one place. No filesystem path is ever involved,
+and the notification tag is `face:<eventId>` so it never replaces the event's
+own notification.
+
+### Status in the UI
+
+While the window is active, `/faces` shows a small read-only line:
+
+```
+Face test notifications active until 12 Oct 2026, 10:00:00 · cooldown 5 minutes / camera
+```
+
+It is absent when the mode is off or expired, so the page never claims a test is
+running when it is not. The same values are in `GET /api/faces`
+(`testNotifications`), which is authenticated.
+
+### Logs
+
+One line per decision, plus one line for the window state:
+
+```
+[face-test-notify] event=evt_248c04703553a9b578ca3e5f camera=1 camera_name="Parking" faces=1 max_confidence=0.82 result=SENT
+[face-test-notify] event=evt_4a7eeb9488c454d1e17fd2ad camera=1 camera_name="Parking" faces=1 max_confidence=0.79 result=SUPPRESSED reason=COOLDOWN
+[face-test-notify] result=DISABLED reason=TEST_WINDOW_EXPIRED
+```
+
+No image bytes, paths, credentials or session tokens are logged.
+
+### Running the real-world test
+
+1. Fetch the model once if you have not: `python3 face-worker/scripts/download_model.py`.
+2. Set the four variables in `.env` (see above), with `FACE_DETECTION_TEST_UNTIL`
+   set to your desired end time.
+3. Restart the hub (`npm run dev`, or `podman compose up -d web`) and start the
+   worker (`FACE_DETECTION_ENABLED=true python3 face-worker/worker.py`, or
+   `podman compose --profile faces up -d face-worker`).
+4. Confirm the hub log says `[face-test-notify] result=ACTIVE reason=ACTIVE …`
+   and that `/faces` shows the status line.
+5. Allow browser notifications when the app asks (header → *Enable notifications*),
+   and keep a tab open — the notification is delivered over the app's own stream.
+6. Walk in front of a camera and wait for the motion event. Then verify, in
+   order: the event exists, the snapshot exists, a face is detected,
+   `event_faces` has a row, a card appears in `/faces`, and the browser
+   notification appears.
+7. Trigger another detection on the **same** camera within 5 minutes → the log
+   shows `result=SUPPRESSED reason=COOLDOWN` and no second notification.
+8. Trigger a detection on a **different** camera → it notifies (its own cooldown).
+9. Wait out the cooldown and trigger again → it notifies again.
+10. At expiry, the log shows `result=DISABLED reason=TEST_WINDOW_EXPIRED`;
+    `/faces` no longer shows the status line; detections keep appearing in
+    `/faces` but no further notifications are sent.
+
+Quick command-line checks while it runs:
+
+```bash
+# Queue and results
+sqlite3 data/events.sqlite "SELECT status, COUNT(*) FROM face_processing GROUP BY status;"
+sqlite3 data/events.sqlite "SELECT status, reason, camera_id, created_at FROM notification_history WHERE rule_id='face-detection-test' ORDER BY created_at DESC LIMIT 10;"
+# Cooldown anchor per camera (detection time of the last SENT decision)
+sqlite3 data/events.sqlite "SELECT h.camera_id, MAX(fp.finished_at) FROM notification_history h JOIN face_processing fp ON fp.event_id=h.event_id WHERE h.rule_id='face-detection-test' AND h.status='sent' GROUP BY h.camera_id;"
+```
+
+### Disabling it
+
+Set `FACE_DETECTION_TEST_NOTIFICATIONS=false` and restart the hub, or simply let
+the window expire. Either way:
+
+- Face detection, crops and `/faces` continue unchanged.
+- No new test notification is sent, and none is recorded.
+- The history of what was sent during the test remains in `/notifications`.
+
+To stop detection as well, set `FACE_DETECTION_ENABLED=false` and stop the
+worker.
+
+## 17. Tests
 
 | Test ID | Where |
 | --- | --- |
@@ -432,6 +660,9 @@ assignment. The `/faces` page already renders the assignment slot
 | FACE-015, FACE-016 (image endpoint auth) | `src/app/api/faces/faces-api.test.ts` |
 | FACE-017, FACE-018 | `face-worker/tests/test_pipeline.py`, `src/server/events/retention-face.test.ts`, `src/app/api/faces/faces-api.test.ts` |
 | FACE-UI-001 … FACE-UI-008 | `tests/e2e/faces.spec.ts` |
+| FACE-NOTIFY-001 … FACE-NOTIFY-016 | `src/server/events/face-notify.test.ts`, `src/lib/config.test.ts`, `src/app/api/faces/faces-api.test.ts` |
+| Delivery link (hub → SSE → browser) | `src/app/api/events/stream/stream-route.test.ts` |
+| FACE-NOTIFY-UI-001 … FACE-NOTIFY-UI-003 | `tests/e2e/face-notify.spec.ts` |
 
 The worker tests inject a stub detector, so the pipeline, threshold, cap,
 duplicate protection, path safety and isolation are verified deterministically

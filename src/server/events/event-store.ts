@@ -54,6 +54,16 @@ export type NotificationQuery = {
   pageSize: number;
 };
 
+/** One completed face job waiting for a notification decision. */
+export type FaceTestCandidate = {
+  eventId: string;
+  cameraId: number;
+  eventTimestamp: string;
+  finishedAt: string;
+  faces: number;
+  maxConfidence: number;
+};
+
 type RuleRow = {
   id: string;
   name: string | null;
@@ -241,6 +251,7 @@ CREATE TABLE IF NOT EXISTS face_processing (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS face_processing_status ON face_processing(status);
+CREATE INDEX IF NOT EXISTS face_processing_finished_at ON face_processing(finished_at);
 `;
 
 function mapEvent(row: Record<string, unknown>): CctvEvent {
@@ -938,6 +949,89 @@ export class EventStore {
       )
       .all(cutoffIso) as Array<{ crop_path: string }>;
     return rows.map((row) => row.crop_path);
+  }
+
+  // -------------------------------------------------------------------------
+  // Temporary face-notification test mode (read-only here; the notifier writes
+  // through the existing `recordNotification`).
+  // -------------------------------------------------------------------------
+
+  /**
+   * Completed face jobs that have faces and no decision yet for `ruleId`.
+   *
+   * The cursor is a (finished_at, event_id) pair, so a restart resumes exactly
+   * where it stopped and a busy second cannot be skipped. `NOT EXISTS` on the
+   * notification history is the second half of the duplicate guard.
+   */
+  faceTestCandidates(input: {
+    ruleId: string;
+    cursorAt: string | null;
+    cursorId: string | null;
+    limit: number;
+  }): FaceTestCandidate[] {
+    const where: string[] = ["fp.status = 'COMPLETED'"];
+    const params: Array<string | number> = [];
+    if (input.cursorAt) {
+      // Strict cursor: already-decided rows are also excluded below.
+      where.push("(fp.finished_at > ? OR (fp.finished_at = ? AND fp.event_id > ?))");
+      params.push(input.cursorAt, input.cursorAt, input.cursorId ?? "");
+    }
+    where.push(
+      "NOT EXISTS (SELECT 1 FROM notification_history h WHERE h.event_id = fp.event_id AND h.rule_id = ?)",
+    );
+    params.push(input.ruleId);
+    const rows = this.db
+      .prepare(
+        `SELECT fp.event_id AS event_id, e.camera_id AS camera_id, e.timestamp AS event_timestamp,
+                fp.finished_at AS finished_at, COUNT(f.id) AS faces, MAX(f.confidence) AS max_confidence
+         FROM face_processing fp
+         JOIN events e ON e.id = fp.event_id
+         JOIN event_faces f ON f.event_id = fp.event_id
+         WHERE ${where.join(" AND ")}
+         GROUP BY fp.event_id
+         ORDER BY fp.finished_at ASC, fp.event_id ASC
+         LIMIT ?`,
+      )
+      .all(...params, input.limit) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      eventId: String(row.event_id),
+      cameraId: Number(row.camera_id),
+      eventTimestamp: String(row.event_timestamp),
+      finishedAt: String(row.finished_at),
+      faces: Number(row.faces),
+      maxConfidence: Number(row.max_confidence),
+    }));
+  }
+
+  /** The newest completed face job, used to park the cursor on activation. */
+  latestFaceTestCursor(): { finishedAt: string; eventId: string } | null {
+    const row = this.db
+      .prepare("SELECT finished_at, event_id FROM face_processing ORDER BY finished_at DESC, event_id DESC LIMIT 1")
+      .get() as { finished_at: string; event_id: string } | undefined;
+    return row ? { finishedAt: row.finished_at, eventId: row.event_id } : null;
+  }
+
+  /**
+   * Detection time of the most recent *sent* test notification for a camera —
+   * the cooldown anchor.
+   *
+   * Anchoring on the detection's own `finished_at` rather than on when the row
+   * was written keeps the cooldown correct across a restart, a backlog, or a
+   * hub that was briefly down: five minutes between detections means five
+   * minutes, whichever process noticed them.
+   */
+  lastSentFaceTestAt(ruleId: string, cameraId: number): string | null {
+    const row = this.db
+      .prepare(
+        `SELECT fp.finished_at AS finished_at
+         FROM notification_history h
+         JOIN face_processing fp ON fp.event_id = h.event_id
+         WHERE h.rule_id = ? AND h.camera_id = ? AND h.status = 'sent'
+         ORDER BY fp.finished_at DESC
+         LIMIT 1`,
+      )
+      .get(ruleId, cameraId) as { finished_at: string } | undefined;
+    return row?.finished_at ?? null;
   }
 }
 

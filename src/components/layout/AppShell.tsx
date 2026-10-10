@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { DvrStatusResponse } from "@/lib/api-types";
 import { navigate } from "@/lib/client-api";
 import { eventTitle, type CctvEvent } from "@/lib/events";
+import { faceNotificationOptions, type LiveFaceNotification } from "@/lib/faces";
 import { Messages } from "@/lib/messages";
 import { formatKolkataClock } from "@/lib/time-kolkata";
 import { usePoll } from "@/components/hooks/usePoll";
@@ -55,15 +56,37 @@ function EventNotifier() {
   useEffect(() => {
     const source = new EventSource("/api/events/stream");
     source.onmessage = (message) => {
-      let payload: { notify?: boolean; event?: CctvEvent & { cameraName?: string } };
+      let payload: {
+        notify?: boolean;
+        event?: CctvEvent & { cameraName?: string };
+        face?: LiveFaceNotification;
+      };
       try {
-        payload = JSON.parse(message.data) as { notify?: boolean; event?: CctvEvent & { cameraName?: string } };
+        payload = JSON.parse(message.data) as typeof payload;
       } catch {
         return;
       }
       if (!payload.event) return;
       window.dispatchEvent(new CustomEvent("cctv-event", { detail: payload }));
-      if (!payload.notify || typeof Notification === "undefined" || Notification.permission !== "granted") return;
+      if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
+      /*
+       * Temporary face-detection test notification. It is a separate branch so
+       * the existing motion/person notification below is untouched, and it says
+       * "Face detected" — never a name, because nothing is recognised.
+       */
+      if (payload.face) {
+        const options = faceNotificationOptions(payload.face);
+        const faceNote = new Notification(options.title, { body: options.body, tag: options.tag });
+        faceNote.onclick = () => {
+          window.focus();
+          navigate(options.href);
+          faceNote.close();
+        };
+        return;
+      }
+
+      if (!payload.notify) return;
       const when = formatKolkataClock(new Date(payload.event.timestamp)).slice(0, 5);
       const eventId = payload.event.id;
       const note = new Notification("Home CCTV", {

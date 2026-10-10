@@ -19,6 +19,15 @@ const EVENT_ID = "evt_aaaaaaaaaaaaaaaaaaaaaaaa";
 const FACE_A = "face_111111111111111111111111";
 const FACE_B = "face_222222222222222222222222";
 
+/** Default test-mode status for fixtures: the temporary mode is off. */
+const TEST_NOTIFICATIONS_OFF = {
+  enabled: false,
+  active: false,
+  until: null,
+  cooldownSeconds: 300,
+  reason: "DISABLED",
+};
+
 /** A 1x1 JPEG, so the card renders a real image response. */
 const TINY_JPEG = Buffer.from(
   "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==",
@@ -55,7 +64,7 @@ async function serveList(page: Page, body: unknown, onRequest?: (url: URL) => vo
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify(body),
+        body: JSON.stringify({ testNotifications: TEST_NOTIFICATIONS_OFF, ...(body as object) }),
       });
     },
   );
@@ -341,6 +350,32 @@ test.describe("FACE-UI - detected faces", () => {
     }
 
     // The gallery explains the disabled state and shows no counters at all.
+    // The disabled response is served explicitly, so this holds whether or not
+    // the host running the suite has face detection switched on.
+    await page.route(
+      (url) => url.pathname === "/api/faces",
+      async (route: Route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            enabled: false,
+            faces: [],
+            total: 0,
+            page: 1,
+            pageSize: 24,
+            processing: { pending: 0, processing: 0, completed: 0, failed: 0 },
+            testNotifications: {
+              enabled: false,
+              active: false,
+              until: null,
+              cooldownSeconds: 300,
+              reason: "DISABLED",
+            },
+          }),
+        });
+      },
+    );
     await page.goto(ROUTES.faces);
     await expect(page.getByText("Face detection is disabled.")).toBeVisible();
     await expect(page.getByText(/0 detected faces/)).toHaveCount(0);

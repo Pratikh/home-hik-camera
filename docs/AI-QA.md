@@ -248,6 +248,13 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
 - Detection runs in a separate local Python worker (`face-worker/`) that reads
   the queue from the same SQLite database. It never touches the live stream, the
   recordings, the rule engine, notification history or the audit log.
+- A **temporary** face-notification test mode (bounded by
+  `FACE_DETECTION_TEST_UNTIL`) can raise a browser notification when a face is
+  detected. It is additive — motion/person notifications and their rules are
+  untouched — and it says "Face detected", never a name. When the window is
+  active, `/faces` shows a small read-only status line; when it is off or
+  expired, that line is absent. See
+  [Face-Detection.md](Face-Detection.md#16-temporary-face-detection-notification-test).
 - Processing is idempotent: `face_processing` holds one row per event and
   `event_faces` has `UNIQUE(event_id, detection_index)`; a restart or a retry
   converges on the same rows. See `docs/Face-Detection.md`.
@@ -336,6 +343,13 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
   shared layout changes (for example adding the `Faces` nav item). The symptom
   is a React hydration mismatch on that route only, while other routes render the
   new markup. Restart the dev server before treating it as an application bug.
+- **The face notification test mode is off by default and time-boxed.** Without
+  `FACE_DETECTION_TEST_NOTIFICATIONS=true` plus a valid `FACE_DETECTION_TEST_UNTIL`,
+  no test notification is produced and no decision is recorded. Native browser
+  notifications are not driven by the Playwright suite (permission and the OS
+  notification centre are not reliably observable headlessly); the suite covers
+  the read-only status, the gallery and the event detail panel, and the
+  decision/content/delivery path is covered by the hub unit tests.
 - **The face worker needs a one-time model download.** `face-worker/tests/`
   skips the real-model test when the model is absent; run
   `python3 face-worker/scripts/download_model.py`.
@@ -358,6 +372,9 @@ Do not report these as defects:
 - **Face detection is off unless `FACE_DETECTION_ENABLED=true`.** With it off,
   `/faces` explains the disabled state and the event detail page has no face
   section at all — that absence is correct, not a missing feature.
+- **Face test notifications expire on purpose.** After
+  `FACE_DETECTION_TEST_UNTIL` the notifications stop while face detection keeps
+  running. An absent status line on `/faces` is the intended state, not a bug.
 - Browsing the playback calendar to a month with **no recordings** snaps back to
   the nearest month that has one (`findNearestAvailableDate`). The calendar is
   not a free month browser by design.
@@ -399,6 +416,8 @@ desired behaviour.
 | SYSTEM-001 … SYSTEM-007 | `tests/e2e/system.spec.ts` |
 | SEC-001 … SEC-008 | `tests/e2e/security.spec.ts` |
 | FACE-UI-001 … FACE-UI-008 | `tests/e2e/faces.spec.ts` |
+| FACE-NOTIFY-001 … FACE-NOTIFY-016 | `src/server/events/face-notify.test.ts` |
+| FACE-NOTIFY-UI-001 … FACE-NOTIFY-UI-003 | `tests/e2e/face-notify.spec.ts` |
 
 Face detection is split across three suites; the full mapping is in
 [Face-Detection.md](Face-Detection.md#16-tests):

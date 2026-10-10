@@ -1,5 +1,7 @@
 import "server-only";
 
+import { DEFAULT_FACE_TEST_COOLDOWN_SECONDS } from "@/lib/faces";
+
 export type Env = Record<string, string | undefined>;
 
 export type AppConfig = {
@@ -34,6 +36,12 @@ export type AppConfig = {
   faceDetectionConfidence: number;
   /** Upper bound on faces stored per snapshot; the strongest are kept. */
   faceDetectionMaxFaces: number;
+  /** Temporary face-notification test mode. Off unless explicitly enabled. */
+  faceDetectionTestNotifications: boolean;
+  /** Per-camera cooldown for the test notifications, in seconds. */
+  faceDetectionTestNotificationCooldownSeconds: number;
+  /** ISO-8601 expiry with an explicit offset; empty when unset. */
+  faceDetectionTestUntil: string;
 };
 
 function cleanUrl(value: string | undefined, fallback: string): string {
@@ -104,6 +112,15 @@ export function readConfig(env: Env): AppConfig {
     faceDetectionEnabled: (env.FACE_DETECTION_ENABLED ?? "").trim().toLowerCase() === "true",
     faceDetectionConfidence: readFloat(env.FACE_DETECTION_CONFIDENCE, DEFAULT_FACE_CONFIDENCE, 0, 1),
     faceDetectionMaxFaces: readBoundedInt(env.FACE_DETECTION_MAX_FACES, DEFAULT_FACE_MAX_FACES, 1, 100),
+    faceDetectionTestNotifications:
+      (env.FACE_DETECTION_TEST_NOTIFICATIONS ?? "").trim().toLowerCase() === "true",
+    faceDetectionTestNotificationCooldownSeconds: readBoundedInt(
+      env.FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS,
+      DEFAULT_FACE_TEST_COOLDOWN_SECONDS,
+      0,
+      86_400,
+    ),
+    faceDetectionTestUntil: (env.FACE_DETECTION_TEST_UNTIL ?? "").trim(),
   };
 }
 

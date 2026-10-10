@@ -1,9 +1,16 @@
 import "server-only";
 import type { CctvEvent } from "@/lib/events";
+import type { LiveFaceNotification } from "@/lib/faces";
 
 export type LiveEvent = {
   notify: boolean;
   event: CctvEvent & { cameraName: string };
+  /**
+   * Present only for the temporary face-detection test notification. The
+   * browser then shows a face notification instead of the event notification,
+   * from the same stream.
+   */
+  face?: LiveFaceNotification;
 };
 
 type Listener = (payload: LiveEvent) => void;

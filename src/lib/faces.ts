@@ -72,6 +72,8 @@ export type FaceListResponse = {
   pageSize: number;
   /** How many event snapshots are queued or done, so the page can say so. */
   processing: FaceProcessingSummary;
+  /** State of the temporary face-notification test mode. Read-only. */
+  testNotifications: FaceTestNotificationStatus;
 };
 
 export type EventFacesResponse = {
@@ -181,5 +183,157 @@ export function parseFaceListQuery(input: {
   return {
     ok: true,
     query: { cameraId, start, end, assigned, minConfidence, eventId, page, pageSize },
+  };
+}
+
+/* ---------------------------------------------------------------------------
+ * Temporary face-detection notification test mode.
+ *
+ * This is a TEST MODE, not the final notification architecture. It exists so a
+ * face detection can raise a browser notification for a bounded window (for
+ * example 48 hours) and then stop on its own. It never identifies anyone: every
+ * notification says "Face detected", never a name.
+ *
+ * The decision is made by the hub, not by the detector, so it can reuse the
+ * existing notification history, cooldown pattern and browser delivery channel.
+ * ------------------------------------------------------------------------- */
+
+/** Identifies the test notifications in the existing notification history. */
+export const FACE_TEST_RULE_ID = "face-detection-test";
+export const FACE_TEST_RULE_NAME = "Face detected (test mode)";
+export const DEFAULT_FACE_TEST_COOLDOWN_SECONDS = 300;
+
+/** Why the test window is or is not active. */
+export type FaceTestWindowReason =
+  | "ACTIVE"
+  | "DISABLED"
+  | "MISSING_UNTIL"
+  | "INVALID_UNTIL"
+  | "TEST_WINDOW_EXPIRED";
+
+export type FaceTestWindowState = {
+  /** The flag alone (FACE_DETECTION_TEST_NOTIFICATIONS). */
+  enabled: boolean;
+  /** True only when enabled *and* the expiry is valid and in the future. */
+  active: boolean;
+  reason: FaceTestWindowReason;
+  /** The configured value, echoed back for display. */
+  until: string | null;
+  untilMs: number | null;
+};
+
+export type FaceTestNotificationStatus = {
+  enabled: boolean;
+  active: boolean;
+  until: string | null;
+  cooldownSeconds: number;
+  reason: FaceTestWindowReason;
+};
+
+/**
+ * ISO-8601 date-time that must carry an explicit offset.
+ *
+ * `2026-10-12T10:00:00+05:30`, `2026-10-12T04:30:00Z` and
+ * `2026-10-12T10:00+05:30` are accepted. A bare `2026-10-12` or a value with no
+ * zone is rejected, because its meaning would depend on the reader's locale.
+ */
+const FACE_TEST_UNTIL_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+/** Parse the configured expiry, or null when it is missing or unusable. */
+export function parseFaceTestUntil(value: string | null | undefined): Date | null {
+  const trimmed = (value ?? "").trim();
+  if (!trimmed) return null;
+  if (!FACE_TEST_UNTIL_PATTERN.test(trimmed)) return null;
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+/**
+ * Resolve the test window. Fails closed: anything other than a valid future
+ * expiry leaves test notifications off. Face detection itself is unaffected.
+ */
+export function faceTestWindowState(input: {
+  enabled: boolean;
+  until: string | null | undefined;
+  now?: Date;
+}): FaceTestWindowState {
+  const now = input.now ?? new Date();
+  const until = (input.until ?? "").trim() || null;
+
+  if (!input.enabled) {
+    return { enabled: false, active: false, reason: "DISABLED", until, untilMs: null };
+  }
+  if (!until) {
+    return { enabled: true, active: false, reason: "MISSING_UNTIL", until: null, untilMs: null };
+  }
+  const parsed = parseFaceTestUntil(until);
+  if (!parsed) {
+    return { enabled: true, active: false, reason: "INVALID_UNTIL", until, untilMs: null };
+  }
+  const untilMs = parsed.getTime();
+  if (now.getTime() >= untilMs) {
+    return { enabled: true, active: false, reason: "TEST_WINDOW_EXPIRED", until, untilMs };
+  }
+  return { enabled: true, active: true, reason: "ACTIVE", until, untilMs };
+}
+
+/** What the browser notification needs. Never contains a filesystem path. */
+export type LiveFaceNotification = {
+  eventId: string;
+  cameraId: number;
+  cameraName: string;
+  faces: number;
+  maxConfidence: number;
+};
+
+/**
+ * Notification title and body, built from real detected data.
+ *
+ * One face shows its own confidence; several show the count and the highest
+ * confidence. Confidence is always a whole percentage — never a raw decimal.
+ */
+export function faceNotificationContent(input: {
+  cameraName: string;
+  faces: number;
+  maxConfidence: number;
+}): { title: string; body: string } {
+  const camera = (input.cameraName ?? "").trim() || "Camera";
+  const faces = Math.max(1, Math.round(input.faces));
+  const confidence = formatFaceConfidence(input.maxConfidence);
+  const title = "👤 Face detected";
+  const body =
+    faces === 1
+      ? `${camera} · 1 face · ${confidence} confidence`
+      : `${camera} · ${faces} faces · max confidence ${confidence}`;
+  return { title, body };
+}
+
+/** The exact options the browser `Notification` is constructed with. */
+export type FaceNotificationOptions = {
+  title: string;
+  body: string;
+  /** Kept separate from the event notification's tag, so both can be shown. */
+  tag: string;
+  /** Where a click should go: the event detail page, never /faces or a path. */
+  href: string;
+  eventId: string;
+};
+
+/**
+ * Build the browser notification for one face detection.
+ *
+ * The click target is the existing event detail route, so the user lands on the
+ * snapshot, the crop, the confidence and the camera at once. No filesystem path
+ * is involved anywhere.
+ */
+export function faceNotificationOptions(face: LiveFaceNotification): FaceNotificationOptions {
+  const { title, body } = faceNotificationContent(face);
+  return {
+    title,
+    body,
+    tag: `face:${face.eventId}`,
+    href: `/events/${face.eventId}`,
+    eventId: face.eventId,
   };
 }

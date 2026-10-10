@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { getConfig } from "@/lib/config";
-import { parseFaceListQuery, type FaceListResponse, type FaceProcessingSummary } from "@/lib/faces";
+import {
+  faceTestWindowState,
+  parseFaceListQuery,
+  type FaceListResponse,
+  type FaceProcessingSummary,
+  type FaceTestNotificationStatus,
+} from "@/lib/faces";
 import { openEventStore } from "@/server/events/event-store";
 import { requireUser } from "@/server/http/require-user";
 
@@ -35,6 +41,20 @@ export async function GET(request: Request) {
   });
   if (!parsed.ok) return NextResponse.json({ error: parsed.message }, { status: 400 });
 
+  // Read-only status of the temporary notification test mode. It is reported
+  // whether or not detection is enabled, so the page never guesses.
+  const testWindow = faceTestWindowState({
+    enabled: config.faceDetectionTestNotifications,
+    until: config.faceDetectionTestUntil,
+  });
+  const testNotifications: FaceTestNotificationStatus = {
+    enabled: config.faceDetectionTestNotifications,
+    active: testWindow.active,
+    until: testWindow.until,
+    cooldownSeconds: config.faceDetectionTestNotificationCooldownSeconds,
+    reason: testWindow.reason,
+  };
+
   if (!config.faceDetectionEnabled) {
     const body: FaceListResponse = {
       enabled: false,
@@ -43,6 +63,7 @@ export async function GET(request: Request) {
       page: parsed.query.page,
       pageSize: parsed.query.pageSize,
       processing: EMPTY_PROCESSING,
+      testNotifications,
     };
     return NextResponse.json(body);
   }
@@ -56,6 +77,7 @@ export async function GET(request: Request) {
     page: parsed.query.page,
     pageSize: parsed.query.pageSize,
     processing: store.faceProcessingSummary(),
+    testNotifications,
   };
   return NextResponse.json(body);
 }
