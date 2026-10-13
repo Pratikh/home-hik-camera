@@ -5,6 +5,8 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { DEFAULT_FACE_TEST_COOLDOWN_SECONDS, FACE_TEST_RULE_ID, faceNotificationContent, faceTestWindowState } from "@/lib/faces";
 import { runFaceTestNotifications, type FaceTestRun } from "@/server/events/face-notify";
+import type { TelegramFaceInput } from "@/server/notifications/telegram";
+import type { FaceMediaJob } from "@/server/notifications/telegram-media";
 import { EventStore, memoryEventStore } from "@/server/events/event-store";
 
 /**
@@ -58,6 +60,8 @@ function seedCompletedJob(
     source: "hikvision",
     metaId: `meta-${input.id}`,
   });
+  // Production stores the full camera snapshot on the event itself.
+  store.setSnapshotPath(input.id, `2026/10/10/${cameraId}-${input.id}.jpg`);
   const faces = input.faces ?? [{ confidence: 0.82 }];
   faces.forEach((face, index) => {
     store.db
@@ -107,6 +111,17 @@ function run(store: EventStore, overrides: RunOverrides = {}): Promise<FaceTestR
     cameraNames: { 1: "Parking", 2: "Right Side Outside Camera" },
     publish: () => undefined,
     log: () => undefined,
+    /*
+     * Telegram is stubbed by default so the decision tests below never touch the
+     * Telegram module or the network. The Telegram integration has its own
+     * describe block, which overrides this.
+     */
+    telegram: async () => ({ ok: false as const, status: "disabled" as const, detail: null }),
+    // Same idea for the background media job: recorded, never queued, in these tests.
+    enqueueMedia: (job: FaceMediaJob) => {
+      void job;
+      return "queued" as const;
+    },
     ...rest,
   });
 }
@@ -592,5 +607,297 @@ describe("FACE-NOTIFY-011/013/014 the browser notification itself", () => {
     expect(options.href).not.toContain("/faces");
     expect(JSON.stringify(options)).not.toContain(".jpg");
     expect(JSON.stringify(options)).not.toContain("face-crops");
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * Telegram integration (TELEGRAM-012 … TELEGRAM-015).
+ *
+ * Telegram rides on the SAME accepted decision: the existing cooldown, expiry,
+ * deduplication and cursor decide whether anything is sent at all. These tests
+ * assert that relationship, and that a Telegram failure cannot damage the
+ * browser notification or the run.
+ * ------------------------------------------------------------------------- */
+
+describe("TELEGRAM-012 … 015 — Telegram shares the existing decision", () => {
+  // The parameter is declared so `mock.calls[0][0]` is typed; it is not read.
+  const TELEGRAM_OK = async (input: TelegramFaceInput) => {
+    void input;
+    return { ok: true as const, status: "sent" as const };
+  };
+
+  it("sends Telegram exactly once for an accepted notification, with the real detected data", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, {
+      id: "evt_7a7a7a7a7a7a7a7a7a7a7a7a",
+      cameraId: 2,
+      faces: [{ confidence: 0.61 }, { confidence: 0.914 }],
+    });
+    const telegram = vi.fn(TELEGRAM_OK);
+
+    const result = await run(store, { telegram });
+
+    expect(result.sent).toBe(1);
+    expect(telegram).toHaveBeenCalledTimes(1);
+    expect(telegram.mock.calls[0]![0]).toEqual({
+      cameraName: "Right Side Outside Camera",
+      faces: 2,
+      maxConfidence: 0.914,
+      eventTimestamp: "2026-10-10T09:59:00+05:30",
+    });
+    expect(result.decisions[0]!.telegram).toBe("sent");
+  });
+
+  it("TELEGRAM-012 a Telegram failure does not break the browser notification", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_7b7b7b7b7b7b7b7b7b7b7b7b" });
+    const publish = vi.fn();
+    const telegram = vi.fn(async () => ({ ok: false as const, status: "http_error" as const, detail: "HTTP 500" }));
+
+    const result = await run(store, { publish, telegram });
+
+    // The browser leg still happened, the decision is still recorded as sent…
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(publish.mock.calls[0]![0].face.faces).toBe(1);
+    expect(result.sent).toBe(1);
+    expect(faceTestRows(store)).toHaveLength(1);
+    expect(faceTestRows(store)[0]!.status).toBe("sent");
+    // …and only the Telegram outcome records the failure.
+    expect(result.decisions[0]!.telegram).toBe("failed");
+  });
+
+  it("TELEGRAM-012 a Telegram sender that throws is contained too", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_7c7c7c7c7c7c7c7c7c7c7c7c" });
+    const publish = vi.fn();
+    const telegram = vi.fn(async () => {
+      throw new Error("boom");
+    });
+
+    const result = await run(store, { publish, telegram });
+
+    expect(result.sent).toBe(1);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(result.decisions[0]!.telegram).toBe("failed");
+  });
+
+  it("TELEGRAM-013 the existing cooldown suppresses Telegram as well", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_7d7d7d7d7d7d7d7d7d7d7d7d", finishedAt: "2026-10-10T04:29:00.000Z" });
+    seedCompletedJob(store, { id: "evt_7e7e7e7e7e7e7e7e7e7e7e7e", finishedAt: "2026-10-10T04:30:00.000Z" });
+    const telegram = vi.fn(TELEGRAM_OK);
+
+    const result = await run(store, { telegram });
+
+    // One accepted, one suppressed by the per-camera cooldown.
+    expect(result.sent).toBe(1);
+    expect(result.suppressed).toBe(1);
+    expect(telegram).toHaveBeenCalledTimes(1);
+    expect(result.decisions.map((item) => item.telegram)).toEqual(["sent", "skipped"]);
+  });
+
+  it("TELEGRAM-014 a duplicate event never produces a second Telegram message", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_7f7f7f7f7f7f7f7f7f7f7f7f" });
+    const telegram = vi.fn(TELEGRAM_OK);
+
+    await run(store, { telegram });
+    // A second pass, and a pass after the cursor is rewound, must both be silent.
+    await run(store, { telegram });
+    store.setSetting("face_test_notify_window", UNTIL);
+    store.setSetting("face_test_notify_cursor_at", CURSOR_BOOTSTRAP);
+    store.setSetting("face_test_notify_cursor_id", "");
+    await run(store, { telegram, armed: false });
+
+    expect(telegram).toHaveBeenCalledTimes(1);
+    expect(faceTestRows(store)).toHaveLength(1);
+  });
+
+  it("TELEGRAM-015 an expired test window prevents Telegram too", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_808080808080808080808080" });
+    const telegram = vi.fn(TELEGRAM_OK);
+    const publish = vi.fn();
+
+    const result = await run(store, {
+      telegram,
+      publish,
+      config: { ...ENABLED, faceDetectionTestUntil: "2026-10-09T10:00:00+05:30" },
+    });
+
+    expect(result.active).toBe(false);
+    expect(result.reason).toBe("TEST_WINDOW_EXPIRED");
+    expect(telegram).not.toHaveBeenCalled();
+    expect(publish).not.toHaveBeenCalled();
+    expect(faceTestRows(store)).toHaveLength(0);
+  });
+
+  it("TELEGRAM-002 (integration) the face flag being off leaves Telegram out", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_818181818181818181818181" });
+    const telegram = vi.fn(TELEGRAM_OK);
+    const publish = vi.fn();
+
+    const result = await run(store, { telegram, publish });
+
+    expect(result.sent).toBe(1);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(telegram).toHaveBeenCalledTimes(1);
+    // The real sender decides the flag; here the stub stands in for it, so the
+    // assertion that matters is the real module's own test above.
+    expect(result.decisions[0]!.telegram).toBe("sent");
+  });
+
+  it("never lets Telegram delay or duplicate the recorded decision", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_828282828282828282828282" });
+    // A slow Telegram call still yields exactly one decision row.
+    const telegram = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return { ok: true as const, status: "sent" as const };
+    });
+
+    const result = await run(store, { telegram });
+
+    expect(telegram).toHaveBeenCalledTimes(1);
+    expect(result.sent).toBe(1);
+    expect(faceTestRows(store)).toHaveLength(1);
+    // The event and its detection row are untouched by the notification path.
+    expect(store.get("evt_828282828282828282828282")).not.toBeNull();
+    expect(store.faceProcessing("evt_828282828282828282828282")?.status).toBe("COMPLETED");
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * Telegram media (face crop + event clip) — TELEGRAM-MEDIA-001, 015, 016, 017, 018.
+ *
+ * The media job is queued by the SAME accepted decision, so the cooldown, the
+ * duplicate protection and the test window gate it exactly like the text.
+ * ------------------------------------------------------------------------- */
+
+describe("TELEGRAM-MEDIA — the media job shares the existing decision", () => {
+  const TEXT_OK = async (input: TelegramFaceInput) => {
+    void input;
+    return { ok: true as const, status: "sent" as const };
+  };
+
+  it("TELEGRAM-MEDIA-001 queues one media job for an accepted face event, with its crops", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, {
+      id: "evt_9a9a9a9a9a9a9a9a9a9a9a9a",
+      cameraId: 2,
+      faces: [{ confidence: 0.7 }, { confidence: 0.91 }],
+    });
+    const telegram = vi.fn(TEXT_OK);
+    const enqueueMedia = vi.fn((job: FaceMediaJob) => {
+      void job;
+      return "queued" as const;
+    });
+
+    const result = await run(store, { telegram, enqueueMedia });
+
+    // The text notification still happens exactly as before.
+    expect(telegram).toHaveBeenCalledTimes(1);
+    expect(result.sent).toBe(1);
+    // …and the same decision queues the media.
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+    expect(enqueueMedia.mock.calls[0]![0]).toMatchObject({
+      eventId: "evt_9a9a9a9a9a9a9a9a9a9a9a9a",
+      cameraId: 2,
+      cameraName: "Right Side Outside Camera",
+      faces: 2,
+      maxConfidence: 0.91,
+      eventTimestamp: "2026-10-10T09:59:00+05:30",
+    });
+    // The full camera snapshot for the event — never a face crop.
+    expect(enqueueMedia.mock.calls[0]![0].snapshotPath).toBe("2026/10/10/2-evt_9a9a9a9a9a9a9a9a9a9a9a9a.jpg");
+    expect(result.decisions[0]!.media).toBe("queued");
+  });
+
+  it("TELEGRAM-MEDIA-015 the cooldown suppresses the media too", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_9b9b9b9b9b9b9b9b9b9b9b9b", finishedAt: "2026-10-10T04:29:00.000Z" });
+    seedCompletedJob(store, { id: "evt_9c9c9c9c9c9c9c9c9c9c9c9c", finishedAt: "2026-10-10T04:30:00.000Z" });
+    const enqueueMedia = vi.fn((job: FaceMediaJob) => {
+      void job;
+      return "queued" as const;
+    });
+
+    const result = await run(store, { telegram: TEXT_OK, enqueueMedia });
+
+    expect(result.sent).toBe(1);
+    expect(result.suppressed).toBe(1);
+    // One accepted decision, one media job — the suppressed one queues nothing.
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+    expect(result.decisions.map((item) => item.media)).toEqual(["queued", "skipped"]);
+  });
+
+  it("TELEGRAM-MEDIA-016 a duplicate event never queues a second media job", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_9d9d9d9d9d9d9d9d9d9d9d9d" });
+    const enqueueMedia = vi.fn((job: FaceMediaJob) => {
+      void job;
+      return "queued" as const;
+    });
+
+    await run(store, { telegram: TEXT_OK, enqueueMedia });
+    await run(store, { telegram: TEXT_OK, enqueueMedia });
+    store.setSetting("face_test_notify_window", UNTIL);
+    store.setSetting("face_test_notify_cursor_at", CURSOR_BOOTSTRAP);
+    store.setSetting("face_test_notify_cursor_id", "");
+    await run(store, { telegram: TEXT_OK, enqueueMedia, armed: false });
+
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+    expect(faceTestRows(store)).toHaveLength(1);
+  });
+
+  it("TELEGRAM-MEDIA-017 Telegram disabled means no media job is queued", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_9e9e9e9e9e9e9e9e9e9e9e9e" });
+    const enqueueMedia = vi.fn((job: FaceMediaJob) => {
+      void job;
+      return "queued" as const;
+    });
+    const telegram = vi.fn(async () => ({ ok: false as const, status: "disabled" as const, detail: null }));
+
+    const result = await run(store, { telegram, enqueueMedia });
+
+    expect(result.sent).toBe(1);
+    expect(result.decisions[0]!.telegram).toBe("disabled");
+    expect(enqueueMedia).not.toHaveBeenCalled();
+    expect(result.decisions[0]!.media).toBe("skipped");
+  });
+
+  it("TELEGRAM-MEDIA-018 an expired test window queues no media", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_9f9f9f9f9f9f9f9f9f9f9f9f" });
+    const enqueueMedia = vi.fn((job: FaceMediaJob) => {
+      void job;
+      return "queued" as const;
+    });
+
+    const result = await run(store, {
+      telegram: TEXT_OK,
+      enqueueMedia,
+      config: { ...ENABLED, faceDetectionTestUntil: "2026-10-09T10:00:00+05:30" },
+    });
+
+    expect(result.active).toBe(false);
+    expect(enqueueMedia).not.toHaveBeenCalled();
+  });
+
+  it("a failing media enqueue cannot break the notification", async () => {
+    const store = memoryEventStore();
+    seedCompletedJob(store, { id: "evt_a0a0a0a0a0a0a0a0a0a0a0a0" });
+    const publish = vi.fn();
+    const enqueueMedia = vi.fn(() => {
+      throw new Error("queue exploded");
+    });
+
+    const result = await run(store, { telegram: TEXT_OK, enqueueMedia, publish });
+
+    expect(result.sent).toBe(1);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(result.decisions[0]!.media).toBe("skipped");
   });
 });

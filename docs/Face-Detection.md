@@ -648,6 +648,146 @@ the window expire. Either way:
 To stop detection as well, set `FACE_DETECTION_ENABLED=false` and stop the
 worker.
 
+### Telegram notifications (optional)
+
+The same accepted face notification can also be delivered to Telegram. It is not
+a second notification system: Telegram rides on the **existing** decision, so the
+per-camera cooldown, the duplicate protection and `FACE_DETECTION_TEST_UNTIL` all
+apply exactly as they do for the browser notification.
+
+```
+existing face-test decision
+        │  (accepted, not suppressed)
+        ├── browser notification   (server-sent events → Notification API)
+        └── Telegram message       (Bot API sendMessage, server-side only)
+```
+
+```bash
+TELEGRAM_NOTIFICATIONS_ENABLED=true
+TELEGRAM_BOT_TOKEN=123456:replace-me
+TELEGRAM_CHAT_ID=-1001234567890
+TELEGRAM_FACE_NOTIFICATIONS=true
+TELEGRAM_COOLDOWN_SECONDS=300
+```
+
+| Variable | Meaning |
+| --- | --- |
+| `TELEGRAM_NOTIFICATIONS_ENABLED` | Master switch. Anything other than exactly `true` disables Telegram entirely. |
+| `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather. Server-side only. |
+| `TELEGRAM_CHAT_ID` | Destination chat. Server-side only. |
+| `TELEGRAM_FACE_NOTIFICATIONS` | Whether face detections may produce a Telegram message. The admin test button ignores this flag. |
+| `TELEGRAM_COOLDOWN_SECONDS` | Accepted for compatibility and informational only. Telegram does **not** keep its own cooldown: the effective cooldown is `FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS`. |
+
+Message format (HTML, escaped):
+
+```
+👤 <b>Face detected</b>
+
+📹 Camera: Parking
+👥 Faces: 1
+🎯 Confidence: 82%
+🕐 10 Oct 2026, 12:30 PM
+```
+
+Several faces use `👤 <b>Faces detected</b>`, `👥 Faces: 3` and
+`🎯 Max confidence: 91%`. No image, crop, path, person name or embedding is ever
+sent — this is still detection only.
+
+**Failure isolation.** A Telegram outage is logged (`[telegram] notification
+failed`) and nothing else changes: the decision stays recorded, the browser
+notification has already gone out, the worker keeps detecting and the event
+pipeline keeps running. There is no retry, so a message is sent at most once per
+accepted notification.
+
+#### Full camera snapshot and event clip
+
+A real detection can also carry the face crop and a short clip:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `TELEGRAM_FACE_IMAGE` | `true` | Attach the crop the Python worker already produced. |
+| `TELEGRAM_FACE_VIDEO` | `true` | Attach a short clip from the DVR recording. |
+| `TELEGRAM_VIDEO_PRE_SECONDS` | `5` | Seconds of footage before the event timestamp. |
+| `TELEGRAM_VIDEO_POST_SECONDS` | `5` | Seconds after. Default total: a 10 second clip. |
+| `TELEGRAM_VIDEO_MAX_MB` | `45` | App cap for the clip, kept under Telegram's 50 MB bot limit. |
+| `TELEGRAM_VIDEO_TIMEOUT_SECONDS` | `30` | How long FFmpeg may run for one clip. |
+| `FFMPEG_PATH` | `ffmpeg` | FFmpeg executable, used only for the clip. |
+
+`TELEGRAM_FACE_IMAGE` now attaches the full camera snapshot. The name is kept for
+compatibility, but the face crop is never uploaded.
+
+- **Image.** The **full camera event snapshot** for the event is uploaded once
+  with `sendPhoto`, with the camera and the event time as its caption. It is the
+  same file `/api/events/<id>/snapshot` serves and it is read through the same
+  path guard, so the bytes go to Telegram and a filesystem path never does.
+  The **face crop is no longer sent to Telegram**: it is too small to identify
+  anything, and it stays internal to `/faces` and the event detail view.
+  An event whose snapshot is missing sends the text (and the clip) without the
+  image.
+- **Clip.** The DVR's own recording track is used, through the same playback
+  search and RTSP URL builders as browser playback: the recording that covers
+  the event is located, the 10 second window is cut with FFmpeg, and H.265 is
+  converted to **H.264 MP4** (`yuv420p`, `+faststart`, capped at 1280px wide,
+  never upscaled). Audio is offered as AAC when the playback stream carries it;
+  if that upsets the source the conversion is retried video-only, so a silent or
+  awkward source still produces a clip. It is uploaded with `sendVideo`, then the
+  temporary file is deleted — after a successful upload and after a failed one.
+  A successful upload means HTTP 2xx **and** `{"ok":true}` from Telegram: a 200
+  with `ok:false` is treated as a failure.
+- **The live stream is not involved.** The clip never touches MediaMTX, WebRTC
+  or the browser playback path.
+- **Nothing waits for it.** The decision queues a background job and returns;
+  one worker drains that queue, one clip at a time. Event ingestion, face
+  detection, the browser notification and the text message are never delayed by
+  a DVR search or an FFmpeg run.
+- **One clip per event.** Three faces in one event produce three crops and a
+  single clip.
+- **Temporary files** live in `data/telegram-clips/`, which is private (not in
+  `public/`, not served by any route) and swept for stale files every ten
+  minutes and after every upload.
+
+FFmpeg is **required for the clip only**. It is not bundled with this project:
+install it on the host (`brew install ffmpeg` on macOS, `apt install ffmpeg` on
+Debian/Ubuntu) or use the container image, which includes it. When FFmpeg is
+missing, the text and the face image are still delivered and the clip is
+skipped with a log line.
+
+**Troubleshooting**
+
+| Symptom | Cause |
+| --- | --- |
+| Text and snapshot arrive, no clip | FFmpeg missing, no recording covers the event, or the clip exceeded the size limit. The log says which, and prints a full `[telegram-video]` diagnostic block. |
+| `FFmpeg: not found` in the log | The hub runtime has no FFmpeg. Install it (`brew install ffmpeg`, `apt install ffmpeg`) or run the container image, which includes it. |
+| `video=skipped reason=no_recording` | The DVR has no recording overlapping the window (or the search failed). Text and image are unaffected. |
+| `/settings/notifications` shows `FFmpeg: not found` | The binary is not on `PATH`; set `FFMPEG_PATH` or install it. |
+| Clip is shorter than 10 seconds | The recording started late or ended early; the available range is used. |
+| Nothing at all for a detection | The existing cooldown suppressed it, or the test window expired. Check `result=SUPPRESSED` / `reason=TEST_WINDOW_EXPIRED` in the log. |
+
+The status line on `/settings/notifications` shows whether Telegram is enabled,
+whether the image and the clip are on, the clip length, and whether FFmpeg was
+found — never a token, chat id or DVR detail.
+
+**Test it without waiting for a detection.** Signed in as ADMIN, use the
+*Send Telegram Test* button on `/settings/notifications`, or call the endpoint:
+
+```bash
+curl -sS -X POST http://localhost:3000/api/notifications/telegram/test \
+  -H "Cookie: cctv_session=<your session cookie>"
+```
+
+The test endpoint is deliberately **text-only**: it never attaches a fake crop or
+a fake clip. Real media only ever comes from a real detection.
+
+The endpoint is ADMIN-only (a VIEWER gets `403`, an anonymous caller `401`), takes
+no request body, and reads the credentials from the server environment only. It
+returns a status and a safe sentence — never the token, the chat id or the Bot
+API URL. Responses are `200` sent, `409` disabled, `503` not configured, `502`
+Telegram refused or was unreachable.
+
+**Security.** The token lives only in the server process: it is not in the client
+bundle, not in any API response, not in an SSE payload and not in a log line.
+`.env` stays gitignored. See the security review in the project report.
+
 ## 17. Tests
 
 | Test ID | Where |
@@ -663,6 +803,10 @@ worker.
 | FACE-NOTIFY-001 … FACE-NOTIFY-016 | `src/server/events/face-notify.test.ts`, `src/lib/config.test.ts`, `src/app/api/faces/faces-api.test.ts` |
 | Delivery link (hub → SSE → browser) | `src/app/api/events/stream/stream-route.test.ts` |
 | FACE-NOTIFY-UI-001 … FACE-NOTIFY-UI-003 | `tests/e2e/face-notify.spec.ts` |
+| TELEGRAM-MEDIA-005 … 010, 012, 013, 022, 023 | `src/server/notifications/event-clip.test.ts` |
+| TELEGRAM-MEDIA-002 … 004, 011, 014, 017, 019, 020, 021 | `src/server/notifications/telegram-media.test.ts` |
+| TELEGRAM-MEDIA-001, 015, 016, 017, 018 | `src/server/events/face-notify.test.ts` |
+| TELEGRAM-MEDIA-023 (not served over HTTP) | `tests/e2e/telegram.spec.ts` |
 
 The worker tests inject a stub detector, so the pipeline, threshold, cap,
 duplicate protection, path safety and isolation are verified deterministically

@@ -19,6 +19,7 @@ import { EVENT_PRIORITIES, type EventPriority } from "@/lib/priority";
 import { Messages } from "@/lib/messages";
 import { PageIntro } from "@/components/ui/States";
 import { PriorityBadge } from "@/components/events/PriorityBadge";
+import { TelegramTestButton } from "@/components/events/TelegramTestButton";
 
 const RETENTION = ["7", "14", "30", "60", "90", "0"];
 
@@ -182,6 +183,8 @@ export function NotificationRules() {
         >
           New rule
         </button>
+        {/* Server-side Telegram check. ADMIN-only page; no credentials in the browser. */}
+        <TelegramTestButton />
       </div>
 
       {error ? <p className="mb-3 text-sm text-warn" role="alert">{error}</p> : null}

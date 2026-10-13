@@ -23,6 +23,11 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|robots.txt|login|api/health|api/auth/login|api/auth/logout).*)",
+    /*
+     * `manifest\.webmanifest` is public on purpose: it is a PWA manifest with no
+     * secrets (name, colours, icon). Redirecting it to /login made the browser
+     * parse the login HTML as JSON and report a manifest syntax error.
+     */
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest\\.webmanifest|robots.txt|login|api/health|api/auth/login|api/auth/logout).*)",
   ],
 };

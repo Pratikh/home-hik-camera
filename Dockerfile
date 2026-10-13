@@ -16,7 +16,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
-RUN apk add --no-cache wget \
+# ffmpeg converts the DVR's H.265 playback into the H.264 MP4 that Telegram
+# needs for the optional event clip. It is not part of the live video path.
+RUN apk add --no-cache wget ffmpeg \
   && mkdir -p /app/data
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

@@ -42,6 +42,36 @@ export type AppConfig = {
   faceDetectionTestNotificationCooldownSeconds: number;
   /** ISO-8601 expiry with an explicit offset; empty when unset. */
   faceDetectionTestUntil: string;
+  /**
+   * Telegram notifications. Server-side only: the token and chat id are never
+   * sent to the browser, never returned by an API and never logged.
+   */
+  telegramNotificationsEnabled: boolean;
+  telegramBotToken: string;
+  telegramChatId: string;
+  /** Whether face detections may produce a Telegram message. */
+  telegramFaceNotifications: boolean;
+  /**
+   * Accepted for compatibility with the documented environment. Telegram does
+   * NOT apply its own cooldown: the face notification cooldown is the existing
+   * `faceDetectionTestNotificationCooldownSeconds`, and a suppressed face
+   * decision suppresses Telegram too.
+   */
+  telegramCooldownSeconds: number;
+  /** Attach the existing face crop to the Telegram notification. */
+  telegramFaceImage: boolean;
+  /** Attach a short CCTV clip around the event. */
+  telegramFaceVideo: boolean;
+  /** Seconds of footage before the event timestamp. */
+  telegramVideoPreSeconds: number;
+  /** Seconds of footage after the event timestamp. */
+  telegramVideoPostSeconds: number;
+  /** FFmpeg executable used for the clip conversion. Never bundled. */
+  ffmpegPath: string;
+  /** App-level cap for the clip upload, kept below Telegram's own bot limit. */
+  telegramVideoMaxMb: number;
+  /** How long FFmpeg may run for one clip before it is killed. */
+  telegramVideoTimeoutSeconds: number;
 };
 
 function cleanUrl(value: string | undefined, fallback: string): string {
@@ -121,11 +151,55 @@ export function readConfig(env: Env): AppConfig {
       86_400,
     ),
     faceDetectionTestUntil: (env.FACE_DETECTION_TEST_UNTIL ?? "").trim(),
+    telegramNotificationsEnabled: (env.TELEGRAM_NOTIFICATIONS_ENABLED ?? "").trim().toLowerCase() === "true",
+    telegramBotToken: (env.TELEGRAM_BOT_TOKEN ?? "").trim(),
+    telegramChatId: (env.TELEGRAM_CHAT_ID ?? "").trim(),
+    telegramFaceNotifications: (env.TELEGRAM_FACE_NOTIFICATIONS ?? "").trim().toLowerCase() === "true",
+    telegramCooldownSeconds: readBoundedInt(
+      env.TELEGRAM_COOLDOWN_SECONDS,
+      DEFAULT_TELEGRAM_COOLDOWN_SECONDS,
+      0,
+      86_400,
+    ),
+    // These default to ON: the face image and clip are the point of the media
+    // notification, and Telegram itself is still off unless explicitly enabled.
+    telegramFaceImage: readBool(env.TELEGRAM_FACE_IMAGE, true),
+    telegramFaceVideo: readBool(env.TELEGRAM_FACE_VIDEO, true),
+    telegramVideoPreSeconds: readBoundedInt(env.TELEGRAM_VIDEO_PRE_SECONDS, DEFAULT_VIDEO_PRE_SECONDS, 0, 60),
+    telegramVideoPostSeconds: readBoundedInt(env.TELEGRAM_VIDEO_POST_SECONDS, DEFAULT_VIDEO_POST_SECONDS, 0, 60),
+    ffmpegPath: (env.FFMPEG_PATH ?? "").trim() || "ffmpeg",
+    telegramVideoMaxMb: readBoundedInt(env.TELEGRAM_VIDEO_MAX_MB, DEFAULT_VIDEO_MAX_MB, 1, 49),
+    telegramVideoTimeoutSeconds: readBoundedInt(
+      env.TELEGRAM_VIDEO_TIMEOUT_SECONDS,
+      DEFAULT_VIDEO_TIMEOUT_SECONDS,
+      5,
+      300,
+    ),
   };
 }
 
 export const DEFAULT_FACE_CONFIDENCE = 0.6;
 export const DEFAULT_FACE_MAX_FACES = 10;
+export const DEFAULT_TELEGRAM_COOLDOWN_SECONDS = 300;
+export const DEFAULT_VIDEO_PRE_SECONDS = 5;
+export const DEFAULT_VIDEO_POST_SECONDS = 5;
+/** Telegram's own bot upload limit for sendVideo is 50 MB; stay under it. */
+export const DEFAULT_VIDEO_MAX_MB = 45;
+export const DEFAULT_VIDEO_TIMEOUT_SECONDS = 30;
+
+/**
+ * A flag that can default to either value.
+ *
+ * The Telegram master switches stay fail-closed (absent means off), but the
+ * media attachments default to on, so "unset" must be distinguishable from
+ * "explicitly false".
+ */
+function readBool(value: string | undefined, fallback: boolean): boolean {
+  const parsed = (value ?? "").trim().toLowerCase();
+  if (parsed === "true") return true;
+  if (parsed === "false") return false;
+  return fallback;
+}
 
 /**
  * A confidence threshold outside 0..1 is meaningless; fall back rather than

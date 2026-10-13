@@ -7,4 +7,8 @@ export async function register() {
   // processor's own notifications.
   const { ensureFaceTestNotifier } = await import("@/server/events/face-notify");
   ensureFaceTestNotifier();
+  // Background Telegram media (face crop + event clip). Queueing is instant; the
+  // DVR search and FFmpeg run here, never on the event path.
+  const { ensureTelegramMediaWorker } = await import("@/server/notifications/telegram-media");
+  ensureTelegramMediaWorker();
 }

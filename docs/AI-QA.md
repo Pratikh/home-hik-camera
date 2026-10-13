@@ -250,7 +250,11 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
   recordings, the rule engine, notification history or the audit log.
 - A **temporary** face-notification test mode (bounded by
   `FACE_DETECTION_TEST_UNTIL`) can raise a browser notification when a face is
-  detected. It is additive — motion/person notifications and their rules are
+  detected. The same accepted notification can also be delivered to Telegram
+  (`TELEGRAM_*`, server-side only, ADMIN test button on
+  `/settings/notifications`); it shares the one decision, so the cooldown,
+  duplicate protection and expiry are unchanged and Telegram keeps no history of
+  its own. It is additive — motion/person notifications and their rules are
   untouched — and it says "Face detected", never a name. When the window is
   active, `/faces` shows a small read-only status line; when it is off or
   expired, that line is absent. See
@@ -418,6 +422,8 @@ desired behaviour.
 | FACE-UI-001 … FACE-UI-008 | `tests/e2e/faces.spec.ts` |
 | FACE-NOTIFY-001 … FACE-NOTIFY-016 | `src/server/events/face-notify.test.ts` |
 | FACE-NOTIFY-UI-001 … FACE-NOTIFY-UI-003 | `tests/e2e/face-notify.spec.ts` |
+| TELEGRAM-001 … TELEGRAM-018 | `src/server/notifications/telegram.test.ts`, `src/server/events/face-notify.test.ts`, `src/app/api/notifications/telegram/telegram-route.test.ts` |
+| TELEGRAM-UI-001 … TELEGRAM-UI-004 | `tests/e2e/telegram.spec.ts` |
 
 Face detection is split across three suites; the full mapping is in
 [Face-Detection.md](Face-Detection.md#16-tests):

@@ -36,4 +36,17 @@ describe("playback mode", () => {
     });
     expect(advertised.mode).toBe("webrtc");
   });
+
+  it("uses same-origin HLS for a Cloudflare Quick Tunnel host, never WebRTC", () => {
+    /*
+     * A remote browser cannot reach MediaMTX's ICE candidates, and the tunnel
+     * only carries HTTP(S) to the Hub, so the Hub must serve HLS itself. The
+     * URL the browser receives stays same-origin; no LAN address is involved.
+     */
+    const tunnel = selectPlaybackMode({
+      ...ready,
+      requestHost: "tribe-whether-anna-walls.trycloudflare.com",
+    });
+    expect(tunnel).toEqual({ mode: "hls", message: Messages.liveHls });
+  });
 });

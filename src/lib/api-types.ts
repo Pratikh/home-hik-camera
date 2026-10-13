@@ -154,3 +154,20 @@ export type EventStatsResponse = EventStats & {
   end: string;
   days: number;
 };
+
+export type TelegramMediaStatusResponse = {
+  /** Master switch and whether the credentials are present. */
+  enabled: boolean;
+  configured: boolean;
+  /** Whether face detections may notify at all. */
+  faceNotifications: boolean;
+  /** Whether the face crop and the event clip are attached. */
+  faceImage: boolean;
+  faceVideo: boolean;
+  videoPreSeconds: number;
+  videoPostSeconds: number;
+  clipSeconds: number;
+  /** FFmpeg is required for the clip; the text and image work without it. */
+  ffmpeg: "available" | "unavailable";
+  queueDepth: number;
+};
