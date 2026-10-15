@@ -2,6 +2,7 @@ import { ADMIN_STATE } from "./support/qa-env";
 import { test, expect } from "./support/fixtures";
 import { ROUTES, todayInKolkata, type CameraInfo } from "./support/app";
 import type { Page } from "@playwright/test";
+import { fixtureFor, installDvrMock } from "./support/dvr-mock";
 
 /**
  * PLAY — playback.
@@ -37,6 +38,10 @@ function calendarLabel(date: string): string {
 }
 
 async function recordedDates(page: Page, camera: number, month: string): Promise<string[]> {
+  // When a fixture is installed the page is mocked, so read the same data the
+  // page received instead of asking the real DVR (APIRequestContext bypasses routes).
+  const fixture = fixtureFor(page);
+  if (fixture) return fixture.dates.filter((date) => date.startsWith(month));
   const response = await page.request.get(
     `/api/playback/recording-dates?camera=${camera}&month=${encodeURIComponent(month)}`,
   );
@@ -46,6 +51,8 @@ async function recordedDates(page: Page, camera: number, month: string): Promise
 }
 
 async function recordingsFor(page: Page, camera: number, date: string): Promise<RecordingsResponse["recordings"]> {
+  const fixture = fixtureFor(page);
+  if (fixture) return fixture.dates.includes(date) ? fixture.recordings : [];
   const response = await page.request.get(
     `/api/playback/search?camera=${camera}&date=${date}&startTime=00:00&endTime=23:59`,
   );
@@ -55,6 +62,8 @@ async function recordingsFor(page: Page, camera: number, date: string): Promise<
 }
 
 async function eventsFor(page: Page, camera: number, date: string): Promise<EventsResponse["events"]> {
+  const fixture = fixtureFor(page);
+  if (fixture) return date === fixture.date ? fixture.events : [];
   const response = await page.request.get(
     `/api/events?camera=${camera}&date=${date}&startTime=00:00&endTime=23:59&pageSize=100`,
   );
@@ -79,6 +88,7 @@ test.describe("PLAY - playback", () => {
   });
 
   test("PLAY-002 the default recording date is correct", async ({ page, diag }) => {
+    await installDvrMock(page);
     await page.goto(ROUTES.playback);
     await expect(page.getByRole("region", { name: "Playback" })).toBeVisible();
 
@@ -146,6 +156,7 @@ test.describe("PLAY - playback", () => {
   });
 
   test("PLAY-005 unavailable dates are disabled", async ({ page, diag }) => {
+    await installDvrMock(page);
     await page.goto(ROUTES.playback);
     await dateButton(page).click();
     await expect(calendarDialog(page)).toBeVisible();
@@ -228,6 +239,7 @@ test.describe("PLAY - playback", () => {
   });
 
   test("PLAY-007 selecting a recorded date updates the view", async ({ page, diag }) => {
+    await installDvrMock(page);
     await page.goto(ROUTES.playback);
     await expect(page.getByRole("region", { name: "Playback" })).toBeVisible();
     await expect.poll(async () => displayedDate(page), { timeout: 15_000 }).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -274,6 +286,7 @@ test.describe("PLAY - playback", () => {
   });
 
   test("PLAY-009 recording segments are visible when recordings exist", async ({ page, diag }) => {
+    await installDvrMock(page);
     // The timeline frame renders before the search response arrives, so wait for
     // the recordings request itself before counting segments.
     const searchLoaded = page
@@ -306,6 +319,7 @@ test.describe("PLAY - playback", () => {
   });
 
   test("PLAY-010 event markers appear when the day has events", async ({ page, diag }) => {
+    await installDvrMock(page);
     // The view loads recordings first and the day's events after, so wait for
     // that second request before counting markers.
     const eventsLoaded = page

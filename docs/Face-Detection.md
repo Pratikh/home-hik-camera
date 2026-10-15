@@ -705,7 +705,7 @@ A real detection can also carry the face crop and a short clip:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `TELEGRAM_FACE_IMAGE` | `true` | Attach the crop the Python worker already produced. |
+| `TELEGRAM_EVENT_IMAGE` | `true` | Attach the full camera event snapshot. (`TELEGRAM_FACE_IMAGE` is the older name and still works.) |
 | `TELEGRAM_FACE_VIDEO` | `true` | Attach a short clip from the DVR recording. |
 | `TELEGRAM_VIDEO_PRE_SECONDS` | `5` | Seconds of footage before the event timestamp. |
 | `TELEGRAM_VIDEO_POST_SECONDS` | `5` | Seconds after. Default total: a 10 second clip. |
@@ -713,8 +713,8 @@ A real detection can also carry the face crop and a short clip:
 | `TELEGRAM_VIDEO_TIMEOUT_SECONDS` | `30` | How long FFmpeg may run for one clip. |
 | `FFMPEG_PATH` | `ffmpeg` | FFmpeg executable, used only for the clip. |
 
-`TELEGRAM_FACE_IMAGE` now attaches the full camera snapshot. The name is kept for
-compatibility, but the face crop is never uploaded.
+`TELEGRAM_EVENT_IMAGE` attaches the full camera snapshot; the older
+`TELEGRAM_FACE_IMAGE` name is still accepted. The face crop is never uploaded.
 
 - **Image.** The **full camera event snapshot** for the event is uploaded once
   with `sendPhoto`, with the camera and the event time as its caption. It is the

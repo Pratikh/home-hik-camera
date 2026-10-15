@@ -163,7 +163,12 @@ export function readConfig(env: Env): AppConfig {
     ),
     // These default to ON: the face image and clip are the point of the media
     // notification, and Telegram itself is still off unless explicitly enabled.
-    telegramFaceImage: readBool(env.TELEGRAM_FACE_IMAGE, true),
+    /*
+     * TELEGRAM_EVENT_IMAGE is the accurate name (the attachment is the full
+     * camera snapshot, not a face crop). TELEGRAM_FACE_IMAGE still works so an
+     * existing .env keeps behaving; the new name wins when both are set.
+     */
+    telegramFaceImage: readBoolAlias(env.TELEGRAM_EVENT_IMAGE, env.TELEGRAM_FACE_IMAGE, true),
     telegramFaceVideo: readBool(env.TELEGRAM_FACE_VIDEO, true),
     telegramVideoPreSeconds: readBoundedInt(env.TELEGRAM_VIDEO_PRE_SECONDS, DEFAULT_VIDEO_PRE_SECONDS, 0, 60),
     telegramVideoPostSeconds: readBoundedInt(env.TELEGRAM_VIDEO_POST_SECONDS, DEFAULT_VIDEO_POST_SECONDS, 0, 60),
@@ -194,6 +199,18 @@ export const DEFAULT_VIDEO_TIMEOUT_SECONDS = 30;
  * media attachments default to on, so "unset" must be distinguishable from
  * "explicitly false".
  */
+/**
+ * Read a renamed boolean flag: the new name wins, the old one still works, and
+ * an empty value falls through to the next rather than counting as "set".
+ */
+function readBoolAlias(primary: string | undefined, legacy: string | undefined, fallback: boolean): boolean {
+  const first = (primary ?? "").trim();
+  if (first) return readBool(first, fallback);
+  const second = (legacy ?? "").trim();
+  if (second) return readBool(second, fallback);
+  return fallback;
+}
+
 function readBool(value: string | undefined, fallback: boolean): boolean {
   const parsed = (value ?? "").trim().toLowerCase();
   if (parsed === "true") return true;

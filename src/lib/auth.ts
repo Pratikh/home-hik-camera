@@ -6,6 +6,26 @@ import { accountStore } from "@/server/auth/accounts";
 
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
+/**
+ * Should the session cookie be marked Secure?
+ *
+ * `COOKIE_SECURE` stays as an explicit override, but a request that arrived over
+ * HTTPS (directly, or through a tunnel/proxy via `x-forwarded-proto`) always gets
+ * a Secure cookie. Plain-HTTP LAN use keeps working without the flag.
+ */
+export function requestUsesHttps(request: Request): boolean {
+  const forwarded = request.headers.get("x-forwarded-proto");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim().toLowerCase();
+    if (first) return first === "https";
+  }
+  try {
+    return new URL(request.url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function sessionCookieOptions(secure: boolean) {
   return {
     httpOnly: true as const,

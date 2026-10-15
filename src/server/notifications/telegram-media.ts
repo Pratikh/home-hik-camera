@@ -4,6 +4,7 @@ import type { AppConfig } from "@/lib/config";
 import { getConfig } from "@/lib/config";
 import type { TelegramMediaStatusResponse } from "@/lib/api-types";
 import { snapshotFile } from "@/lib/snapshot-path";
+import { openEventStore } from "@/server/events/event-store";
 import {
   buildTelegramPhotoCaption,
   buildTelegramVideoCaption,
@@ -30,9 +31,10 @@ import {
  * or an FFmpeg transcode can never delay event ingestion, face detection, the
  * browser notification or another job's text message.
  *
- * The queue is in memory by design: media is best-effort enrichment, and a hub
- * restart dropping a pending clip is preferable to a new database table. The
- * text notification is sent by the decision itself and is unaffected.
+ * The queue lives in SQLite (the additive `telegram_media_jobs` table), so a hub
+ * restart no longer drops a pending clip: a job that was in flight is requeued at
+ * startup, and the UNIQUE event_id keeps the queue idempotent per event. The text
+ * notification is sent by the decision itself and never goes through this queue.
  */
 
 export const TELEGRAM_MEDIA_INTERVAL_MS = 1500;
@@ -77,26 +79,44 @@ export type FaceMediaDeps = {
   log?: (line: string) => void;
 };
 
-const queue: FaceMediaJob[] = [];
+const QUEUE_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 let started = false;
 let running = false;
-let lastCleanup = 0;
+let lastMaintenance = 0;
 
-export function telegramMediaQueueDepth(): number {
-  return queue.length;
+/** Pending jobs, straight from the durable queue. */
+export function telegramMediaQueueDepth(dataDir: string = getConfig().dataDir): number {
+  try {
+    return openEventStore(dataDir).telegramMediaQueueDepth();
+  } catch {
+    return 0;
+  }
 }
 
-/** Queue the media for one accepted notification. Never throws. */
+/**
+ * Queue the media for one accepted notification. Never throws.
+ *
+ * Returns "queued" when the job is in the queue — including when an identical
+ * event was already queued, since the UNIQUE event_id makes that a no-op.
+ */
 export function enqueueFaceMedia(job: FaceMediaJob, config: AppConfig = getConfig()): "queued" | "disabled" | "full" {
   const state = telegramState(config);
   if (!state.enabled || !state.configured || !state.faceReady) return "disabled";
-  if (queue.length >= TELEGRAM_MEDIA_QUEUE_LIMIT) {
-    queue.shift();
-    console.warn("[telegram-media] queue full; dropped the oldest job");
-    return "full";
+  try {
+    const result = openEventStore(config.dataDir).enqueueTelegramMediaJob({
+      ...job,
+      now: new Date().toISOString(),
+      limit: TELEGRAM_MEDIA_QUEUE_LIMIT,
+    });
+    if (result === "full") {
+      console.warn("[telegram-media] queue full; dropped the oldest job");
+      return "full";
+    }
+    return "queued";
+  } catch (error) {
+    console.error("[telegram-media] enqueue", error instanceof Error ? error.name : "error");
+    return "disabled";
   }
-  queue.push(job);
-  return "queued";
 }
 
 function logLine(message: string): void {
@@ -252,10 +272,22 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
 /* Worker                                                                     */
 /* -------------------------------------------------------------------------- */
 
-/** Start the drain loop once. Cheap and idle when Telegram is off. */
+/**
+ * Start the drain loop once. Cheap and idle when Telegram is off.
+ *
+ * Any job left "running" by a previous process is requeued here: the queue is
+ * idempotent per event, so a retry cannot duplicate a clip.
+ */
 export function ensureTelegramMediaWorker(): void {
   if (started) return;
   started = true;
+  try {
+    const config = getConfig();
+    const requeued = openEventStore(config.dataDir).resetStaleTelegramMediaJobs(new Date().toISOString());
+    if (requeued > 0) logLine(`requeued ${requeued} media job(s) left by a restart`);
+  } catch (error) {
+    console.error("[telegram-media] recovery", error instanceof Error ? error.name : "error");
+  }
   setInterval(() => void mediaTick(), TELEGRAM_MEDIA_INTERVAL_MS);
 }
 
@@ -264,14 +296,33 @@ async function mediaTick(): Promise<void> {
   running = true;
   try {
     const config = getConfig();
-    if (Date.now() - lastCleanup > CLEANUP_EVERY_MS) {
-      lastCleanup = Date.now();
+    const store = openEventStore(config.dataDir);
+    if (Date.now() - lastMaintenance > CLEANUP_EVERY_MS) {
+      lastMaintenance = Date.now();
       const removed = await cleanupStaleClips(config.dataDir);
       if (removed > 0) logLine(`removed ${removed} stale clip(s)`);
+      const pruned = store.pruneTelegramMediaJobs(new Date(Date.now() - QUEUE_RETENTION_MS).toISOString());
+      if (pruned > 0) logLine(`pruned ${pruned} finished media job(s)`);
     }
-    const job = queue.shift();
-    if (!job) return;
-    await processFaceMediaJob(job, { config });
+
+    const claimed = store.claimNextTelegramMediaJob(new Date().toISOString());
+    if (!claimed) return;
+    const job: FaceMediaJob = {
+      eventId: claimed.eventId,
+      cameraId: claimed.cameraId,
+      cameraName: claimed.cameraName,
+      faces: claimed.faces,
+      maxConfidence: claimed.maxConfidence,
+      eventTimestamp: claimed.eventTimestamp,
+      snapshotPath: claimed.snapshotPath,
+    };
+    const outcome = await processFaceMediaJob(job, { config });
+    store.finishTelegramMediaJob(
+      claimed.id,
+      outcome.image === "failed" || outcome.video === "failed" ? "failed" : "done",
+      outcome.detail,
+      new Date().toISOString(),
+    );
   } catch (error) {
     console.error("[telegram-media] tick", error instanceof Error ? error.name : "error");
   } finally {
@@ -298,6 +349,6 @@ export async function telegramMediaStatus(config: AppConfig = getConfig()): Prom
     videoPostSeconds: config.telegramVideoPostSeconds,
     clipSeconds: config.telegramVideoPreSeconds + config.telegramVideoPostSeconds,
     ffmpeg: (await ffmpegAvailable(config.ffmpegPath)) ? "available" : "unavailable",
-    queueDepth: telegramMediaQueueDepth(),
+    queueDepth: telegramMediaQueueDepth(config.dataDir),
   };
 }

@@ -4,6 +4,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { readConfig } from "@/lib/config";
+import { openEventStore } from "@/server/events/event-store";
 import type { TelegramFile, TelegramResult } from "@/server/notifications/telegram";
 import type { ClipDiagnostics } from "@/server/notifications/event-clip";
 import {
@@ -447,9 +448,12 @@ describe("TELEGRAM-MEDIA-017 / 018 / 021 / 022 — lifecycle", () => {
     tempDirs.push(dataDir);
     expect(enqueueFaceMedia(JOB, config(dataDir, { TELEGRAM_NOTIFICATIONS_ENABLED: "false" }))).toBe("disabled");
     expect(enqueueFaceMedia(JOB, config(dataDir, { TELEGRAM_FACE_NOTIFICATIONS: "false" }))).toBe("disabled");
-    expect(telegramMediaQueueDepth()).toBe(0);
+    expect(telegramMediaQueueDepth(dataDir)).toBe(0);
     expect(enqueueFaceMedia(JOB, config(dataDir))).toBe("queued");
-    expect(telegramMediaQueueDepth()).toBe(1);
+    expect(telegramMediaQueueDepth(dataDir)).toBe(1);
+    // Idempotent per event: a duplicate decision cannot queue a second clip.
+    expect(enqueueFaceMedia(JOB, config(dataDir))).toBe("queued");
+    expect(telegramMediaQueueDepth(dataDir)).toBe(1);
   });
 });
 
@@ -493,5 +497,81 @@ describe("TELEGRAM-MEDIA-024 — no secrets in the logs", () => {
     expect(joined).toContain("errorStage: ffmpeg-check");
     expect(joined).not.toContain(FAKE_TOKEN);
     expect(joined).not.toContain("dvr-secret");
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * TELEGRAM-MEDIA-031 — the media queue is durable.
+ *
+ * The queue used to be an in-memory array, so a hub restart dropped a pending
+ * clip. It now lives in the additive `telegram_media_jobs` table: a claimed job
+ * is requeued at startup, and the UNIQUE event_id keeps it idempotent.
+ * ------------------------------------------------------------------------- */
+
+describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
+  it("keeps the job in SQLite and hands it back after a restart", () => {
+    const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-durable-"));
+    tempDirs.push(dataDir);
+
+    expect(enqueueFaceMedia(JOB, config(dataDir))).toBe("queued");
+    expect(telegramMediaQueueDepth(dataDir)).toBe(1);
+
+    const store = openEventStore(dataDir);
+    // The worker claims it; the row stays in the table while it runs.
+    const claimed = store.claimNextTelegramMediaJob(new Date().toISOString());
+    expect(claimed).toMatchObject({
+      eventId: EVENT_ID,
+      cameraId: 3,
+      cameraName: "First Floor Passage",
+      snapshotPath: SNAPSHOT,
+      faces: 3,
+    });
+    expect(telegramMediaQueueDepth(dataDir)).toBe(0);
+
+    // A crash/restart requeues whatever was in flight.
+    expect(store.resetStaleTelegramMediaJobs(new Date().toISOString())).toBe(1);
+    expect(telegramMediaQueueDepth(dataDir)).toBe(1);
+    expect(store.claimNextTelegramMediaJob(new Date().toISOString())?.eventId).toBe(EVENT_ID);
+  });
+
+  it("counts a finished job as done and prunes only finished jobs", () => {
+    const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-prune-"));
+    tempDirs.push(dataDir);
+    const store = openEventStore(dataDir);
+
+    enqueueFaceMedia(JOB, config(dataDir));
+    const claimed = store.claimNextTelegramMediaJob(new Date().toISOString())!;
+    store.finishTelegramMediaJob(claimed.id, "done", null, new Date(0).toISOString());
+
+    // A second, still-pending event.
+    enqueueFaceMedia({ ...JOB, eventId: "evt_bbbbbbbbbbbbbbbbbbbbbbbb" }, config(dataDir));
+
+    expect(store.telegramMediaJobsByStatus()).toMatchObject({ done: 1, pending: 1 });
+    expect(store.pruneTelegramMediaJobs(new Date().toISOString())).toBe(1);
+    expect(store.telegramMediaJobsByStatus()).toEqual({ pending: 1 });
+  });
+
+  it("keeps the queue bounded by dropping the oldest pending job", () => {
+    const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-limit-"));
+    tempDirs.push(dataDir);
+    const store = openEventStore(dataDir);
+    const now = new Date().toISOString();
+
+    for (let index = 0; index < 3; index += 1) {
+      store.enqueueTelegramMediaJob({
+        eventId: `evt_${String(index).padStart(24, "0")}`,
+        cameraId: 1,
+        cameraName: "Parking",
+        faces: 1,
+        maxConfidence: 0.8,
+        eventTimestamp: JOB.eventTimestamp,
+        snapshotPath: null,
+        now,
+        limit: 2,
+      });
+    }
+    // Two kept, the oldest dropped.
+    expect(store.telegramMediaQueueDepth()).toBe(2);
+    expect(store.claimNextTelegramMediaJob(now)?.eventId).toBe(`evt_${String(1).padStart(24, "0")}`);
   });
 });

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SESSION_MAX_AGE, sessionCookieOptions } from "@/lib/auth";
+import { SESSION_MAX_AGE, requestUsesHttps, sessionCookieOptions } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { Messages } from "@/lib/messages";
 import { verifyPassword } from "@/lib/password-hash";
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
     // A native submit gets a redirect so the browser lands on the app; the
     // hydrated app gets JSON and navigates itself.
     const response = fromForm ? seeOther(next) : NextResponse.json({ ok: true, redirect: next, role: user.role });
-    response.cookies.set(COOKIE_NAME, token, { ...sessionCookieOptions(config.cookieSecure), maxAge: SESSION_MAX_AGE });
+    response.cookies.set(COOKIE_NAME, token, { ...sessionCookieOptions(config.cookieSecure || requestUsesHttps(request)), maxAge: SESSION_MAX_AGE });
     return response;
   } catch (error) {
     console.error("[auth] session", error instanceof Error ? error.name : "error");

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { sessionCookieOptions } from "@/lib/auth";
+import { requestUsesHttps, sessionCookieOptions } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { COOKIE_NAME, verifySession } from "@/lib/session";
 import { accountStore } from "@/server/auth/accounts";
@@ -28,6 +28,6 @@ export async function POST(request: Request) {
     }
   }
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(COOKIE_NAME, "", { ...sessionCookieOptions(config.cookieSecure), maxAge: 0 });
+  response.cookies.set(COOKIE_NAME, "", { ...sessionCookieOptions(config.cookieSecure || requestUsesHttps(request)), maxAge: 0 });
   return response;
 }

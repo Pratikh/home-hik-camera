@@ -37,6 +37,26 @@ describe("playback mode", () => {
     expect(advertised.mode).toBe("webrtc");
   });
 
+  it("does not force WebRTC on other hosts just because an extra host is configured", () => {
+    /*
+     * The trap this guards against: advertising one LAN host used to make every
+     * host choose WebRTC, including a remote tunnel visitor, whose browser can
+     * never reach MediaMTX's ICE candidates.
+     */
+    const tunnelWithAdvertisedHost = selectPlaybackMode({
+      ...ready,
+      requestHost: "tribe-whether-anna-walls.trycloudflare.com",
+      webrtcAdditionalHosts: ["192.168.1.40"],
+    });
+    expect(tunnelWithAdvertisedHost).toEqual({ mode: "hls", message: Messages.liveHls });
+
+    // The advertised host itself, and localhost, still get WebRTC.
+    expect(
+      selectPlaybackMode({ ...ready, requestHost: "192.168.1.40:3000", webrtcAdditionalHosts: ["192.168.1.40"] }).mode,
+    ).toBe("webrtc");
+    expect(selectPlaybackMode({ ...ready, webrtcAdditionalHosts: ["192.168.1.40"] }).mode).toBe("webrtc");
+  });
+
   it("uses same-origin HLS for a Cloudflare Quick Tunnel host, never WebRTC", () => {
     /*
      * A remote browser cannot reach MediaMTX's ICE candidates, and the tunnel

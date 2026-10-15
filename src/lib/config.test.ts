@@ -118,3 +118,44 @@ describe("readConfig — face detection", () => {
     expect(config.appConfigured).toBe(true);
   });
 });
+
+describe("telegram media flags", () => {
+  const base = {
+    APP_USERNAME: "home",
+    APP_PASSWORD: "app-password",
+    SESSION_SECRET: "0123456789abcdef0123456789abcdef",
+    TELEGRAM_NOTIFICATIONS_ENABLED: "true",
+    TELEGRAM_BOT_TOKEN: "token",
+    TELEGRAM_CHAT_ID: "-1001",
+    TELEGRAM_FACE_NOTIFICATIONS: "true",
+  };
+
+  it("defaults the snapshot and clip attachments to on", () => {
+    const config = readConfig(base);
+    expect(config.telegramFaceImage).toBe(true);
+    expect(config.telegramFaceVideo).toBe(true);
+    expect(config.telegramVideoPreSeconds).toBe(5);
+    expect(config.telegramVideoPostSeconds).toBe(5);
+    expect(config.telegramVideoMaxMb).toBe(45);
+    expect(config.telegramVideoTimeoutSeconds).toBe(30);
+    expect(config.ffmpegPath).toBe("ffmpeg");
+  });
+
+  it("accepts the renamed TELEGRAM_EVENT_IMAGE and still honours the old name", () => {
+    // The accurate name wins when both are present.
+    expect(readConfig({ ...base, TELEGRAM_EVENT_IMAGE: "true", TELEGRAM_FACE_IMAGE: "false" }).telegramFaceImage).toBe(true);
+    expect(readConfig({ ...base, TELEGRAM_EVENT_IMAGE: "false" }).telegramFaceImage).toBe(false);
+    // The legacy name keeps working on its own…
+    expect(readConfig({ ...base, TELEGRAM_FACE_IMAGE: "false" }).telegramFaceImage).toBe(false);
+    // …and an empty new value falls through instead of counting as "set".
+    expect(readConfig({ ...base, TELEGRAM_EVENT_IMAGE: "", TELEGRAM_FACE_IMAGE: "false" }).telegramFaceImage).toBe(false);
+  });
+
+  it("bounds the clip size and timeout", () => {
+    expect(readConfig({ ...base, TELEGRAM_VIDEO_MAX_MB: "49" }).telegramVideoMaxMb).toBe(49);
+    // Above Telegram's own 50 MB bot limit is refused, falling back to the default.
+    expect(readConfig({ ...base, TELEGRAM_VIDEO_MAX_MB: "500" }).telegramVideoMaxMb).toBe(45);
+    expect(readConfig({ ...base, TELEGRAM_VIDEO_TIMEOUT_SECONDS: "120" }).telegramVideoTimeoutSeconds).toBe(120);
+    expect(readConfig({ ...base, TELEGRAM_VIDEO_TIMEOUT_SECONDS: "1" }).telegramVideoTimeoutSeconds).toBe(30);
+  });
+});

@@ -22,7 +22,8 @@ import { StatusLamp } from "@/components/ui/StatusLamp";
  */
 const NAV = [
   { href: "/", label: "Dashboard", short: "Home" },
-  { href: "/cameras", label: "Cameras", short: "Cameras" },
+  // This page configures cameras; the live view is the dashboard.
+  { href: "/cameras", label: "Camera setup", short: "Cameras" },
   { href: "/playback", label: "Playback", short: "Playback" },
   { href: "/events", label: "Events", short: "Events" },
   { href: "/faces", label: "Faces", short: "Faces" },

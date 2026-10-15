@@ -76,7 +76,7 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `TELEGRAM_CHAT_ID` | Telegram destination chat. Server-side only. |
 | `TELEGRAM_FACE_NOTIFICATIONS` | Whether face detections may produce a Telegram message. Default `false`. |
 | `TELEGRAM_COOLDOWN_SECONDS` | Informational only; Telegram shares the existing face notification cooldown. Default `300`. |
-| `TELEGRAM_FACE_IMAGE` | Attach the full camera event snapshot to the Telegram message. Default `true`. The face crop is never sent. |
+| `TELEGRAM_EVENT_IMAGE` | Attach the full camera event snapshot to the Telegram message. Default `true`. `TELEGRAM_FACE_IMAGE` is the older name and still works. The face crop is never sent. |
 | `TELEGRAM_FACE_VIDEO` | Attach a short clip from the DVR recording. Default `true`. |
 | `TELEGRAM_VIDEO_PRE_SECONDS` / `TELEGRAM_VIDEO_POST_SECONDS` | Clip window around the event. Defaults `5` + `5` = 10 seconds. |
 | `TELEGRAM_VIDEO_MAX_MB` / `TELEGRAM_VIDEO_TIMEOUT_SECONDS` | Clip upload cap (`45`) and FFmpeg time limit (`30`). |
@@ -126,21 +126,50 @@ From the project directory.
 Containers:
 
 ```bash
-podman compose up -d
+npm run stack:up        # podman compose up -d   (web + mediamtx)
 podman compose ps
 podman compose logs -f
 podman compose down
 ```
 
+If `podman compose` fails with `docker-credential-desktop: executable file not found`,
+use the workaround described under [Requirements](#requirements):
+
+```bash
+DOCKER_CONFIG=/tmp/home-cctv-docker npm run stack:up
+```
+
+Both services use `restart: unless-stopped`, so a crashed container comes back on
+its own (`podman inspect home-cctv-web-1 --format '{{.RestartCount}}'`). Note that
+`podman stop`/`podman kill` is an *explicit* stop, which that policy deliberately
+does not undo — use `podman start` or `npm run stack:up` afterwards.
+
 Development on the host, with MediaMTX still in Podman:
 
 ```bash
-podman compose up -d mediamtx
+npm run mediamtx:up     # podman compose up -d mediamtx
 npm install
 npm run dev
 ```
 
 `npm run dev` listens on `0.0.0.0:3000`. Open `http://127.0.0.1:3000`.
+
+### Changing the DVR address or credentials needs a *recreate*, not a restart
+
+Compose captures `.env` when a container is **created**. MediaMTX renders its
+stream sources from that environment at every start, so after changing
+`HIKVISION_IP` / `HIKVISION_USERNAME` / `HIKVISION_PASSWORD` (or the `DVR_*`
+equivalents):
+
+```bash
+npm run mediamtx:up     # recreates the container so it re-reads .env
+```
+
+`podman restart` / `podman start` keep the old environment and the cameras stay
+blank while `/api/health` still reports `mediamtx: ok`. The hub now detects this:
+`GET /api/dvr/status` reports `media.drift: true` and the log prints
+`[media] MediaMTX is pulling from a different DVR address…`.
+
 
 Generate a MediaMTX file on the host without starting a container:
 

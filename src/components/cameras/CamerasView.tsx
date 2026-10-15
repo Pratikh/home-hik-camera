@@ -93,7 +93,7 @@ export function CamerasView() {
   return (
     <section>
       <PageIntro
-        title="Cameras"
+        title="Camera setup"
         detail="Names come from the DVR channel configuration. Saving a name here overrides it on this hub only; the DVR keeps its own name."
       />
       {error && !data ? <ErrorBanner message={error} onRetry={() => void load()} /> : null}

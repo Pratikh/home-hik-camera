@@ -25,7 +25,8 @@ test.describe("DASH - dashboard", () => {
 
     const navigation = page.getByRole("navigation", { name: "Primary" }).first();
     await expect(navigation).toBeVisible();
-    for (const label of ["Dashboard", "Cameras", "Playback", "Events", "Faces", "Notifications", "Device", "Settings"]) {
+    // "/cameras" configures cameras; the live view is the dashboard.
+    for (const label of ["Dashboard", "Camera setup", "Playback", "Events", "Faces", "Notifications", "Device", "Settings"]) {
       await expect(navigation.getByRole("link", { name: label })).toBeVisible();
     }
     await expect(navigation.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");

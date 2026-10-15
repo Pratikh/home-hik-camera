@@ -34,8 +34,14 @@ export function selectPlaybackMode(input: {
   const host = hostName(input.requestHost);
   const local = host === "localhost" || host === "127.0.0.1" || host === "::1";
   const advertised = input.webrtcAdditionalHosts.some((item) => item.toLowerCase() === host);
-  if (local || advertised || input.webrtcAdditionalHosts.length > 0) {
-    return { mode: "webrtc", message: null };
-  }
+  /*
+   * WebRTC only works when the browser can reach MediaMTX's ICE candidates, so
+   * it is offered to localhost and to hosts that were explicitly advertised.
+   * Every other host — a Cloudflare tunnel, a reverse proxy, a phone on another
+   * network — gets the Hub's same-origin HLS instead. Merely configuring
+   * WEBRTC_ADDITIONAL_HOST must not force WebRTC everywhere, because WebRTC
+   * media cannot traverse an HTTPS tunnel.
+   */
+  if (local || advertised) return { mode: "webrtc", message: null };
   return { mode: "hls", message: Messages.liveHls };
 }

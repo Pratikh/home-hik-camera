@@ -17,7 +17,9 @@
     "face:worker": "python3 face-worker/worker.py",
     "face:worker:once": "python3 face-worker/worker.py --once",
     "test:face": "python3 -m pytest -q face-worker/tests",
-    "mediamtx:config": "node scripts/render-mediamtx-config.mjs"
+    "mediamtx:config": "node scripts/render-mediamtx-config.mjs",
+    "mediamtx:up": "podman compose up -d mediamtx",
+    "stack:up": "podman compose up -d"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5",

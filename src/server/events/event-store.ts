@@ -135,6 +135,30 @@ CREATE UNIQUE INDEX IF NOT EXISTS notification_history_event_rule
 CREATE INDEX IF NOT EXISTS notification_history_event_id ON notification_history(event_id);
 CREATE INDEX IF NOT EXISTS notification_history_rule_id ON notification_history(rule_id);
 CREATE INDEX IF NOT EXISTS notification_history_created_at ON notification_history(created_at);
+/*
+ * Durable queue for the Telegram media work (face snapshot + event clip).
+ *
+ * Media delivery is asynchronous, so it needs somewhere to live across a hub
+ * restart; the text notification is sent by the decision itself and is not
+ * queued here. event_id is UNIQUE, which is what stops a restart from
+ * producing a second clip for the same accepted event.
+ */
+CREATE TABLE IF NOT EXISTS telegram_media_jobs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_id TEXT NOT NULL UNIQUE,
+  camera_id INTEGER NOT NULL,
+  camera_name TEXT NOT NULL,
+  faces INTEGER NOT NULL,
+  max_confidence REAL NOT NULL,
+  event_timestamp TEXT NOT NULL,
+  snapshot_path TEXT,
+  status TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  detail TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS telegram_media_jobs_status ON telegram_media_jobs(status, id);
 CREATE INDEX IF NOT EXISTS notification_rules_enabled ON notification_rules(enabled);
 CREATE INDEX IF NOT EXISTS notification_rules_camera_id ON notification_rules(camera_id);
 CREATE TABLE IF NOT EXISTS event_ai_results (
@@ -930,6 +954,152 @@ export class EventStore {
       else if (row.status === "FAILED") summary.failed += row.count;
     }
     return summary;
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Telegram media queue (durable, additive table)                         */
+  /* ---------------------------------------------------------------------- */
+
+  /**
+   * Queue the media for one accepted event.
+   *
+   * `INSERT OR IGNORE` on the UNIQUE event_id makes this idempotent, so a
+   * duplicate decision — including one replayed after a restart — cannot create
+   * a second clip.
+   */
+  enqueueTelegramMediaJob(input: {
+    eventId: string;
+    cameraId: number;
+    cameraName: string;
+    faces: number;
+    maxConfidence: number;
+    eventTimestamp: string;
+    snapshotPath: string | null;
+    now: string;
+    limit?: number;
+  }): "queued" | "duplicate" | "full" {
+    const limit = input.limit ?? 50;
+    const pending = this.telegramMediaQueueDepth();
+    if (pending >= limit) {
+      // Keep the newest detections: drop the oldest queued job.
+      this.db
+        .prepare(
+          `DELETE FROM telegram_media_jobs WHERE id = (
+             SELECT id FROM telegram_media_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1
+           )`,
+        )
+        .run();
+    }
+    const result = this.db
+      .prepare(
+        `INSERT OR IGNORE INTO telegram_media_jobs
+           (event_id, camera_id, camera_name, faces, max_confidence, event_timestamp,
+            snapshot_path, status, attempts, detail, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, NULL, ?, ?)`,
+      )
+      .run(
+        input.eventId,
+        input.cameraId,
+        input.cameraName,
+        input.faces,
+        input.maxConfidence,
+        input.eventTimestamp,
+        input.snapshotPath,
+        input.now,
+        input.now,
+      );
+    if (Number(result.changes) === 0) return "duplicate";
+    return pending >= limit ? "full" : "queued";
+  }
+
+  telegramMediaQueueDepth(): number {
+    const row = this.db
+      .prepare("SELECT COUNT(*) AS count FROM telegram_media_jobs WHERE status = 'pending'")
+      .get() as { count: number } | undefined;
+    return row?.count ?? 0;
+  }
+
+  /** Take the oldest pending job, marking it in-flight so a crash is visible. */
+  claimNextTelegramMediaJob(now: string): {
+    id: number;
+    eventId: string;
+    cameraId: number;
+    cameraName: string;
+    faces: number;
+    maxConfidence: number;
+    eventTimestamp: string;
+    snapshotPath: string | null;
+  } | null {
+    const row = this.db
+      .prepare("SELECT id FROM telegram_media_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1")
+      .get() as { id: number } | undefined;
+    if (!row) return null;
+    const claimed = this.db
+      .prepare(
+        "UPDATE telegram_media_jobs SET status = 'running', attempts = attempts + 1, updated_at = ? WHERE id = ? AND status = 'pending'",
+      )
+      .run(now, row.id);
+    if (Number(claimed.changes) === 0) return null;
+    const job = this.db
+      .prepare(
+        `SELECT id, event_id, camera_id, camera_name, faces, max_confidence, event_timestamp, snapshot_path
+         FROM telegram_media_jobs WHERE id = ?`,
+      )
+      .get(row.id) as {
+      id: number;
+      event_id: string;
+      camera_id: number;
+      camera_name: string;
+      faces: number;
+      max_confidence: number;
+      event_timestamp: string;
+      snapshot_path: string | null;
+    };
+    return {
+      id: job.id,
+      eventId: job.event_id,
+      cameraId: job.camera_id,
+      cameraName: job.camera_name,
+      faces: job.faces,
+      maxConfidence: job.max_confidence,
+      eventTimestamp: job.event_timestamp,
+      snapshotPath: job.snapshot_path,
+    };
+  }
+
+  finishTelegramMediaJob(id: number, status: "done" | "failed", detail: string | null, now: string): void {
+    this.db
+      .prepare("UPDATE telegram_media_jobs SET status = ?, detail = ?, updated_at = ? WHERE id = ?")
+      .run(status, detail, now, id);
+  }
+
+  /**
+   * Return jobs left in-flight by a crash to the queue.
+   *
+   * Called once at startup: a job that was running when the process died is
+   * retried, which is safe because the queue is idempotent per event.
+   */
+  resetStaleTelegramMediaJobs(now: string): number {
+    const result = this.db
+      .prepare("UPDATE telegram_media_jobs SET status = 'pending', updated_at = ? WHERE status = 'running'")
+      .run(now);
+    return Number(result.changes);
+  }
+
+  /** Retention for the queue's own history. */
+  pruneTelegramMediaJobs(beforeIso: string): number {
+    const result = this.db
+      .prepare("DELETE FROM telegram_media_jobs WHERE status <> 'pending' AND status <> 'running' AND updated_at < ?")
+      .run(beforeIso);
+    return Number(result.changes);
+  }
+
+  /** How many pending clips have accumulated: used by the status endpoint. */
+  telegramMediaJobsByStatus(): Record<string, number> {
+    const rows = this.db
+      .prepare("SELECT status, COUNT(*) AS count FROM telegram_media_jobs GROUP BY status")
+      .all() as Array<{ status: string; count: number }>;
+    return Object.fromEntries(rows.map((row) => [row.status, row.count]));
   }
 
   /** Every crop path still referenced, used by the orphan sweep. */

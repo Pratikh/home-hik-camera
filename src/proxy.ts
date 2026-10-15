@@ -26,8 +26,10 @@ export const config = {
     /*
      * `manifest\.webmanifest` is public on purpose: it is a PWA manifest with no
      * secrets (name, colours, icon). Redirecting it to /login made the browser
-     * parse the login HTML as JSON and report a manifest syntax error.
+     * parse the login HTML as JSON and report a manifest syntax error. The
+     * lookahead keeps the exclusion to that exact path, so `/manifest.webmanifest.bak`
+     * (or any other prefix) still requires a session.
      */
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest\\.webmanifest|robots.txt|login|api/health|api/auth/login|api/auth/logout).*)",
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest\\.webmanifest(?=$|[/?#])|robots.txt|login|api/health|api/auth/login|api/auth/logout).*)",
   ],
 };
