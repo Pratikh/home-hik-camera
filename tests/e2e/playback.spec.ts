@@ -475,4 +475,86 @@ test.describe("PLAY - playback", () => {
 
     diag.expectClean();
   });
+
+  test("PLAY-016 selecting a recorded time starts real video", async ({ page, diag }) => {
+    /*
+     * The bug this guards: playback used to ask the DVR for the H.265 main track
+     * (...1). MediaMTX's MPEG-TS HLS variant carries H.264 only, so a remote
+     * browser got a 500 and an error panel while the page itself still looked
+     * healthy. Nothing short of "does a frame ever arrive" catches that, so this
+     * test selects a recorded instant and waits for decoded frames.
+     */
+    const searchLoaded = page
+      .waitForResponse(
+        (response) => response.url().includes("/api/playback/search?") && response.status() === 200,
+        { timeout: 25_000 },
+      )
+      .catch(() => null);
+    await page.goto(ROUTES.playback);
+    await expect(page.getByRole("region", { name: "Playback" })).toBeVisible();
+    await searchLoaded;
+
+    const camera = await firstCamera(page);
+    const date = await displayedDate(page);
+    const recordings = await recordingsFor(page, camera.id, date);
+    if (recordings.length === 0) {
+      test.info().annotations.push({
+        type: "environment",
+        description: `no recordings returned for camera ${camera.id} on ${date}`,
+      });
+      diag.expectClean();
+      return;
+    }
+
+    // The default zoom is the whole day, so a recorded instant maps to a
+    // fraction of the timeline's width: aim a minute inside the first segment.
+    const first = recordings[0]!;
+    const dayStartMs = new Date(`${date}T00:00:00+05:30`).getTime();
+    const instant = Math.min(new Date(first.startTime).getTime() + 60_000, new Date(first.endTime).getTime() - 1_000);
+    const fraction = Math.min(0.98, Math.max(0.02, (instant - dayStartMs) / 86_400_000));
+
+    const slider = page.getByRole("slider", { name: "Recording timeline. Use the arrow keys to seek." });
+    await expect(slider).toBeVisible();
+    const box = (await slider.boundingBox())!;
+    await slider.click({ position: { x: Math.round(box.width * fraction), y: 12 } });
+
+    const video = page.getByLabel("Recording playback");
+    const state = () =>
+      video.evaluate((node) => {
+        const element = node as HTMLVideoElement;
+        return {
+          width: element.videoWidth,
+          height: element.videoHeight,
+          time: element.currentTime,
+          mediaError: element.error?.message ?? null,
+        };
+      });
+
+    await expect
+      .poll(async () => (await state()).width, {
+        timeout: 45_000,
+        message: "a decoded video frame from the DVR playback stream",
+      })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => (await state()).time, { timeout: 30_000, message: "the playback clock advancing" })
+      .toBeGreaterThan(0);
+
+    const settled = await state();
+    expect(settled.mediaError, "the video element must not hold a MediaError").toBeNull();
+    // H.264 sub-track frames, not the H.265 main track: the fix, pinned.
+    expect(settled.width, "playback must come from the H.264 sub stream").toBe(704);
+    expect(settled.height).toBe(576);
+
+    diag.expectClean();
+
+    /*
+     * Leave the page the way a person would, so the client's own teardown closes
+     * the DVR playback session. This DVR serves one playback stream at a time, so
+     * a session left open by an abruptly killed context would make the next
+     * playback run answer 453 Not Enough Bandwidth.
+     */
+    await page.getByRole("link", { name: "Dashboard" }).click();
+    await expect(page.getByRole("region", { name: "Playback" })).toHaveCount(0);
+  });
 });

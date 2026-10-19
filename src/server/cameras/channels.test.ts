@@ -10,8 +10,9 @@ describe("camera channels", () => {
     expect(describeStreamPath("cam4_main")).toEqual({ cameraId: 4, channel: 401, kind: "main" });
     expect(describeStreamPath("cam9_sub")).toBeNull();
     expect(describePlaybackPath("playback")).toEqual({ cameraId: 0, track: 0 });
-    expect(describePlaybackPath("pb1")).toEqual({ cameraId: 1, track: 101 });
-    expect(describePlaybackPath("pb4")).toEqual({ cameraId: 4, track: 401 });
+    // Playback is served from the H.264 sub track, not the H.265 main track.
+    expect(describePlaybackPath("pb1")).toEqual({ cameraId: 1, track: 102 });
+    expect(describePlaybackPath("pb4")).toEqual({ cameraId: 4, track: 402 });
     expect(describePlaybackPath("cam1_main")).toBeNull();
     expect(isRelayPath("pb2")).toBe(true);
     expect(isRelayPath("cam3_sub")).toBe(true);

@@ -37,12 +37,28 @@ export function playbackPath(): string {
   return "playback";
 }
 
+/**
+ * The DVR track playback is served from: the H.264 sub track (...2).
+ *
+ * Recording, and the search index the calendar is built from, both stay on the
+ * H.265 main track (...1). Playback is a separate question: the hub only ever
+ * hands the browser a same-origin HLS URL, MediaMTX's MPEG-TS HLS variant
+ * carries H.264 video only, and H.265 shows no picture in Chrome even when the
+ * connection succeeds. The DVR serves the same recorded window — time accurate,
+ * per `starttime`/`endtime` — as H.264 on the sub track, which is the stream
+ * live view already uses. Asking for that track gives every browser a stream it
+ * can decode without touching the recording configuration.
+ */
+export function playbackTrack(cameraId: number): number {
+  return cameraId * 100 + 2;
+}
+
 export function describePlaybackPath(path: string): { cameraId: number; track: number } | null {
   if (path === "playback") return { cameraId: 0, track: 0 };
   const match = /^pb([1-4])$/.exec(path);
   if (!match) return null;
   const cameraId = Number(match[1]);
-  return { cameraId, track: cameraId * 100 + 1 };
+  return { cameraId, track: playbackTrack(cameraId) };
 }
 
 export function isRelayPath(path: string): boolean {

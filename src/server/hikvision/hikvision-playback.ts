@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Recording } from "@/lib/recording";
 import { DOWNLOAD_UNAVAILABLE } from "@/lib/recording";
 import { hikvisionPlaybackStamp, kolkataRange } from "@/lib/time-kolkata";
+import { playbackTrack } from "@/server/cameras/channels";
 import { HikvisionClient } from "@/server/hikvision/hikvision-client";
 import { parseSearchPage } from "@/server/hikvision/hikvision-playback-parse";
 import { HikvisionError } from "@/server/hikvision/hikvision-types";
@@ -74,7 +75,11 @@ export function buildPlaybackRtsp(input: {
   if (!isSafeHost(input.host) || !Number.isInteger(input.port) || input.port < 1 || input.port > 65535) {
     throw new HikvisionError("not_configured", "DVR not configured");
   }
-  if (!Number.isInteger(input.track) || input.track < 101 || input.track > 401) {
+  /*
+   * 101..402: four cameras, main (...) and sub (...) track. Playback asks for
+   * the sub track — see playbackTrack() — so 402, not 401, is the upper bound.
+   */
+  if (!Number.isInteger(input.track) || input.track < 101 || input.track > 402) {
     throw new HikvisionError("bad_response", "Invalid camera");
   }
   const host = input.host.includes(":") && !input.host.startsWith("[") ? `[${input.host}]` : input.host;
@@ -99,6 +104,12 @@ export function dedupeRecordings(recordings: Recording[]): Recording[] {
 export async function searchRecordings(transport: PlaybackTransport, input: PlaybackSearchInput): Promise<Recording[]> {
   const range = kolkataRange(input.date, input.startTime, input.endTime);
   if (!range) throw new HikvisionError("bad_response", "Invalid time");
+  /*
+   * The search runs against the main track: that is where the DVR records and
+   * where its complete segment index lives, so the calendar and the timeline
+   * keep listing every recorded window. Only the playback stream below moves to
+   * the sub track.
+   */
   const track = input.camera * 100 + 1;
   const searchId = randomUUID();
   const collected: Recording[] = [];
@@ -146,7 +157,12 @@ export class HikvisionPlaybackClient {
     }
     return buildPlaybackRtsp({
       ...this.target,
-      track: recording.camera * 100 + 1,
+      /*
+       * H.264 sub track: the main track is H.265, which MediaMTX's MPEG-TS HLS
+       * variant cannot carry and Chrome cannot decode. The DVR returns the same
+       * recorded window here, so the browser gets a stream it can always play.
+       */
+      track: playbackTrack(recording.camera),
       start,
       end,
     });

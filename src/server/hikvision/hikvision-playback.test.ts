@@ -112,7 +112,11 @@ describe("Hikvision recording search", () => {
     if (!recording) throw new Error("missing recording");
     const url = client.getPlaybackUrl(recording);
     const query = url.slice(url.indexOf("?"));
-    expect(url).toContain("/Streaming/tracks/101/?starttime=20261007T081500Z&endtime=20261007T094500Z");
+    /*
+     * The H.264 sub track, not the H.265 main track: MediaMTX's MPEG-TS HLS
+     * variant cannot carry H.265, which is what broke /playback remotely.
+     */
+    expect(url).toContain("/Streaming/tracks/102/?starttime=20261007T081500Z&endtime=20261007T094500Z");
     expect(query).not.toContain("p@ss");
     expect(query).not.toContain("p%40ss");
     expect(url).toContain(encodeURIComponent("p@ss word"));
@@ -129,5 +133,9 @@ describe("Hikvision recording search", () => {
       position: 0,
     })).toContain("<startTime>2026-10-07T00:00:00+05:30</startTime>");
     expect(buildPlaybackRtsp({ ...target, track: 201, start: new Date("2026-10-07T08:15:00+05:30"), end: new Date("2026-10-07T09:45:00+05:30") })).toContain("/Streaming/tracks/201/");
+    // Camera 4's sub track is the highest valid playback track; 402 must build.
+    expect(buildPlaybackRtsp({ ...target, track: 402, start: new Date("2026-10-07T08:15:00+05:30"), end: new Date("2026-10-07T09:45:00+05:30") })).toContain("/Streaming/tracks/402/");
+    expect(() => buildPlaybackRtsp({ ...target, track: 403, start: new Date("2026-10-07T08:15:00+05:30"), end: new Date("2026-10-07T09:45:00+05:30") })).toThrow(HikvisionError);
+    expect(() => buildPlaybackRtsp({ ...target, track: 100, start: new Date("2026-10-07T08:15:00+05:30"), end: new Date("2026-10-07T09:45:00+05:30") })).toThrow(HikvisionError);
   });
 });
