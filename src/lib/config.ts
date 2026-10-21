@@ -1,6 +1,7 @@
 import "server-only";
 
 import { DEFAULT_FACE_TEST_COOLDOWN_SECONDS } from "@/lib/faces";
+import { DEFAULT_THUMBNAIL_INTERVAL_SECONDS } from "@/lib/playback-thumbnail";
 
 export type Env = Record<string, string | undefined>;
 
@@ -72,6 +73,18 @@ export type AppConfig = {
   telegramVideoMaxMb: number;
   /** How long FFmpeg may run for one clip before it is killed. */
   telegramVideoTimeoutSeconds: number;
+  /**
+   * Timeline previews. Frames are generated ahead of time into sprite sheets, so
+   * the browser never asks the DVR for one; these settings bound how much work
+   * that background job may do.
+   */
+  thumbnailEnabled: boolean;
+  /** Seconds between generated preview frames. */
+  thumbnailIntervalSeconds: number;
+  /** Frames one sprite sheet holds per generation pass. */
+  thumbnailWorkers: number;
+  /** Days of generated sprites to keep. 0 disables pruning. */
+  thumbnailRetentionDays: number;
 };
 
 function cleanUrl(value: string | undefined, fallback: string): string {
@@ -180,6 +193,20 @@ export function readConfig(env: Env): AppConfig {
       5,
       300,
     ),
+    // Previews are an enhancement: absent means on, and "false" is the only way off.
+    thumbnailEnabled: (env.PLAYBACK_THUMBNAIL_ENABLED ?? "").trim().toLowerCase() !== "false",
+    thumbnailIntervalSeconds: readBoundedInt(
+      env.PLAYBACK_THUMBNAIL_INTERVAL_SECONDS,
+      DEFAULT_THUMBNAIL_INTERVAL_SECONDS,
+      5,
+      600,
+    ),
+    /*
+     * One extractor by default. This DVR serves a single playback stream and the
+     * server is small, so more workers buy nothing but contention.
+     */
+    thumbnailWorkers: readBoundedInt(env.MAX_THUMBNAIL_WORKERS, 1, 1, 2),
+    thumbnailRetentionDays: readBoundedInt(env.PLAYBACK_THUMBNAIL_RETENTION_DAYS, 14, 0, 3650),
   };
 }
 

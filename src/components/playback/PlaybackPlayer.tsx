@@ -110,21 +110,36 @@ export function PlaybackPlayer({
     const runStream = async () => {
       setPhase("connecting");
       setDetail(Messages.connectingDvr);
-      let session: PlaybackSessionResponse;
-      try {
-        session = await api<PlaybackSessionResponse>("/api/playback/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ camera, startTime: runStart, endTime: runEnd, token }),
-        });
-      } catch (error) {
-        if (stopped || (error instanceof ApiError && error.status === 401)) return;
-        setDetail(error instanceof Error ? error.message : Messages.backendDown);
-        setPhase("error");
-        playingRef.current = false;
-        return;
+      let session: PlaybackSessionResponse | null = null;
+      /*
+       * This DVR serves one playback stream. The background preview generator
+       * checks before it takes it and stands down, but it can already be a second
+       * into an extraction when the player asks — so losing that race must not
+       * surface as an error. Two short retries outlast one extraction (~2.3 s);
+       * everything else fails as before.
+       */
+      for (let attempt = 0; attempt < 3 && !stopped; attempt += 1) {
+        try {
+          session = await api<PlaybackSessionResponse>("/api/playback/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ camera, startTime: runStart, endTime: runEnd, token }),
+          });
+          break;
+        } catch (error) {
+          if (stopped || (error instanceof ApiError && error.status === 401)) return;
+          const contended = error instanceof ApiError && (error.status === 503 || error.status === 502);
+          if (!contended || attempt === 2) {
+            setDetail(error instanceof Error ? error.message : Messages.backendDown);
+            setPhase("error");
+            playingRef.current = false;
+            return;
+          }
+          setDetail(Messages.connectingDvr);
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+        }
       }
-      if (stopped) return;
+      if (stopped || !session) return;
       if (session.mode === "unavailable" || (!session.whepUrl && !session.hlsUrl)) {
         setDetail(session.message ?? Messages.playbackUnavailable);
         setPhase("error");

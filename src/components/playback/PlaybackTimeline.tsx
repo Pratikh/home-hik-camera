@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RecordingType } from "@/lib/api-types";
 import type { CctvEvent } from "@/lib/events";
 import { eventTitle } from "@/lib/events";
@@ -10,11 +10,11 @@ import { buildTimelineMarkers, markerGroupMsForZoom, type TimelineMarker } from 
 import { clampLabelCenter, percentOf, resolveGroupMs } from "@/lib/timeline-density";
 import { segmentPercents, tickStep, timelineTicks, type TimelineSegment, type TimelineWindow } from "@/lib/timeline";
 import { useElementWidth } from "@/components/hooks/useElementWidth";
+import { TimelineHoverPreview } from "@/components/playback/TimelineHoverPreview";
+import { useHoverCapable, useTimelineThumbnails } from "@/components/playback/useTimelineThumbnails";
 
 /** Recording bar height: thin enough that gaps read clearly. */
 const TRACK_H = 20;
-/** Assumed tooltip width, used only to keep it inside the track. */
-const RECORDING_TOOLTIP_PX = 190;
 
 function barClass(type: RecordingType | null): string {
   // A single base colour keeps the track calm; the type is a subtle accent.
@@ -55,6 +55,8 @@ export function PlaybackTimeline({
   onSeek,
   events = [],
   cameraName,
+  camera,
+  date,
 }: {
   dayStartMs: number;
   segments: TimelineSegment[];
@@ -71,6 +73,10 @@ export function PlaybackTimeline({
   events?: CctvEvent[];
   /** DVR camera name, shown in the event tooltip. */
   cameraName?: string;
+  /** Which recording the hover preview should frame. */
+  camera: number;
+  /** The Kolkata day on screen; part of the preview cache identity. */
+  date: string;
 }) {
   const { ref: trackRef, width } = useElementWidth<HTMLDivElement>();
   const [hovered, setHovered] = useState<TimelineMarker | null>(null);
@@ -85,6 +91,43 @@ export function PlaybackTimeline({
   /* Hovering the recording track shows the segment's details and the exact
      timestamp under the pointer, so a click is predictable. */
   const [hoverSegment, setHoverSegment] = useState<{ segment: TimelineSegment; offsetMs: number } | null>(null);
+  /*
+   * The preview needs a position even over a gap, where there is no segment to
+   * describe; that position is also what the card is anchored to.
+   */
+  const [hoverPoint, setHoverPoint] = useState<{ offsetMs: number; percent: number } | null>(null);
+  /*
+   * The marker detail only opens after the pointer rests on a marker. Sweeping
+   * across a cluster otherwise pops a popover for every marker crossed, and the
+   * user is scrubbing, not inspecting.
+   */
+  const markerTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (markerTimer.current !== null) window.clearTimeout(markerTimer.current);
+    },
+    [],
+  );
+  const [hoverEventLabel, setHoverEventLabel] = useState<string | null>(null);
+  const [previewPlacement, setPreviewPlacement] = useState<"above" | "below">("above");
+  const hoverCapable = useHoverCapable();
+  /*
+   * Previews come from sprite sheets the server has already generated. The hook
+   * only reports where the viewer is looking, so the background generator can
+   * prioritise that region; the hover itself is a lookup.
+   */
+  const previewFocusMs = dayStartMs + (positionMs ?? Math.round((visible.startMs + visible.endMs) / 2));
+  const {
+    state: previewState,
+    hover: hoverPreview,
+    clear: clearPreview,
+  } = useTimelineThumbnails({
+    camera,
+    date,
+    dayStartMs,
+    focusMs: previewFocusMs,
+    enabled: hoverCapable,
+  });
 
   /*
    * Grouping is width-aware: markers are merged only when they would otherwise
@@ -120,6 +163,10 @@ export function PlaybackTimeline({
     event.currentTarget.setPointerCapture(event.pointerId);
     setDragging(true);
     setHoverSegment(null);
+    setHoverPoint(null);
+    setHoverEventLabel(null);
+    // A gesture is a seek, so the preview must not linger over the drag.
+    clearPreview();
     setDragOffset(offset);
     setDragLabel(fullClock(dayStartMs, offset));
   }
@@ -129,8 +176,17 @@ export function PlaybackTimeline({
     if (offset === null) return;
     if (!dragging) {
       // Report the segment under the cursor, or nothing when over a gap.
-      const segment = segments.find((item) => offset >= item.startMs && offset < item.endMs);
+      const segment = segments.find((item) => offset >= item.startMs && offset < item.endMs) ?? null;
       setHoverSegment(segment ? { segment, offsetMs: offset } : null);
+      setHoverEventLabel(null);
+      setHoverPoint({ offsetMs: offset, percent: percentOf(offset, visible) });
+      /*
+       * The preview card sits above the track, but flips below it when the
+       * timeline is near the top of the window and there is no room.
+       */
+      setPreviewPlacement(event.currentTarget.getBoundingClientRect().top > 240 ? "above" : "below");
+      // Hovering a gap is free: no frame can exist there, so nothing is asked for.
+      hoverPreview(offset, { recording: segment !== null });
       return;
     }
     setDragOffset(offset);
@@ -185,7 +241,12 @@ export function PlaybackTimeline({
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        onPointerLeave={() => setHoverSegment(null)}
+        onPointerLeave={() => {
+          setHoverSegment(null);
+          setHoverPoint(null);
+          setHoverEventLabel(null);
+          clearPreview();
+        }}
         onKeyDown={(event) => {
           if (event.key === "ArrowLeft") {
             event.preventDefault();
@@ -197,28 +258,49 @@ export function PlaybackTimeline({
           }
         }}
       >
-        {/* Recording tooltip: overlays the ruler so it never shifts the layout. */}
-        {hoverSegment ? (
-          <div
-            className="pointer-events-none absolute top-0 z-20 -translate-x-1/2 rounded-lg border border-line bg-panel px-2.5 py-1.5 text-[11px] shadow-xl shadow-black/60"
-            style={{
-              left: `${clampLabelCenter(
-                percentOf(hoverSegment.offsetMs, visible),
-                width > 0 ? (RECORDING_TOOLTIP_PX / width) * 100 : 0,
-              )}%`,
-            }}
-            role="tooltip"
-          >
-            <p className="font-semibold">{hoverSegment.segment.label}</p>
-            <p className="text-muted">
-              <span className="font-mono">{clock(dayStartMs, hoverSegment.segment.startMs)}</span> –{" "}
-              <span className="font-mono">{clock(dayStartMs, hoverSegment.segment.endMs)}</span>
-            </p>
-            <p className="text-muted">Type: {hoverSegment.segment.label}</p>
-            {cameraName ? <p className="text-muted">Camera: {cameraName}</p> : null}
-            <p className="mt-0.5 font-mono text-teal">{fullClock(dayStartMs, hoverSegment.offsetMs)}</p>
-            <p className="text-teal">Click to play</p>
-          </div>
+        {/*
+          Marker detail. It floats beside the preview rather than sitting in the
+          flow: rendered inline it grew this section by its own height, which
+          shrank the player and moved the whole timeline by ~225 px the moment a
+          marker was crossed. It is inert, so it cannot steal the pointer.
+        */}
+        {hovered && hoverPoint ? (() => {
+          const CARD = 198;
+          const TIP = 232;
+          const GAP = 10;
+          const halfCard = ((CARD / 2 + 6) / width) * 100;
+          const cardCenter = Math.min(100 - halfCard, Math.max(halfCard, hoverPoint.percent));
+          const cardRight = (cardCenter / 100) * width + CARD / 2;
+          const cardLeft = (cardCenter / 100) * width - CARD / 2;
+          const roomRight = width - cardRight - GAP;
+          const roomLeft = cardLeft - GAP;
+          const left =
+            roomRight >= TIP || roomLeft < TIP
+              ? Math.min(width - TIP - 4, cardRight + GAP)
+              : Math.max(4, cardLeft - GAP - TIP);
+          return (
+            <div className="pointer-events-none absolute bottom-full z-20 mb-3" style={{ left }}>
+              <MarkerTooltip marker={hovered} byId={byId} dayStartMs={dayStartMs} cameraName={cameraName} />
+            </div>
+          );
+        })() : null}
+
+        {/*
+          Hover preview: the recorded frame under the pointer, above the track.
+          It overlays the ruler so it never shifts the layout, and it is inert so
+          it can never intercept the click that seeks.
+        */}
+        {hoverPoint ? (
+          <TimelineHoverPreview
+            state={previewState}
+            cursorPercent={hoverPoint.percent}
+            containerWidth={width}
+            dayStartMs={dayStartMs}
+            segment={hoverSegment?.segment ?? null}
+            cameraName={cameraName}
+            eventLabel={hoverEventLabel}
+            placement={previewPlacement}
+          />
         ) : null}
 
         {/* Row 1: the playhead's floating time label. */}
@@ -295,10 +377,45 @@ export function PlaybackTimeline({
                 onPointerUp={(click) => click.stopPropagation()}
                 onClick={(click) => {
                   click.stopPropagation();
+                  /*
+                   * A click is a seek. The marker swallows pointerdown so pressing
+                   * here does not start a drag, which also means the timeline never
+                   * gets its own "gesture clears the preview" pass — do it here.
+                   */
+                  setHoverPoint(null);
+                  setHoverEventLabel(null);
+                  clearPreview();
                   commit(marker.offsetMs);
                 }}
-                onMouseEnter={() => setHovered(marker)}
-                onMouseLeave={() => setHovered((current) => (current?.id === marker.id ? null : current))}
+                /*
+                 * The marker only decorates the timeline: it adds the event label
+                 * and its own detail popover. It must never own the preview.
+                 *
+                 * It used to call hoverPreview() on enter and clearPreview() +
+                 * setHoverPoint(null) on leave. Because a pointermove still bubbles
+                 * from the button to the timeline, crossing a marker produced two
+                 * competing writers: the timeline set the preview from the pointer
+                 * x, the marker reset it to the event's own instant, and leaving
+                 * deleted it outright until the next move. That is the flicker.
+                 * Now the timeline is the only thing that positions the preview;
+                 * the marker just labels it.
+                 */
+                onMouseEnter={() => {
+                  if (markerTimer.current !== null) window.clearTimeout(markerTimer.current);
+                  markerTimer.current = window.setTimeout(() => {
+                    markerTimer.current = null;
+                    setHovered(marker);
+                    setHoverEventLabel(marker.count > 1 ? `${marker.count} events` : marker.label);
+                  }, 150);
+                }}
+                onMouseLeave={() => {
+                  if (markerTimer.current !== null) {
+                    window.clearTimeout(markerTimer.current);
+                    markerTimer.current = null;
+                  }
+                  setHovered((current) => (current?.id === marker.id ? null : current));
+                  setHoverEventLabel(null);
+                }}
                 onFocus={() => setHovered(marker)}
                 onBlur={() => setHovered((current) => (current?.id === marker.id ? null : current))}
               >
@@ -331,7 +448,6 @@ export function PlaybackTimeline({
         ) : null}
       </div>
 
-      {hovered ? <MarkerTooltip marker={hovered} byId={byId} dayStartMs={dayStartMs} cameraName={cameraName} /> : null}
 
       <Legend segments={segments} events={events} />
     </section>
@@ -362,7 +478,7 @@ function MarkerTooltip({
 
   return (
     <div
-      className="pointer-events-none mt-1 rounded-lg border border-line bg-panel px-3 py-2 text-xs shadow-xl shadow-black/50"
+      className="pointer-events-none w-[232px] rounded-lg border border-line bg-panel px-3 py-2 text-xs shadow-xl shadow-black/50"
       role="tooltip"
     >
       <p className="font-semibold">{title}</p>

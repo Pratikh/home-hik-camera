@@ -557,4 +557,346 @@ test.describe("PLAY - playback", () => {
     await page.getByRole("link", { name: "Dashboard" }).click();
     await expect(page.getByRole("region", { name: "Playback" })).toHaveCount(0);
   });
+
+  test("PLAY-017 hovering the timeline previews a frame without seeking or storming the DVR", async ({ page, diag }) => {
+    /*
+     * Previews are pre-generated, so the promises are now: a card appears with
+     * the time under the cursor, hovering never seeks, and a sweep across the
+     * track costs a handful of index/sprite reads and no DVR work at all. The
+     * browser must not be running frame extraction — there is nothing left that
+     * could.
+     */
+    const searchLoaded = page
+      .waitForResponse(
+        (response) => response.url().includes("/api/playback/search?") && response.status() === 200,
+        { timeout: 25_000 },
+      )
+      .catch(() => null);
+    await page.goto(ROUTES.playback);
+    await expect(page.getByRole("region", { name: "Playback" })).toBeVisible();
+    await searchLoaded;
+
+    const camera = await firstCamera(page);
+    const date = await displayedDate(page);
+    const recordings = await recordingsFor(page, camera.id, date);
+    if (recordings.length === 0) {
+      test.info().annotations.push({
+        type: "environment",
+        description: `no recordings returned for camera ${camera.id} on ${date}`,
+      });
+      return;
+    }
+
+    const previewRequests: { url: string; status: number | null }[] = [];
+    page.on("request", (request) => {
+      if (request.url().includes("/api/playback/thumbnail")) previewRequests.push({ url: request.url(), status: null });
+    });
+    page.on("response", (response) => {
+      if (!response.url().includes("/api/playback/thumbnail")) return;
+      const entry = previewRequests.find((item) => item.url === response.url() && item.status === null);
+      if (entry) entry.status = response.status();
+    });
+
+    const slider = page.getByRole("slider", { name: "Recording timeline. Use the arrow keys to seek." });
+    await expect(slider).toBeVisible();
+    /*
+     * The page autoplays, so the playhead moves on its own. Pause first, or the
+     * "hover must not seek" check would be racing the clock rather than testing
+     * the pointer.
+     */
+    const pause = page.getByRole("button", { name: "Pause" });
+    if (await pause.count()) {
+      await pause.first().click().catch(() => undefined);
+      await page.waitForTimeout(600);
+    }
+    const box = (await slider.boundingBox())!;
+    const pointerBefore = await slider.getAttribute("aria-valuenow");
+    const beforeSweep = previewRequests.length;
+
+    const dayStartMs = new Date(`${date}T00:00:00+05:30`).getTime();
+    const first = recordings[0]!;
+    const inside = Math.min(new Date(first.startTime).getTime() + 60_000, new Date(first.endTime).getTime() - 1_000);
+    const fraction = Math.min(0.97, Math.max(0.03, (inside - dayStartMs) / 86_400_000));
+    const y = box.y + 30;
+
+    // Sweep rapidly across the recorded span: dozens of pointer moves.
+    for (let step = 0; step <= 24; step += 1) {
+      const x = box.x + Math.round(box.width * (0.2 + (0.6 * step) / 24));
+      await page.mouse.move(x, y);
+    }
+    // Settle on one recorded instant.
+    await page.mouse.move(box.x + Math.round(box.width * fraction), y);
+
+    // The preview card names itself "Preview at HH:MM:SS"; the marker popover does
+    // not, so the two role="tooltip" elements can never be confused.
+    const card = page.getByRole("tooltip", { name: /^Preview at / });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText(/\d{2}:\d{2}:\d{2}/);
+
+    await page.waitForTimeout(900);
+    const duringSweep = previewRequests.length - beforeSweep;
+    /*
+     * Each unseen 12-minute sheet costs exactly one fetch, and caching makes the
+     * next hover in it free — so the count tracks *sheets crossed*, never pointer
+     * moves. A sweep of 25 moves must stay far below one request per move.
+     */
+    expect(
+      duringSweep,
+      `a 25 step sweep must not request per pointer move (got ${duringSweep})`,
+    ).toBeLessThanOrEqual(12);
+
+    // Only pre-generated data is ever read: an index and, at most, sprite sheets.
+    for (const request of previewRequests) {
+      expect(request.url, "hover must only read pre-generated previews").toMatch(
+        /\/api\/playback\/thumbnail\/(index|sprite)/,
+      );
+      expect(request.status ?? 200, request.url).toBeLessThan(500);
+    }
+
+    // Hovering must never move the playhead: only a click may seek.
+    expect(await slider.getAttribute("aria-valuenow"), "hover must not change the playhead").toBe(pointerBefore);
+
+    const picture = card.locator('[role="img"], div[style*="background-image"]');
+    if ((await picture.count()) > 0) {
+      const style = (await picture.first().getAttribute("style")) ?? "";
+      expect(style, "the preview must be a window onto a generated sprite sheet").toContain(
+        "/api/playback/thumbnail/sprite",
+      );
+    } else {
+      /*
+       * Nothing generated here yet (or the DVR is busy with the player, which the
+       * generator stands down for). The card must still show the time and say so
+       * rather than block the timeline.
+       */
+      await expect(card).toContainText(/Preview generating|Preview unavailable|Pause to preview|No recording/i);
+      test.info().annotations.push({
+        type: "environment",
+        description: "no generated frame near this instant yet; the card degraded to its timestamp",
+      });
+    }
+
+    diag.expectClean({ allowStatuses: [404, 409, 502] });
+  });
+
+  test("PLAY-018 the preview follows the hovered instant and never reuses a distant frame", async ({ page, diag }) => {
+    /*
+     * The bug this pins: hovering anywhere on the timeline showed one frozen
+     * image whose clock was a generated frame from hours away. The selector used
+     * to fall back to "the nearest bucket" when nothing was generated nearby, so
+     * 02:17 and 04:48 both resolved to the same 11:52 frame at crop 0,0.
+     */
+    const clock = (ms: number) =>
+      new Date(ms).toLocaleTimeString("en-GB", { timeZone: "Asia/Kolkata", hour12: false });
+
+    const searchLoaded = page
+      .waitForResponse(
+        (response) => response.url().includes("/api/playback/search?") && response.status() === 200,
+        { timeout: 25_000 },
+      )
+      .catch(() => null);
+    await page.goto(ROUTES.playback);
+    await expect(page.getByRole("region", { name: "Playback" })).toBeVisible();
+    await searchLoaded;
+
+    const camera = await firstCamera(page);
+    const date = await displayedDate(page);
+    type Index = { buckets: { start: number; version: number; frames: number[] }[]; progress: { generated: number } };
+    const index = (await page.request
+      .get(`/api/playback/thumbnail/index?camera=${camera.id}&date=${date}&focus=${Date.now()}`)
+      .then((r) => r.json())) as Index;
+    const frames = index.buckets.flatMap((bucket) => bucket.frames).sort((a, b) => a - b);
+    if (frames.length < 2) {
+      test.info().annotations.push({
+        type: "environment",
+        description: `only ${frames.length} generated frame(s) for this day; nothing to compare yet`,
+      });
+      return;
+    }
+
+    const dayStartMs = new Date(`${date}T00:00:00+05:30`).getTime();
+    const slider = page.getByRole("slider", { name: "Recording timeline. Use the arrow keys to seek." });
+    const box = (await slider.boundingBox())!;
+    const y = box.y + 30;
+    const hoverAt = async (ms: number) => {
+      const ratio = Math.min(0.995, Math.max(0.005, (ms - dayStartMs) / 86_400_000));
+      await page.mouse.move(box.x + Math.round(box.width * ratio), y);
+      await page.waitForTimeout(500);
+    };
+    const read = async () => {
+      const card = page.getByRole("tooltip", { name: /^Preview at / });
+      await expect(card).toBeVisible();
+      const picture = card.locator('[role="img"]');
+      const shown = await picture.count();
+      return {
+        shown,
+        style: shown > 0 ? ((await picture.first().getAttribute("style")) ?? "") : "",
+        text: ((await card.textContent()) ?? "").replace(/\s+/g, " "),
+      };
+    };
+
+    // Two instants that really are generated, as far apart as the data allows.
+    const firstFrame = frames[0]!;
+    const lastFrame = frames[frames.length - 1]!;
+
+    await hoverAt(firstFrame);
+    const a = await read();
+    await hoverAt(lastFrame);
+    const b = await read();
+
+    expect(a.shown, "a generated instant must show a picture").toBeGreaterThan(0);
+    expect(b.shown, "a generated instant must show a picture").toBeGreaterThan(0);
+    // TEST 1/2/3: different instants produce different sources or different crops.
+    expect(a.style, `${clock(firstFrame)} and ${clock(lastFrame)} must not render the same tile`).not.toBe(b.style);
+    // And each caption names the frame actually shown, not a neighbour's.
+    expect(a.text).toContain(clock(firstFrame));
+    expect(b.text).toContain(clock(lastFrame));
+
+    // TEST: an instant with nothing generated nearby shows no stale picture.
+    // Pick the middle of the biggest empty stretch inside the day, so the check
+    // never drifts outside the day (or onto a generated cell by accident).
+    const dayEndMs = dayStartMs + 86_400_000;
+    const edges = [dayStartMs, ...frames, dayEndMs];
+    let gapStart = dayStartMs;
+    let gapEnd = dayStartMs;
+    for (let i = 1; i < edges.length; i += 1) {
+      const from = edges[i - 1]!;
+      const to = edges[i]!;
+      if (to - from > gapEnd - gapStart) {
+        gapStart = from;
+        gapEnd = to;
+      }
+    }
+    if (gapEnd - gapStart < 60 * 60_000) {
+      test.info().annotations.push({
+        type: "environment",
+        description: "generated frames are spread across the whole day; no hour-long empty stretch to probe",
+      });
+      return;
+    }
+    const far = Math.round((gapStart + gapEnd) / 2);
+    await hoverAt(far);
+    const c = await read();
+    expect(c.shown, "an ungenerated instant must not recycle a distant frame").toBe(0);
+    expect(c.text, "the caption must describe the hovered instant").not.toContain(clock(firstFrame));
+    // The caption tracks the pointer (within the few minutes a pixel spans).
+    const stamp = /\d{2}:\d{2}:\d{2}/.exec(c.text)?.[0];
+    expect(stamp).toBeTruthy();
+    if (stamp) {
+      const [h, m, sec] = stamp.split(":").map(Number);
+      const shownMs = dayStartMs + h! * 3600_000 + m! * 60_000 + sec! * 1000;
+      expect(Math.abs(shownMs - far), `caption ${stamp} should describe ${clock(far)}`).toBeLessThan(3 * 60_000);
+    }
+
+    diag.expectClean({ allowStatuses: [404, 409, 502] });
+  });
+
+  test("PLAY-019 crossing an event marker keeps one stable preview", async ({ page, diag }) => {
+    /*
+     * The bug this pins: an event marker owned the preview. Entering it snapped
+     * the preview to the event's own instant and leaving it deleted the preview
+     * outright, so sweeping across a "Person detected" marker flickered the card
+     * away until the next pointermove. The marker detail popover also sat in the
+     * flow, growing the timeline section by its own height and shoving the whole
+     * timeline (and the card) up by ~225 px.
+     */
+    const searched = page
+      .waitForResponse(
+        (response) => response.url().includes("/api/playback/search?") && response.status() === 200,
+        { timeout: 25_000 },
+      )
+      .catch(() => null);
+    await page.goto(ROUTES.playback);
+    await expect(page.getByRole("region", { name: "Playback" })).toBeVisible();
+    await searched;
+
+    // Markers only exist once the day's events have loaded.
+    await page
+      .waitForResponse((response) => response.url().includes("/api/events?") && response.status() === 200, {
+        timeout: 20_000,
+      })
+      .catch(() => null);
+
+    const markers = page.locator('button[aria-label*="priority"]');
+    await expect(markers.first()).toBeVisible({ timeout: 20_000 }).catch(() => undefined);
+    if ((await markers.count()) === 0) {
+      test.info().annotations.push({ type: "environment", description: "this day has no event markers" });
+      return;
+    }
+
+    const pause = page.getByRole("button", { name: "Pause" });
+    if (await pause.count()) {
+      await pause.first().click().catch(() => undefined);
+      await page.waitForTimeout(500);
+    }
+
+    const slider = page.getByRole("slider", { name: "Recording timeline. Use the arrow keys to seek." });
+    const card = page.getByRole("tooltip", { name: /^Preview at / });
+    const marker = markers.first();
+    const markerBox = (await marker.boundingBox())!;
+    const markerX = markerBox.x + markerBox.width / 2;
+
+    // 1. Opening the marker popover must not move the timeline.
+    const before = (await slider.boundingBox())!;
+    await page.mouse.move(markerX, markerBox.y + markerBox.height / 2);
+    await page.waitForTimeout(500);
+    const after = (await slider.boundingBox())!;
+    expect(Math.abs(after.y - before.y), "the marker popover must not shift the timeline").toBeLessThanOrEqual(2);
+    expect(Math.abs(after.height - before.height), "the marker popover must not resize the timeline").toBeLessThanOrEqual(2);
+
+    // 2. The timestamp follows the pointer, not the marker's own instant.
+    const caption = async () => {
+      await expect(card).toBeVisible();
+      return /\d{2}:\d{2}:\d{2}/.exec((await card.textContent()) ?? "")?.[0] ?? "";
+    };
+    await page.mouse.move(markerX - 40, markerBox.y);
+    await page.waitForTimeout(120);
+    const left = await caption();
+    await page.mouse.move(markerX, markerBox.y);
+    await page.waitForTimeout(120);
+    const middle = await caption();
+    await page.mouse.move(markerX + 40, markerBox.y);
+    await page.waitForTimeout(120);
+    const right = await caption();
+    expect(left && middle && right, "a hover over the timeline must always name an instant").toBeTruthy();
+    expect(left < middle, `caption must advance with the pointer (${left} < ${middle})`).toBe(true);
+    expect(middle < right, `caption must advance with the pointer (${middle} < ${right})`).toBe(true);
+
+    // 3. Crossing the marker repeatedly must never remove the preview.
+    await page.evaluate(() => {
+      const state = { gaps: 0, timer: 0 };
+      (window as unknown as { __cross: typeof state }).__cross = state;
+      state.timer = window.setInterval(() => {
+        if (!document.querySelector('[role="tooltip"][aria-label^="Preview at "]')) state.gaps += 1;
+      }, 16);
+    });
+    const previewRequests: string[] = [];
+    const onRequest = (request: { url: () => string }) => {
+      if (request.url().includes("/api/playback/thumbnail")) previewRequests.push(request.url());
+    };
+    page.on("request", onRequest);
+
+    for (const dx of [-40, -20, 0, 20, 40, 20, 0, -20, -40, -20, 0, 20, 40]) {
+      await page.mouse.move(markerX + dx, markerBox.y);
+      await page.waitForTimeout(70);
+    }
+    const gaps = await page.evaluate(() => {
+      const state = (window as unknown as { __cross: { gaps: number; timer: number } }).__cross;
+      clearInterval(state.timer);
+      return state.gaps;
+    });
+    page.off("request", onRequest);
+    expect(gaps, "the preview must not disappear while crossing a marker").toBe(0);
+
+    // 4. Crossing a marker must not ask the server for anything.
+    expect(previewRequests.length, "crossing a marker must not request previews").toBeLessThanOrEqual(2);
+
+    // 5. The marker is still clickable and still seeks.
+    const playheadBefore = await slider.getAttribute("aria-valuenow");
+    await marker.click();
+    await expect
+      .poll(async () => slider.getAttribute("aria-valuenow"), { timeout: 10_000 })
+      .not.toBe(playheadBefore);
+
+    diag.expectClean({ allowStatuses: [404, 409, 502] });
+  });
 });

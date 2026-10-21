@@ -300,6 +300,8 @@ export function PlaybackView({
           onSeek={seekDay}
           events={dayEvents}
           cameraName={cameras.find((item) => item.id === camera)?.name}
+          camera={camera}
+          date={date}
         />
       ) : null}
       {noRecordings ? <p className="text-sm text-muted">{Messages.noRecordings}</p> : null}

@@ -63,6 +63,8 @@ function render(props: {
   positionMs?: number | null;
   zoom?: 24 | 6 | 1;
   cameraName?: string;
+  camera?: number;
+  date?: string;
 }) {
   const zoom = props.zoom ?? 24;
   return renderToStaticMarkup(
@@ -76,6 +78,8 @@ function render(props: {
       onSeek: () => undefined,
       events: props.events ?? [],
       cameraName: props.cameraName ?? "Parking",
+      camera: props.camera ?? 1,
+      date: props.date ?? "2026-10-07",
     }),
   );
 }
