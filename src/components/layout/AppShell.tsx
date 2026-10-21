@@ -176,6 +176,9 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             })}
           </nav>
           <div className="border-t border-line p-3">
+            <Link href="/account" className="block rounded-lg px-3 py-2 text-sm text-muted hover:bg-white/5 hover:text-ink">
+              Account
+            </Link>
             <button type="button" onClick={() => void logout()} className="h-10 w-full rounded-lg px-3 text-left text-sm text-muted hover:bg-white/5 hover:text-ink">
               Log out
             </button>
@@ -189,10 +192,16 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             </div>
             {/* shrink-0 + nowrap keeps every action on one line; the status lamp is
                 the only element allowed to compress. */}
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2 md:gap-3">
               <StatusLamp tone={lamp.tone} label={lamp.label} compact />
               <Clock />
               <NotificationPermissionButton />
+              <Link
+                href="/account"
+                className="h-9 shrink-0 whitespace-nowrap rounded-lg border border-line px-2 text-xs leading-9 text-muted hover:bg-white/5 hover:text-ink md:hidden"
+              >
+                Account
+              </Link>
               <button
                 type="button"
                 onClick={() => void logout()}

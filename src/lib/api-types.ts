@@ -85,6 +85,80 @@ export type HealthBody = {
   events: "ok" | "stopped" | "error";
 };
 
+export type OperationalState = "ok" | "running" | "idle" | "stopped" | "disabled" | "error" | "unknown";
+
+export type SystemHealthBody = {
+  checkedAt: string;
+  status: "healthy" | "degraded" | "unhealthy";
+  application: "ok" | "misconfigured";
+  database: {
+    status: "ok" | "error";
+    events: number | null;
+    users: number | null;
+  };
+  dvr: HealthDvrState;
+  mediamtx: {
+    status: "ok" | "offline" | "unknown";
+    reachable: boolean | null;
+    drift: boolean | null;
+    message: string | null;
+    paths: Array<{ path: string; ready: boolean; tracks: number; bytesReceived: number }>;
+  };
+  events: {
+    ingestion: "running" | "stopped" | "unknown";
+    lastPoll: string | null;
+    lastError: string | null;
+  };
+  faceDetection: {
+    enabled: boolean;
+    worker: "running" | "stopped" | "unknown" | "disabled";
+    lastHeartbeat: string | null;
+    heartbeatAgeSeconds: number | null;
+    /** The worker has not checked in recently enough to be trusted. */
+    stale: boolean;
+    queue: { pending: number; processing: number; completed: number; failed: number } | null;
+    detail: string | null;
+    warning: string | null;
+  };
+  thumbnails: {
+    enabled: boolean;
+    worker: OperationalState;
+    queued: number | null;
+    concurrency: number | null;
+    lastError: string | null;
+    lastRunAt: string | null;
+    diskBytes: number | null;
+  };
+  storage: {
+    status: "ok" | "unknown" | "error";
+    totalBytes: number | null;
+    freeBytes: number | null;
+    usedPercent: number | null;
+  };
+  backups: {
+    status: "ok" | "stale" | "failed" | "unknown";
+    lastSuccessAt: string | null;
+    lastAttemptAt: string | null;
+    ageSeconds: number | null;
+    detail: string | null;
+  };
+  retention: {
+    status: "ok" | "error" | "unknown" | "disabled";
+    lastRunAt: string | null;
+    lastError: string | null;
+    removed: {
+      events: number;
+      notifications: number;
+      snapshots: number;
+      orphanedSnapshots: number;
+      crops: number;
+      orphanedCrops: number;
+    } | null;
+  };
+  sessions: { active: number | null };
+  warnings: string[];
+};
+
 export type RecordingType = "continuous" | "motion" | "alarm" | "manual" | "other";
 
 export type RecordingView = {

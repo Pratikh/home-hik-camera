@@ -122,6 +122,7 @@ Actual routes discovered from `src/app`:
 | `/faces` | Detected faces (detection only; every face is Unassigned). |
 | `/notifications` | Notification history (decisions, not rules). |
 | `/device` | DVR device information. |
+| `/account` | Own password change and session list/revocation. Any signed-in user. |
 | `/settings` | Read-only environment summary. ADMIN. |
 | `/settings/users` | User management. ADMIN. |
 | `/settings/notifications` | Notification rule management. ADMIN. |
@@ -134,12 +135,14 @@ the protected layouts (`src/app/(hub)/layout.tsx`,
 `src/app/(hub)/settings/layout.tsx`) re-check the session server-side.
 
 Selected API routes: `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`,
-`/api/health` (public), `/api/cameras`, `/api/cameras/[id]`, `/api/dvr/status`,
-`/api/dvr/info`, `/api/events*`, `/api/events/[id]/faces`, `/api/faces`,
-`/api/faces/[id]`, `/api/faces/[id]/image`, `/api/notifications*`,
-`/api/notification-rules*`, `/api/audit`, `/api/users*`, `/api/settings`,
-`/api/system/sessions`, `/api/streams/*`, `/api/webrtc/*`, `/api/hls/*`,
-`/api/playback/search`, `/api/playback/recording-dates`, `/api/playback/session`.
+`/api/auth/password`, `/api/auth/sessions`, `/api/health` (public, small),
+`/api/system/health` (ADMIN, operational), `/api/cameras`, `/api/cameras/[id]`,
+`/api/dvr/status`, `/api/dvr/info`, `/api/events*`, `/api/events/[id]/faces`,
+`/api/faces`, `/api/faces/[id]`, `/api/faces/[id]/image`, `/api/notifications*`,
+`/api/notification-rules*`, `/api/audit`, `/api/users*`,
+`/api/users/[id]/sessions`, `/api/settings`, `/api/system/sessions`,
+`/api/streams/*`, `/api/webrtc/*`, `/api/hls/*`, `/api/playback/search`,
+`/api/playback/recording-dates`, `/api/playback/session`.
 
 ## Roles
 

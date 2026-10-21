@@ -747,9 +747,20 @@ test.describe("PLAY - playback", () => {
     expect(b.shown, "a generated instant must show a picture").toBeGreaterThan(0);
     // TEST 1/2/3: different instants produce different sources or different crops.
     expect(a.style, `${clock(firstFrame)} and ${clock(lastFrame)} must not render the same tile`).not.toBe(b.style);
-    // And each caption names the frame actually shown, not a neighbour's.
-    expect(a.text).toContain(clock(firstFrame));
-    expect(b.text).toContain(clock(lastFrame));
+    /*
+     * The caption describes the hovered instant, which is a pixel-rounded point
+     * on a 24-hour timeline. One pixel is roughly a minute here, so allow that
+     * quantisation; the bug this pins was a caption hours away, not a few
+     * seconds. The style assertion above is the exact source-of-frame check.
+     */
+    const captionMs = (text: string): number | null => {
+      const stamp = /\d{2}:\d{2}:\d{2}/.exec(text)?.[0];
+      if (!stamp) return null;
+      const [h, m, s] = stamp.split(":").map(Number);
+      return dayStartMs + h! * 3600_000 + m! * 60_000 + s! * 1000;
+    };
+    expect(Math.abs((captionMs(a.text) ?? -Infinity) - firstFrame)).toBeLessThanOrEqual(90_000);
+    expect(Math.abs((captionMs(b.text) ?? -Infinity) - lastFrame)).toBeLessThanOrEqual(90_000);
 
     // TEST: an instant with nothing generated nearby shows no stale picture.
     // Pick the middle of the biggest empty stretch inside the day, so the check
@@ -831,9 +842,36 @@ test.describe("PLAY - playback", () => {
 
     const slider = page.getByRole("slider", { name: "Recording timeline. Use the arrow keys to seek." });
     const card = page.getByRole("tooltip", { name: /^Preview at / });
-    const marker = markers.first();
-    const markerBox = (await marker.boundingBox())!;
+    const sliderBox = (await slider.boundingBox())!;
+    /*
+     * Use a marker with room on both sides. The first event of the day can sit
+     * within 40 px of the timeline start; probing markerX - 40 there lands
+     * outside the slider and tests the page margin, not the app.
+     */
+    let markerIndex = -1;
+    let markerBox: { x: number; y: number; width: number; height: number } | null = null;
+    for (let index = 0; index < (await markers.count()); index += 1) {
+      const box = await markers.nth(index).boundingBox();
+      if (!box) continue;
+      const centerX = box.x + box.width / 2;
+      if (centerX - sliderBox.x >= 80 && sliderBox.x + sliderBox.width - centerX >= 80) {
+        markerIndex = index;
+        markerBox = box;
+        break;
+      }
+    }
+    if (!markerBox) {
+      test.info().annotations.push({
+        type: "environment",
+        description: "every event marker sits at the timeline edge; no room to probe both sides",
+      });
+      return;
+    }
+    const marker = markers.nth(markerIndex);
     const markerX = markerBox.x + markerBox.width / 2;
+    // The preview tracks the pointer over the timeline track, not over the
+    // marker button's popover.
+    const trackY = sliderBox.y + 30;
 
     // 1. Opening the marker popover must not move the timeline.
     const before = (await slider.boundingBox())!;
@@ -848,13 +886,13 @@ test.describe("PLAY - playback", () => {
       await expect(card).toBeVisible();
       return /\d{2}:\d{2}:\d{2}/.exec((await card.textContent()) ?? "")?.[0] ?? "";
     };
-    await page.mouse.move(markerX - 40, markerBox.y);
+    await page.mouse.move(markerX - 40, trackY);
     await page.waitForTimeout(120);
     const left = await caption();
-    await page.mouse.move(markerX, markerBox.y);
+    await page.mouse.move(markerX, trackY);
     await page.waitForTimeout(120);
     const middle = await caption();
-    await page.mouse.move(markerX + 40, markerBox.y);
+    await page.mouse.move(markerX + 40, trackY);
     await page.waitForTimeout(120);
     const right = await caption();
     expect(left && middle && right, "a hover over the timeline must always name an instant").toBeTruthy();
@@ -876,7 +914,7 @@ test.describe("PLAY - playback", () => {
     page.on("request", onRequest);
 
     for (const dx of [-40, -20, 0, 20, 40, 20, 0, -20, -40, -20, 0, 20, 40]) {
-      await page.mouse.move(markerX + dx, markerBox.y);
+      await page.mouse.move(markerX + dx, trackY);
       await page.waitForTimeout(70);
     }
     const gaps = await page.evaluate(() => {

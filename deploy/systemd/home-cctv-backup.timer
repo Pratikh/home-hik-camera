@@ -1,0 +1,15 @@
+[Unit]
+Description=Daily Home CCTV Hub backup
+Documentation=file:/opt/home-cctv/README.md
+
+[Timer]
+# 03:30 local time, with up to five minutes of jitter. Persistent means a
+# missed run (host powered off at 03:30) happens at the next boot instead of
+# being skipped silently.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=300
+Unit=home-cctv-backup.service
+
+[Install]
+WantedBy=timers.target

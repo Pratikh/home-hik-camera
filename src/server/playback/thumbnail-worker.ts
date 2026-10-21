@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { getConfig } from "@/lib/config";
 import { thumbnailIntervalMs, type ThumbnailProgress } from "@/lib/playback-thumbnail";
+import { openEventStore } from "@/server/events/event-store";
 import { HikvisionClient } from "@/server/hikvision/hikvision-client";
 import { playbackClientFrom } from "@/server/hikvision/hikvision-playback";
 import { isPlayerStreaming, extractFrame } from "@/server/playback/thumbnail-extract";
@@ -48,6 +49,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let retryAt = 0;
 let lastPrune = 0;
 let lastError: string | null = null;
+let lastRunAt: string | null = null;
+let lastPersistedAt = 0;
 
 function keyOf(camera: number, date: string): string {
   return `${camera}|${date}`;
@@ -65,6 +68,8 @@ export function resetThumbnailWorker(): void {
   retryAt = 0;
   lastPrune = 0;
   lastError = null;
+  lastRunAt = null;
+  lastPersistedAt = 0;
 }
 
 /**
@@ -106,6 +111,30 @@ function schedule(delayMs: number): void {
   timer.unref?.();
 }
 
+/**
+ * Record the worker state outside this module.
+ *
+ * Instrumentation and route handlers can run in separate module instances, so
+ * the in-memory flags above are not a reliable source for the admin health
+ * page. The database is. Writes are throttled while work is queued and forced
+ * when the queue empties, which costs almost nothing.
+ */
+function persistWorkerState(force: boolean): void {
+  if (process.env.NODE_ENV === "test") return;
+  const now = Date.now();
+  if (!force && now - lastPersistedAt < 30_000) return;
+  lastPersistedAt = now;
+  try {
+    const store = openEventStore(getConfig().dataDir);
+    store.setSetting("thumbnail_worker_last_run", new Date(now).toISOString());
+    store.setSetting("thumbnail_worker_queued", String(jobs.size));
+    store.setSetting("thumbnail_worker_status", jobs.size > 0 || working ? "running" : "idle");
+    store.setSetting("thumbnail_worker_last_error", lastError ?? "");
+  } catch {
+    // Diagnostics must never break preview generation.
+  }
+}
+
 async function tick(): Promise<void> {
   if (working) return;
   working = true;
@@ -124,6 +153,8 @@ async function tick(): Promise<void> {
     nextDelay = ERROR_BACKOFF_MS;
   } finally {
     working = false;
+    lastRunAt = new Date().toISOString();
+    persistWorkerState(jobs.size === 0);
     if (jobs.size > 0) schedule(nextDelay);
     else started = false;
   }
@@ -222,6 +253,7 @@ async function step(): Promise<{ delayMs: number }> {
       return { delayMs: 1_000 };
     }
     maybePrune();
+    lastError = null;
     // Straight on to the next frame: the DVR handshake is the slow part, not us.
     return { delayMs: 120 };
   }
@@ -235,7 +267,11 @@ async function step(): Promise<{ delayMs: number }> {
     retryAt = Date.now() + BUSY_BACKOFF_MS;
     return { delayMs: BUSY_BACKOFF_MS };
   }
-  if (result === "empty") return { delayMs: 150 };
+  if (result === "empty") {
+    // No recording at this instant is a normal answer, not a worker failure.
+    lastError = null;
+    return { delayMs: 150 };
+  }
   lastError = "extract_failed";
   retryAt = Date.now() + ERROR_BACKOFF_MS;
   return { delayMs: ERROR_BACKOFF_MS };
@@ -269,7 +305,26 @@ export function thumbnailProgress(camera: number, date: string, index: { buckets
   };
 }
 
-/** Diagnostics for the settings/diagnostics surface. */
-export function thumbnailWorkerState(): { queued: number; lastError: string | null; concurrency: number } {
-  return { queued: jobs.size, lastError, concurrency: Math.min(getConfig().thumbnailWorkers, 1) };
+/**
+ * Diagnostics for the admin status surface.
+ *
+ * `running` means the loop is scheduled or a frame is being extracted. When the
+ * queue is empty the worker parks and reports `idle`, which is healthy rather
+ * than stopped. `lastRunAt` distinguishes "has never run" from "ran, then
+ * parked".
+ */
+export function thumbnailWorkerState(): {
+  queued: number;
+  lastError: string | null;
+  concurrency: number;
+  running: boolean;
+  lastRunAt: string | null;
+} {
+  return {
+    queued: jobs.size,
+    lastError,
+    concurrency: Math.min(getConfig().thumbnailWorkers, 1),
+    running: started || working,
+    lastRunAt,
+  };
 }

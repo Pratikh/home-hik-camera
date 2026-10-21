@@ -12,6 +12,7 @@ export async function GET() {
   if (!auth.ok) return auth.response;
   const config = getConfig();
   const accounts = accountStore(config.dataDir);
+  accounts.pruneExpiredSessions();
   const sessions = accounts.listSessions();
   const presence = accounts.presence();
   let mediamtx: Record<string, number> | null = null;

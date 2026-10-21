@@ -16,6 +16,7 @@ export const ROUTES = {
   faces: "/faces",
   notifications: "/notifications",
   device: "/device",
+  account: "/account",
   settings: "/settings",
   users: "/settings/users",
   notificationRules: "/settings/notifications",
@@ -31,6 +32,7 @@ export const PROTECTED_PAGES: string[] = Object.values(ROUTES).filter(
 /** Endpoints that must reject an unauthenticated caller with 401. */
 export const PROTECTED_API: string[] = [
   "/api/auth/session",
+  "/api/auth/sessions",
   "/api/cameras",
   "/api/cameras/1",
   "/api/dvr/status",
@@ -45,6 +47,7 @@ export const PROTECTED_API: string[] = [
   "/api/users",
   "/api/settings",
   "/api/system/sessions",
+  "/api/system/health",
   "/api/notification-rules",
   "/api/streams/presence",
   "/api/playback/recording-dates?camera=1&month=2026-01",
@@ -56,6 +59,7 @@ export const ADMIN_ONLY_API: string[] = [
   "/api/users",
   "/api/settings",
   "/api/system/sessions",
+  "/api/system/health",
   "/api/notification-rules",
 ];
 

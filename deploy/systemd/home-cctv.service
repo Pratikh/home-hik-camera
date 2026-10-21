@@ -1,0 +1,31 @@
+[Unit]
+# Home CCTV Hub — MediaMTX + web, started from the existing Podman Compose
+# stack after boot. Container restart policies handle a crashed process; this
+# unit handles the host reboot.
+Description=Home CCTV Hub (Podman Compose)
+Documentation=file:/opt/home-cctv/README.md
+Wants=network-online.target
+After=network-online.target
+RequiresMountsFor=/opt/home-cctv
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/home-cctv
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Optional operator overrides. Never put secrets here; Compose reads
+# /opt/home-cctv/.env (mode 0600). Listed after the defaults so it can override.
+EnvironmentFile=-/etc/default/home-cctv
+# Respect the compose dependency order: web waits for a healthy MediaMTX.
+ExecStart=/usr/bin/podman compose -f /opt/home-cctv/compose.yml up -d --remove-orphans
+ExecStop=/usr/bin/podman compose -f /opt/home-cctv/compose.yml down
+ExecReload=/usr/bin/podman compose -f /opt/home-cctv/compose.yml up -d --force-recreate
+TimeoutStartSec=600
+TimeoutStopSec=120
+# A failed start is visible in `systemctl status` and `journalctl -u home-cctv`.
+# `Restart=` is not used for a oneshot: the containers themselves use
+# `restart: unless-stopped`, which recreates a crashed service.
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -1,19 +1,30 @@
 # Home CCTV Hub
 
-Private live view for a Hikvision DS-7104HGHI-K1 on the home network. The browser talks only to this hub. The hub talks to the DVR.
+Private CCTV hub for a Hikvision DS-7104HGHI-K1 on the home network. The browser talks only to this hub. The hub talks to the DVR.
 
 ```
-Hikvision DVR --RTSP--> MediaMTX --WebRTC or HLS--> this hub --> browser
+Hikvision DVR --RTSP--> MediaMTX --WebRTC or HLS (proxied by the hub)--> browser
 ```
 
-Four camera slots. Sub streams (`102`, `202`, `302`, `402`) fill the grid. Main streams (`101`, `201`, `301`, `401`) open full screen. Playback, events, notifications, and remote access are left for a later version. The Hikvision module, the video gateway, and the web UI are separate so those features can be added beside them.
+Four camera slots. Sub streams (`102`, `202`, `302`, `402`) fill the grid. Main streams (`101`, `201`, `301`, `401`) open full screen. Live view, playback, events, notification rules, browser/Telegram notifications, optional local face **detection**, users/roles, session management, backup/restore, a daily backup timer, and a Podman systemd unit are implemented. This README describes the current system; it does not promise anything that is not in the code.
+
+**The only public entry point is the Next.js hub on port `3000`.** Tailscale Funnel must expose only that port. The DVR is never public, and MediaMTX's HLS, WHEP and API ports are internal to the compose network.
 
 ## Requirements
+
+Development:
 
 - macOS
 - Node.js 24 (or Node 20+) and npm
 - Podman Desktop. Docker Desktop is not required
 - The DVR reachable from this computer on the LAN
+
+Production:
+
+- Ubuntu Server (tested layout: `/opt/home-cctv`)
+- Podman and `podman compose`
+- `sqlite3` on the host for consistent backups and restore rehearsal
+- Tailscale with Funnel exposing **only** port `3000`
 
 `podman compose` on this Mac uses the `docker-compose` CLI against the Podman machine. Docker Desktop is not required. If that command fails with `docker-credential-desktop: executable file not found`, Compose is pointed at a Docker Desktop credential helper. Leave `~/.docker/config.json` as it is and run:
 
@@ -22,6 +33,74 @@ mkdir -p /tmp/home-cctv-docker
 printf '%s\n' '{}' > /tmp/home-cctv-docker/config.json
 DOCKER_CONFIG=/tmp/home-cctv-docker podman compose up -d
 ```
+
+## Production deployment (Ubuntu Server + Podman)
+
+The production topology is deliberately small:
+
+```
+Tailscale Funnel (public HTTPS, port 3000 only)
+        │
+        ▼
+Next.js hub (container, port 3000)
+        │  server-side WHEP/HLS proxy + MediaMTX API
+        ▼
+MediaMTX (container, internal ports 8888/8889/9997; published ICE port 8189)
+        │  RTSP client
+        ▼
+Hikvision DVR on the home LAN (never public)
+```
+
+- Only ports `3000` and the WebRTC media port `8189` are published. `8888`
+  (HLS), `8889` (WHEP) and `9997` (API) are reachable only inside the compose
+  network. The DVR's `80`/`554` are never published.
+- `MEDIAMTX_AUTH_PASSWORD` is **required**; MediaMTX rejects stream reads without
+  it. The hub attaches the credential on its own server-side WHEP/HLS requests.
+  The password is never hard-coded, logged, or sent to the browser.
+- Tailscale Funnel is configured for the hub only:
+
+```bash
+sudo tailscale funnel --bg 3000
+sudo tailscale funnel status        # must show only :3000
+```
+
+Do not add Funnel rules for `554`, `8188`, `8189`, `8554`, `8888`, `8889`,
+`9997`, or the DVR's address.
+
+Layout on the server:
+
+```text
+/opt/home-cctv/
+├── compose.yml            # production stack
+├── compose.dev.yml        # loopback-only ports for host development
+├── .env                   # secrets; mode 0600, never committed
+├── data/                  # SQLite, events, face crops, thumbnails
+├── backups/               # daily backups first, then 7 retained
+├── deploy/systemd/        # boot + backup units
+└── scripts/               # backup/restore/verify/cleanup
+```
+
+Install and start (details in [deploy/systemd/README.md](deploy/systemd/README.md)):
+
+```bash
+cd /opt/home-cctv
+sudo chown root:root .env && sudo chmod 600 .env
+sudo apt-get install -y sqlite3
+sudo install -m 644 deploy/systemd/home-cctv.service /etc/systemd/system/
+sudo install -m 644 deploy/systemd/home-cctv-backup.service /etc/systemd/system/
+sudo install -m 644 deploy/systemd/home-cctv-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now home-cctv.service
+sudo systemctl enable --now home-cctv-backup.timer
+
+# Only when FACE_DETECTION_ENABLED=true:
+sudo install -m 644 deploy/systemd/home-cctv-face-worker.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now home-cctv-face-worker.service
+```
+
+Never copy `.env` into an image, a backup, or git. The `.env.example` file
+contains placeholders only.
 
 ## macOS and Podman
 
@@ -58,7 +137,10 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `MEDIAMTX_API_URL` | Default `http://127.0.0.1:9997` for `npm run dev`. Compose points this at the `mediamtx` service. |
 | `MEDIAMTX_WHEP_URL` | WebRTC signaling. Default `http://127.0.0.1:8889`. |
 | `MEDIAMTX_HLS_URL` | HLS fallback. Default `http://127.0.0.1:8888`. |
-| `WEBRTC_ADDITIONAL_HOST` | This computer's LAN address, so phones can complete WebRTC. |
+| `MEDIAMTX_AUTH_USER` | MediaMTX read user. Default `hub`. |
+| `MEDIAMTX_AUTH_PASSWORD` | **Required.** MediaMTX read credential, 16+ characters. Generate with `openssl rand -base64 32`. Never reuse another secret. |
+| `MEDIAMTX_ALLOW_ANONYMOUS` | Development-only escape hatch. Never set `true` in production. |
+| `WEBRTC_ADDITIONAL_HOST` | This computer's LAN address, so phones can complete WebRTC. A `127.0.0.1` candidate is always added. |
 | `VIDEO_DEV_PLACEHOLDER` | `true` shows a labeled placeholder. Default off. |
 | `EVENT_POLL_INTERVAL_MS` | How often the DVR alarm log is polled. Default `5000`. |
 | `EVENT_RETENTION_DAYS` | Days of this hub's own events to keep. `0` is forever. Default `30`. Also editable at `/settings/notifications`. |
@@ -81,10 +163,21 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `TELEGRAM_VIDEO_PRE_SECONDS` / `TELEGRAM_VIDEO_POST_SECONDS` | Clip window around the event. Defaults `5` + `5` = 10 seconds. |
 | `TELEGRAM_VIDEO_MAX_MB` / `TELEGRAM_VIDEO_TIMEOUT_SECONDS` | Clip upload cap (`45`) and FFmpeg time limit (`30`). |
 | `FFMPEG_PATH` | FFmpeg executable used for the clip conversion. Default `ffmpeg`. |
+| `PLAYBACK_THUMBNAIL_ENABLED` | Generate timeline hover previews in the background. Default `true`. |
+| `PLAYBACK_THUMBNAIL_INTERVAL_SECONDS` | Seconds between preview frames. Default `30`. |
+| `MAX_THUMBNAIL_WORKERS` | Extraction concurrency. Clamped to `1` by this DVR. |
+| `PLAYBACK_THUMBNAIL_RETENTION_DAYS` | Days of generated sprites to keep. `0` disables pruning. Default `14`. |
 
-V5 introduces no new environment variables. Notification rules, quiet hours, cooldowns, and retention are configured in the UI and stored in `data/events.sqlite`.
+Notification rules, quiet hours, cooldowns, and retention are configured in the UI and stored in `data/events.sqlite`. Operational tunables that are **not** app settings: `BACKUP_DIR` and `BACKUP_RETENTION` for `scripts/backup.sh` (defaults `./backups` and `7`).
 
-The real `.env` is gitignored. Do not commit it.
+The real `.env` is gitignored. Never commit it, and keep it private on the host:
+
+```bash
+sudo chown root:root /opt/home-cctv/.env
+sudo chmod 600 /opt/home-cctv/.env
+```
+
+It contains the DVR password, the session signing secret, the Telegram bot token and the MediaMTX read password. Do not put any of them in `.env.example`, source, a container image, a log line, or a backup.
 
 ## Finding the DVR IP
 
@@ -121,15 +214,14 @@ Use the DVR's own web page at `http://DVR_IP` or the local monitor. This hub doe
 
 ## Start the hub
 
-From the project directory.
-
-Containers:
+Production is started by systemd (see [Production deployment](#production-deployment-ubuntu-server--podman)).
+Manual control from the project directory:
 
 ```bash
 npm run stack:up        # podman compose up -d   (web + mediamtx)
 podman compose ps
 podman compose logs -f
-podman compose down
+npm run stack:down      # podman compose down
 ```
 
 If `podman compose` fails with `docker-credential-desktop: executable file not found`,
@@ -142,17 +234,21 @@ DOCKER_CONFIG=/tmp/home-cctv-docker npm run stack:up
 Both services use `restart: unless-stopped`, so a crashed container comes back on
 its own (`podman inspect home-cctv-web-1 --format '{{.RestartCount}}'`). Note that
 `podman stop`/`podman kill` is an *explicit* stop, which that policy deliberately
-does not undo — use `podman start` or `npm run stack:up` afterwards.
+does not undo — use `podman start`, `npm run stack:up`, or `systemctl start home-cctv` afterwards.
 
-Development on the host, with MediaMTX still in Podman:
+The production compose file publishes only the hub (`3000`) and the WebRTC media
+port (`8189`). For development on the host, with MediaMTX still in Podman:
 
 ```bash
-npm run mediamtx:up     # podman compose up -d mediamtx
+npm run mediamtx:up     # compose.yml + compose.dev.yml, loopback-only ports
 npm install
 npm run dev
 ```
 
-`npm run dev` listens on `0.0.0.0:3000`. Open `http://127.0.0.1:3000`.
+`compose.dev.yml` adds `127.0.0.1:8888`, `127.0.0.1:8889` and
+`127.0.0.1:9997` so a host process can reach MediaMTX. It never binds those
+ports to the LAN. `npm run dev` listens on `0.0.0.0:3000`; open
+`http://127.0.0.1:3000`.
 
 ### Changing the DVR address or credentials needs a *recreate*, not a restart
 
@@ -162,11 +258,18 @@ stream sources from that environment at every start, so after changing
 equivalents):
 
 ```bash
+# Development on this host:
 npm run mediamtx:up     # recreates the container so it re-reads .env
+
+# Production (systemd):
+sudo systemctl reload home-cctv
+# or: cd /opt/home-cctv && podman compose up -d --force-recreate mediamtx
 ```
 
-`podman restart` / `podman start` keep the old environment and the cameras stay
-blank while `/api/health` still reports `mediamtx: ok`. The hub now detects this:
+The same applies after changing `MEDIAMTX_AUTH_PASSWORD`, `MEDIAMTX_AUTH_USER`
+or `WEBRTC_ADDITIONAL_HOST`. `podman restart` / `podman start` keep the old
+environment and the cameras stay blank while `/api/health` still reports
+`mediamtx: ok`. The hub now detects this:
 `GET /api/dvr/status` reports `media.drift: true` and the log prints
 `[media] MediaMTX is pulling from a different DVR address…`.
 
@@ -185,7 +288,15 @@ That writes `mediamtx/runtime.yml`, which is gitignored and contains the RTSP so
 2. Set `WEBRTC_ADDITIONAL_HOST` to that address and restart MediaMTX (`podman compose up -d --force-recreate mediamtx`).
 3. On the phone, open `http://COMPUTER_LAN_IP:3000`.
 
-WebRTC media uses UDP/TCP port `8189` on this computer. Signaling stays on port `3000`. `127.0.0.1` is always advertised so the same Mac can play WebRTC through the published port. A phone ignores `127.0.0.1` and needs `WEBRTC_ADDITIONAL_HOST`. Until that is set, a phone is offered **HLS** instead of a WebRTC attempt. HLS is a real stream from MediaMTX, proxied by the hub, with no DVR credentials in the URL.
+WebRTC media uses UDP/TCP port `8189` on this computer. Signaling stays on port `3000`: the browser posts its SDP offer to the hub, the hub forwards it to MediaMTX, and the hub rewrites the session URL back to a same-origin path. `127.0.0.1` is always advertised so the same machine can play WebRTC through the published port. A phone ignores `127.0.0.1` and needs `WEBRTC_ADDITIONAL_HOST`. Until that is set, a phone is offered **HLS** instead of a WebRTC attempt. HLS is a real stream from MediaMTX, proxied by the hub, with no DVR credentials in the URL.
+
+In production, allow inbound TCP/UDP `8189` from the LAN only (and never from
+the Internet). Port `8189` carries ICE media for a session the authenticated hub
+already created; it is not an API and cannot start a stream by itself.
+Tailscale Funnel exposes only `3000`. A remote browser reached through Funnel
+therefore uses the proxied HLS fallback unless it also has a private route to
+`8189` (for example the same Tailscale tailnet). This is expected and is not a
+security workaround.
 
 Podman Desktop on macOS forwards published ports from the Mac. Containers reach the DVR by outbound NAT through the Mac. `network_mode: host` does not place a container on the Mac's LAN, so this compose file does not use it. If a container cannot open the DVR while `ping` from the Mac works, run the hub with `npm run dev` (that process uses the Mac network directly) and keep MediaMTX in Podman. If MediaMTX still cannot open RTSP, the Podman machine route to the LAN is the thing to fix; the UI will say the camera or gateway is unavailable.
 
@@ -196,7 +307,10 @@ Podman Desktop on macOS forwards published ports from the Mac. Containers reach 
 - Full screen uses the main stream. Escape or Close leaves it.
 - `/cameras` renames the four tiles. Names are stored in `data/cameras.json`.
 - `/device` shows whatever the DVR returns. Missing fields say "Not reported".
+- `/account` changes your own password and manages your sessions.
 - `/settings` shows the host, ports, username, and `********` for the password.
+- `/settings/users` (ADMIN) creates users, resets passwords, and signs out sessions.
+- `/settings/system` (ADMIN) shows application, database, DVR, MediaMTX, face-worker, thumbnail, storage, backup and retention status.
 - `/events` filters stored events; `/events/<id>` shows one with its snapshot.
 - `/notifications` shows every notification decision.
 - `/events/stats` shows counts by range and camera.
@@ -298,14 +412,17 @@ Statistics range over whole Asia/Kolkata calendar days, so "today" means 00:00�
 
 ## Security
 
-- Use it on a trusted home LAN.
-- Do not port-forward the hub or the DVR.
-- Do not publish the DVR's ports in Compose. Only the hub UI (`3000`) and MediaMTX playback ports are published. The MediaMTX API stays on localhost.
-- Rotate the DVR password and the hub password if they have been shared.
-- Keep `.env` and `mediamtx/runtime.yml` out of git.
-- DVR credentials stay in the server process and in the MediaMTX process. They are not placed in `NEXT_PUBLIC_*` variables, React props, or stream URLs.
-- Event snapshots are stored under `data/events` with mode `0600` and served only through the authenticated `/api/events/<id>/snapshot` route. They are never placed in `public/`. Stored paths are resolved inside the events directory, and traversal or absolute paths are refused.
-- Notification rule management and the rule test endpoint require ADMIN. Event and notification reads require a session. Role checks run on the server, and ids sent by the browser are validated rather than trusted.
+- Use it on a trusted home LAN or through Tailscale. Do not port-forward the hub or the DVR on the router.
+- **Public surface:** only the hub on `3000`, and only through Tailscale Funnel. The compose file publishes `8189` for WebRTC ICE and nothing else; `8888` (HLS), `8889` (WHEP) and `9997` (API) are internal. The DVR's `80`/`554` are never published. `554`, `8888`, `8889`, `9997` and the DVR address must never appear in a Funnel rule or router port-forward.
+- **MediaMTX authentication is required.** `MEDIAMTX_AUTH_PASSWORD` (16+ characters) is rendered into MediaMTX at container start. Anonymous read is available only with the explicit development flag `MEDIAMTX_ALLOW_ANONYMOUS=true`; the container refuses to start without a password otherwise. Do not set that flag in production.
+- **DVR credentials** stay in the server process and in the MediaMTX process. They are never in `NEXT_PUBLIC_*` variables, React props, browser URLs, API responses, or logs. MediaMTX's rendered runtime config is created with mode `0600` inside the container.
+- **`.env`** is gitignored, never copied into an image or backup, and must be mode `0600` (`chmod 600 /opt/home-cctv/.env`). Treat the DVR password, `SESSION_SECRET`, Telegram token and MediaMTX password as independent secrets; do not reuse them.
+- **Password storage:** scrypt with a random salt. Plaintext passwords are never stored, logged, or returned. API responses never include `passwordHash`; the Users and Settings pages mask the DVR password.
+- **Password lifecycle:** a signed-in user can change their own password at `/account`; an ADMIN can reset another user's password at `/settings/users`. Either action revokes every existing session for that user (self-change issues a fresh session to the current browser). Session rows are checked against the database on every request; logout deletes the row.
+- **Sessions:** a user can list and revoke their own sessions; an ADMIN can revoke another user's sessions. Expired sessions are pruned at startup, hourly, on login, and when session lists are read. Active sessions are never deleted by pruning.
+- **Files:** event snapshots are stored under `data/events` with mode `0600` and served only through the authenticated `/api/events/<id>/snapshot` route. They are never placed in `public/`. Face crops have the same rule. Stored paths are resolved inside their configured directory; traversal, absolute paths and symlinks are refused. Backups are written with `umask 077`.
+- **Authorization:** notification rule management, user management, settings and `/api/system/health` require ADMIN. Event and notification reads require a session. Role checks run on the server, and ids sent by the browser are validated rather than trusted.
+- **Health data:** the public `/api/health` endpoint is intentionally small. Detailed operational data (queue counts, storage, backups, worker status) is on the ADMIN-only `/api/system/health`; neither returns passwords, tokens, DVR credentials, session tokens or filesystem paths.
 
 ## Development
 
@@ -313,12 +430,15 @@ Statistics range over whole Asia/Kolkata calendar days, so "today" means 00:00�
 npm install
 npm run dev
 npm test
+npm run test:face        # uses .venv-face/bin/python when present
 npm run lint
 npm run typecheck
 npm run build
 ```
 
-Unit tests mock the DVR. They do not mark a camera live.
+Unit tests mock the DVR. They do not mark a camera live. The Playwright suite
+needs a running hub and ADMIN credentials (`.env` or `.env.qa`), and reports
+VIEWER tests as skipped when `QA_VIEWER_*` is absent.
 
 ### Reconnect and fullscreen differences
 
@@ -340,17 +460,26 @@ Fullscreen also differs by design: Live View uses an in-app overlay (`Fullscreen
 
 Playback search and the timeline live in `src/server/hikvision/hikvision-playback.ts` and `/playback`. Event ingestion lives in `src/server/events/event-processor.ts`, the notification rule engine is `src/server/events/rule-engine.ts`, and snapshot capture is `src/server/events/snapshot.ts`. Priority ranking is `src/lib/priority.ts` and timeline marker grouping is `src/lib/timeline-markers.ts`.
 
-## Users and remote access
+## Users, passwords and sessions
 
-The first start creates an administrator from `APP_USERNAME` and `APP_PASSWORD`. Passwords are stored with scrypt. Sessions are HTTP-only cookies checked against the database, so logging out invalidates that session without disconnecting anyone else.
+The first start creates an administrator from `APP_USERNAME` and `APP_PASSWORD`. Passwords are stored with scrypt. Sessions are HTTP-only cookies checked against the database on every request, so logging out invalidates that session without disconnecting anyone else.
 
-Administrators can open Settings, including users, notification rules, the audit log, and system status. Viewers can use live view, playback, and events. They cannot change users, DVR settings, or notification rules. Those checks run on the server.
+Administrators can open Settings, including users, notification rules, the audit log, and system status. Viewers can use live view, playback, events, and their own `/account` page. They cannot change users, DVR settings, notification rules, or open `/settings/*`. Those checks run on the server.
 
-MediaMTX keeps one RTSP connection to the DVR per camera path and can hand that stream to more than one browser. Set `MEDIAMTX_AUTH_PASSWORD` and recreate the MediaMTX container if the published MediaMTX ports should reject anonymous viewers. The hub adds that password only on its own server-side requests. Leave it empty to keep the current LAN behavior.
+**Change your own password:** `/account` → *Change password*. The current password is required; the new password follows the same minimum (8 characters, 200 maximum) as user creation. On success every session for that user is revoked and a fresh cookie is issued to the current browser, so a previously captured token cannot be replayed.
 
-Do not publish the DVR's HTTP or RTSP ports to the Internet. For access away from home, put the computer on a VPN such as Tailscale or WireGuard and open the hub through that private address. Do not port-forward ports 80, 443, or 554 on the DVR, or the MediaMTX ports.
+**Admin reset:** `/settings/users` → *Reset password* on the target row. This stores a new scrypt hash and revokes all of that user's sessions. The Users page also has *Sign out sessions* for a single user. The audit log records `PASSWORD_CHANGED`, `PASSWORD_RESET`, `PASSWORD_CHANGE_FAILED`, `SESSIONS_REVOKED` and `USER_SESSIONS_REVOKED` without any password or hash.
 
-The hub can be installed on a phone from the browser. The manifest uses standalone display. Login attempts are limited in memory on this one computer; a restart clears that limit.
+**Session management:** `/account` lists the caller's own active sessions (marked *This device*), can sign out every other session, or sign out everywhere. `/settings/system` shows active-session counts. Expired sessions are pruned automatically; active sessions are never removed by pruning.
+
+Remote access is through Tailscale. Put the server on the tailnet and expose only the hub:
+
+```bash
+sudo tailscale funnel --bg 3000
+sudo tailscale funnel status
+```
+
+Never expose the DVR or MediaMTX. A remote browser without a private route to `8189` uses the hub's proxied HLS fallback; that is expected. The hub can be installed on a phone from the browser; the manifest uses standalone display. Login attempts are limited in memory on this one computer; a restart clears that limit.
 
 ## Events
 
@@ -458,18 +587,6 @@ Browser notifications use the standard Notification API. Permission is requested
 
 Delivered notifications depend on the browser being open, permission being granted, a matching enabled rule, the rule's schedule, quiet hours, and cooldown. A notification is only claimed as delivered when the hub records `status = sent` in `/notifications`.
 
-## Users and remote access
-
-The first start creates an administrator from `APP_USERNAME` and `APP_PASSWORD`. Passwords are stored with scrypt. Sessions are HTTP-only cookies checked against the database, so logging out invalidates that session without disconnecting anyone else.
-
-Administrators can open Settings, including users, notification rules, the audit log, and system status. Viewers can use live view, playback, and events. They cannot change users, DVR settings, or notification rules. Those checks run on the server.
-
-MediaMTX keeps one RTSP connection to the DVR per camera path and can hand that stream to more than one browser. Set `MEDIAMTX_AUTH_PASSWORD` and recreate the MediaMTX container if the published MediaMTX ports should reject anonymous viewers. The hub adds that password only on its own server-side requests. Leave it empty to keep the current LAN behavior.
-
-Do not publish the DVR's HTTP or RTSP ports to the Internet. For access away from home, put the computer on a VPN such as Tailscale or WireGuard and open the hub through that private address. Do not port-forward ports 80, 443, or 554 on the DVR, or the MediaMTX ports.
-
-The hub can be installed on a phone from the browser. The manifest uses standalone display. Login attempts are limited in memory on this one computer; a restart clears that limit.
-
 ## V5 API
 
 | Method | Route | Role |
@@ -487,14 +604,20 @@ The hub can be installed on a phone from the browser. The manifest uses standalo
 | PUT/PATCH | `/api/notification-rules/<id>` | ADMIN |
 | DELETE | `/api/notification-rules/<id>` | ADMIN |
 | POST | `/api/notifications/test` | ADMIN |
+| POST | `/api/auth/password` | any signed-in user (own password) |
+| GET | `/api/auth/sessions` | any signed-in user (own sessions) |
+| DELETE | `/api/auth/sessions` | any signed-in user (`scope: others\|all`) |
+| PATCH | `/api/users/<id>` | ADMIN (role, enabled, password reset) |
+| DELETE | `/api/users/<id>/sessions` | ADMIN (revoke that user's sessions) |
+| GET | `/api/system/health` | ADMIN (operational health) |
 
-Every route checks the session and the role on the server. Camera ids, event ids, rule ids, and notification ids from the browser are validated and never trusted. A viewer receives 403 on rule management, and an unauthenticated caller receives 401.
+Every route checks the session and the role on the server. Camera ids, event ids, rule ids, and notification ids from the browser are validated and never trusted. A viewer receives 403 on rule management, and an unauthenticated caller receives 401. `/api/health` is the only intentionally public endpoint; `/api/system/health` is ADMIN-only and adds worker, backup, storage and retention state.
 
 ## Database
 
 `data/events.sqlite` holds events, notification rules, notification history, and this hub's users, sessions, and audit log. V5 adds its columns and tables additively on first start: existing events are kept, priorities are backfilled once from what the DVR reported, and pre-V5 rules receive readable names. The migration is idempotent and runs automatically, so there is no separate migration command.
 
-Indexes cover the query shapes actually used: `(camera_id, timestamp)`, `(type, timestamp)`, `(classification, timestamp)`, `(priority, timestamp)`, plus `notified`, and `notification_history` on `(event_id, rule_id)` unique, `event_id`, `rule_id`, and `created_at`.
+Indexes cover the query shapes actually used: `(camera_id, timestamp)`, `(type, timestamp)`, `(classification, timestamp)`, `(priority, timestamp)`, plus `notified`, and `notification_history` on `(event_id, rule_id)` unique, `event_id`, `rule_id`, and `created_at`. V5.2 adds `auth_sessions(expires_at)`, `auth_sessions(user_id)` and the single-row `face_worker_heartbeat` table. All migrations are additive and idempotent; no command is required.
 
 ### Podman operations
 
@@ -508,43 +631,178 @@ podman compose down           # stop
 
 Data lives in `./data`, mounted into the container, so stopping or recreating a container does not lose events or rules.
 
-## Hardening (V5.1)
+## Operations
 
-### Backup and restore
+Boot, status and logs on the production host:
 
-`scripts/backup.sh` creates a timestamped, consistent backup under `./backups/<timestamp>/`:
+```bash
+systemctl status home-cctv.service --no-pager
+systemctl is-enabled home-cctv.service
+systemctl reload home-cctv                 # recreate containers after a .env change
+journalctl -u home-cctv -n 100 --no-pager
+podman compose -f /opt/home-cctv/compose.yml ps
+podman logs --tail 100 home-cctv-web-1
+podman logs --tail 100 home-cctv-mediamtx-1
+curl -fsS http://127.0.0.1:3000/api/health
+```
 
-- `database.sqlite` — events, notification rules, notification history, users, sessions, audit log. Copied through SQLite's online backup API, so it is consistent even while the hub is running.
+Day-to-day checks:
+
+| What | Command / place |
+| --- | --- |
+| Application, DVR, MediaMTX, face worker, thumbnails, storage, last backup | `/settings/system` (ADMIN) or `GET /api/system/health` |
+| Active sessions | `/account`, `/settings/system` |
+| Login and password events | `/settings/audit-log` |
+| Backup result | `journalctl -u home-cctv-backup -n 50`, `data/backup-status.json` |
+| Backup timer | `systemctl list-timers home-cctv-backup.timer` |
+| Face worker | `systemctl status home-cctv-face-worker`, `podman logs home-cctv-face-worker-1` |
+| Orphan snapshots | `./scripts/cleanup-orphan-snapshots.sh --dry-run` |
+| Restore rehearsal | `./scripts/verify-backup.sh ./backups/<timestamp>` |
+
+If the admin System page says **face detection is enabled but the worker is not
+processing jobs**, check, in order: `FACE_DETECTION_ENABLED=true` in `.env`;
+the model exists at `face-worker/models/face_detection_yunet_2023mar.onnx`; the
+`home-cctv-face-worker.service` is enabled (or the container is running); and the
+worker log names a database, model or path error. When detection is disabled the
+page says so and does not raise a warning.
+
+If the hub reports `mediamtx: offline`, check `podman logs home-cctv-mediamtx-1`.
+If MediaMTX starts but closes immediately, its rendered config was rejected:
+usually `MEDIAMTX_AUTH_PASSWORD` is missing or shorter than 16 characters. The
+container log names the problem without printing the password.
+
+If every login fails while the DVR is fine, confirm `.env` is readable by the
+service and `SESSION_SECRET` is at least 16 characters. If the browser is on
+HTTPS (Funnel) the session cookie is marked `Secure` automatically.
+
+Container logs are rotated by Compose (`json-file`, 10 MB × 3 per service).
+SQLite keeps a bounded WAL (`journal_size_limit`), thumbnails expire after
+`PLAYBACK_THUMBNAIL_RETENTION_DAYS`, face-worker batch/concurrency settings
+are bounded by `FACE_DETECTION_BATCH_SIZE`, and FFmpeg clip files are removed
+after upload or after 30 minutes if a crash left them behind.
+
+## Hardening (V5.2)
+
+### Backup
+
+`scripts/backup.sh` creates a timestamped, consistent backup under
+`./backups/<timestamp>/`:
+
+- `database.sqlite` — events, notification rules, notification history, users,
+  sessions, audit log, face rows. Copied through SQLite's online backup API, so
+  it is consistent while the hub is running.
 - `events/` — event snapshots written by this hub.
+- `face-crops/` — detected-face crops, when the directory exists.
 - `cameras.json` — camera display names.
 - `manifest.json` — what the backup contains and when it was taken.
 
-The backup never copies `.env`, so it cannot leak DVR credentials or the session secret.
+The backup is built in a hidden staging directory and renamed into place only
+after `PRAGMA quick_check` passes. A failed run leaves no partial backup and never
+overwrites an existing one. A lock directory prevents overlapping runs. The
+newest `BACKUP_RETENTION` complete backups are kept (default **7**); only
+directories with a `manifest.json` are eligible for deletion. The script writes
+`data/backup-status.json` for the admin System page and exits non-zero on
+failure.
+
+`sqlite3` is required; a plain file copy can miss WAL pages. On Ubuntu:
+`sudo apt-get install -y sqlite3`.
 
 ```bash
 ./scripts/backup.sh                                # -> ./backups/<timestamp>/
 BACKUP_DIR=/path/to/backups ./scripts/backup.sh    # choose another location
+BACKUP_RETENTION=14 ./scripts/backup.sh            # keep more copies
 ```
 
-`scripts/restore.sh` restores a backup. It refuses to run on a directory without a `manifest.json`, and refuses to run if the hub appears to be listening, so it cannot wipe live data accidentally.
+Automated daily backups:
 
 ```bash
-podman compose down web           # stop the app first
-./scripts/restore.sh ./backups/2026-10-09_103000
-podman compose up -d web
+sudo systemctl enable --now home-cctv-backup.timer
+systemctl list-timers home-cctv-backup.timer
 ```
 
-Set `DRY_RUN=1` to preview without changing anything. A restore keeps the previous database as `data/events.sqlite.pre-restore`.
+The backup never copies `.env`, so it cannot leak DVR credentials, the session
+secret or the MediaMTX password. Thumbnails are generated cache and are excluded;
+DVR recordings live on the DVR and are excluded too.
 
-Backups intentionally exclude Hikvision DVR recordings, MediaMTX streams, `node_modules`, build output, and caches. DVR recordings live on the DVR, not in this hub.
+### Restore rehearsal and restore
 
-### Sessions and cookies
+Rehearse a backup **without touching live data**. The script copies the backup
+database to a temporary directory, runs `PRAGMA integrity_check`,
+`foreign_key_check`, verifies the expected tables and users, and checks that every
+stored snapshot and face-crop reference resolves inside the backup:
 
-Login creates a server-side session row. The cookie is HMAC-signed and carries only the session id; the protected routes validate that id against the database on every request. Logout **deletes the server-side session row**, so an old token is rejected even if the cookie itself were replayed — deleting the browser cookie alone is not relied on.
+```bash
+./scripts/verify-backup.sh ./backups/2026-10-09_103000
+echo $?          # 0 only when every check passed
+```
 
-This was verified end-to-end: a token that returned 200 before logout returns 401 immediately after logout.
+It returns non-zero on failure and never opens or overwrites
+`data/events.sqlite`.
 
-Cookie flags: `HttpOnly=true`, `SameSite=lax`, `Path=/`, 7-day expiry. `Secure` follows `COOKIE_SECURE`: `false` for plain HTTP on a trusted LAN, `true` in production behind HTTPS (a `Secure` cookie is dropped by the browser on `http://`, which is why it is not forced on).
+To restore:
+
+```bash
+sudo systemctl stop home-cctv
+./scripts/restore.sh ./backups/2026-10-09_103000
+sudo systemctl start home-cctv
+```
+
+`restore.sh` runs `verify-backup.sh` first, refuses to run while the hub is
+listening, stages every copy, and moves the previous database, snapshots and face
+crops aside as `*.pre-restore-<timestamp>` rather than deleting them. The old WAL
+and SHM files are moved with the old database so they cannot replay against the
+restored file. Set `DRY_RUN=1` to preview. `.env` is not part of a backup; restore
+it separately with mode `0600`.
+
+### Session and cookie lifecycle
+
+Login creates a server-side session row. The cookie is HMAC-signed and carries
+only the session id; protected routes validate that id against the database on
+every request. Logout **deletes the server-side session row**, so an old token is
+rejected even if the cookie were replayed. Changing or resetting a password
+revokes every session for that user; "sign out other sessions" keeps only the
+requesting session.
+
+Expired rows are pruned at startup, hourly, on login, and when a session list is
+read. The prune is `DELETE ... WHERE expires_at <= now`, so an active session is
+never removed.
+
+Cookie flags: `HttpOnly=true`, `SameSite=lax`, `Path=/`, 7-day expiry. `Secure`
+follows `COOKIE_SECURE` and is forced when the request arrived over HTTPS (for
+example through Tailscale Funnel).
+
+### Operational health
+
+`GET /api/system/health` (ADMIN) reports application, SQLite, DVR, MediaMTX,
+event ingestion, the face-worker heartbeat and queue, the thumbnail worker,
+storage, the last successful backup, retention, and active sessions. Unknown
+checks are reported as `unknown`, never as healthy. It never returns passwords,
+Telegram tokens, session tokens, DVR credentials, or filesystem paths.
+
+`/settings/system` renders the same data and raises a clear warning when
+`FACE_DETECTION_ENABLED=true` but the worker has no recent heartbeat. When
+detection is disabled, no error is shown. The face worker writes a single
+`face_worker_heartbeat` row every cycle (including idle cycles), so a stopped
+worker is visible instead of silently accumulating a queue.
+
+The public `/api/health` endpoint keeps its small shape for external probes.
+
+### Snapshot orphan cleanup
+
+`scripts/cleanup-orphan-snapshots.sh` removes generated snapshots under
+`data/events/` that no `events.snapshot_path` references. It only considers the
+generated name pattern (`<yyyy>/<mm>/<dd>/<camera>-evt_<24 hex>.jpg`), does not
+follow or delete symlinks, refuses to run if the database is unreadable, and
+supports a dry run:
+
+```bash
+./scripts/cleanup-orphan-snapshots.sh --dry-run
+./scripts/cleanup-orphan-snapshots.sh
+```
+
+The same sweep runs in the hub's hourly retention pass, so a crash between a
+snapshot write and the database update does not leave a file forever. Face crops
+already have their own retention sweep in the same pass.
 
 ### Browser notification permission
 

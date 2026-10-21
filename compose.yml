@@ -11,12 +11,23 @@ services:
       dockerfile: mediamtx/Dockerfile
     env_file:
       - .env
+    # Only the WebRTC media port is published in production.
+    #
+    # The browser talks to the hub for signalling (WHEP) and HLS, and the hub
+    # reaches MediaMTX over the compose network. MediaMTX's HLS (8888), WHEP
+    # (8889) and API (9997) listeners therefore stay internal. ICE media still
+    # needs a reachable UDP/TCP endpoint, so 8189 is the one published port;
+    # it only answers ICE for a WebRTC session that the authenticated hub has
+    # already created. Never publish 554, 8888, 8889 or 9997 on the LAN.
+    # For `npm run dev` on the host, compose.dev.yml adds loopback-only ports.
     ports:
-      - "8888:8888"
-      - "8889:8889"
       - "8189:8189/tcp"
       - "8189:8189/udp"
-      - "127.0.0.1:9997:9997"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9997/v3/paths/list"]
@@ -45,6 +56,11 @@ services:
     depends_on:
       mediamtx:
         condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
   # Local face DETECTION worker (optional, off by default).
@@ -73,6 +89,11 @@ services:
     depends_on:
       web:
         condition: service_started
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     # It exits 0 immediately when detection is disabled, so a stray start is
     # harmless. A crash retries and then stops rather than looping forever.
     restart: on-failure

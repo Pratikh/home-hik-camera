@@ -15,10 +15,20 @@ export async function DELETE(_request: Request, context: { params: Promise<{ pat
     return NextResponse.json({ error: Messages.streamUnavailable }, { status: 404 });
   }
   const config = getConfig();
+  const headers = new Headers();
+  // Closing a WebRTC session is a MediaMTX read-path operation, so it needs the
+  // same credential the WHEP POST uses when authentication is enabled.
+  if (config.mediamtxAuthPassword) {
+    headers.set(
+      "Authorization",
+      `Basic ${Buffer.from(`${config.mediamtxAuthUser}:${config.mediamtxAuthPassword}`).toString("base64")}`,
+    );
+  }
   try {
     await fetch(`${config.mediamtxWhepUrl}/${path}/whep/${id}`, {
       method: "DELETE",
       cache: "no-store",
+      headers,
       signal: AbortSignal.timeout(4000),
     });
   } catch (error) {

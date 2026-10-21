@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getConfig } from "@/lib/config";
+import { validateNewPassword } from "@/lib/passwords";
 import { accountStore, type Role } from "@/server/auth/accounts";
 import { requireAdmin } from "@/server/http/require-user";
 
@@ -15,16 +16,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (typeof body?.enabled === "boolean") patch.enabled = body.enabled;
   if (body?.role === "ADMIN" || body?.role === "VIEWER") patch.role = body.role;
   if (typeof body?.password === "string") {
-    if (body.password.length < 8 || body.password.length > 200) {
-      return NextResponse.json({ error: "Password must be at least 8 characters." }, { status: 400 });
-    }
+    const policy = validateNewPassword(body.password);
+    if (!policy.ok) return NextResponse.json({ error: policy.message }, { status: 400 });
     patch.password = body.password;
   }
   const accounts = accountStore(getConfig().dataDir);
   const result = accounts.updateUser(id, patch);
   if (result === "missing") return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (result === "last_admin") return NextResponse.json({ error: "The last administrator cannot be removed." }, { status: 409 });
-  const action = patch.password ? "PASSWORD_CHANGED" : patch.enabled === false ? "USER_DISABLED" : "USER_UPDATED";
+  const action = patch.password
+    ? id === auth.userId
+      ? "PASSWORD_CHANGED"
+      : "PASSWORD_RESET"
+    : patch.enabled === false
+      ? "USER_DISABLED"
+      : "USER_UPDATED";
   accounts.writeAudit({
     userId: auth.userId,
     action,

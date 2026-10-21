@@ -4,6 +4,7 @@ import path from "node:path";
 import { faceCropFile, faceCropsDir } from "@/lib/face-path";
 import { snapshotFile } from "@/lib/snapshot-path";
 import type { EventStore } from "@/server/events/event-store";
+import { sweepOrphanSnapshots } from "@/server/events/orphan-snapshots";
 
 export type RetentionResult = {
   /** Event rows deleted. */
@@ -11,6 +12,8 @@ export type RetentionResult = {
   notifications: number;
   /** Snapshot files removed from DATA_DIR/events. */
   snapshots: number;
+  /** Snapshot files that no event row referenced any more, removed defensively. */
+  orphanedSnapshots: number;
   /** Face crop files removed because their event was deleted. */
   crops: number;
   /** Crop files that no face row referenced any more, removed defensively. */
@@ -114,5 +117,18 @@ export async function runRetention(input: {
   const known = new Set(store.allFaceCropPaths());
   const orphanedCrops = await sweepOrphanFaceCrops(dataDir, known);
 
-  return { events, notifications, snapshots, crops, orphanedCrops };
+  // A snapshot can be orphaned by a crash between the file write and
+  // `setSnapshotPath`, or by a manually removed event row. Sweep what the
+  // database no longer references, using the same generated-filename guard.
+  const knownSnapshots = new Set(store.allSnapshotPaths());
+  const snapshotSweep = await sweepOrphanSnapshots(dataDir, knownSnapshots);
+
+  return {
+    events,
+    notifications,
+    snapshots,
+    orphanedSnapshots: snapshotSweep.deleted,
+    crops,
+    orphanedCrops,
+  };
 }

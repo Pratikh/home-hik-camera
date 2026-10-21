@@ -110,7 +110,13 @@ export class AccountStore {
     } else {
       this.db.prepare("UPDATE users SET role = ?, enabled = ?, updated_at = ? WHERE id = ?").run(nextRole, nextEnabled ? 1 : 0, now, id);
     }
-    if (!nextEnabled) this.db.prepare("DELETE FROM auth_sessions WHERE user_id = ?").run(id);
+    /*
+     * A password change and an admin reset both invalidate every existing
+     * session for the user. Otherwise a token stolen before the reset would keep
+     * working for up to seven days, which is exactly the window a reset is
+     * meant to close.
+     */
+    if (patch.password || !nextEnabled) this.deleteSessionsForUser(id);
     return "ok";
   }
 
@@ -165,6 +171,62 @@ export class AccountStore {
 
   deleteSession(id: string): void {
     this.db.prepare("DELETE FROM auth_sessions WHERE id = ?").run(id);
+  }
+
+  /**
+   * Revoke sessions for one user.
+   *
+   * `exceptSessionId` supports "sign out my other sessions" without disturbing
+   * the browser making the request. Expired rows are included: they are dead
+   * weight once the account's credentials or access changed.
+   */
+  deleteSessionsForUser(userId: string, exceptSessionId: string | null = null): number {
+    const result = exceptSessionId
+      ? this.db.prepare("DELETE FROM auth_sessions WHERE user_id = ? AND id <> ?").run(userId, exceptSessionId)
+      : this.db.prepare("DELETE FROM auth_sessions WHERE user_id = ?").run(userId);
+    return Number(result.changes);
+  }
+
+  /** Remove only sessions whose expiry has passed. Active sessions are kept. */
+  pruneExpiredSessions(now = Date.now()): number {
+    const result = this.db.prepare("DELETE FROM auth_sessions WHERE expires_at <= ?").run(now);
+    return Number(result.changes);
+  }
+
+  /** One user's active sessions, newest activity first. Never includes a token. */
+  listSessionsForUser(
+    userId: string,
+    now = Date.now(),
+  ): Array<{
+    id: string;
+    createdAt: string;
+    lastSeenAt: string;
+    expiresAt: number;
+    ipAddress: string | null;
+    userAgent: string | null;
+  }> {
+    const rows = this.db
+      .prepare(
+        `SELECT id, created_at, last_seen_at, expires_at, ip_address, user_agent
+         FROM auth_sessions WHERE user_id = ? AND expires_at > ?
+         ORDER BY last_seen_at DESC`,
+      )
+      .all(userId, now) as Array<{
+      id: string;
+      created_at: string;
+      last_seen_at: string;
+      expires_at: number;
+      ip_address: string | null;
+      user_agent: string | null;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      createdAt: row.created_at,
+      lastSeenAt: row.last_seen_at,
+      expiresAt: row.expires_at,
+      ipAddress: row.ip_address,
+      userAgent: row.user_agent,
+    }));
   }
 
   listSessions(): Array<{ id: string; username: string; role: Role; createdAt: string; lastSeenAt: string; ipAddress: string | null }> {

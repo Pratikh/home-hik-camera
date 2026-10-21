@@ -221,10 +221,33 @@ function cleanup(): void {
       .then((result) => {
         if (result.events > 0) console.info("[events] retention removed", result.events);
         if (result.notifications > 0) console.info("[events] retention removed notifications", result.notifications);
+        if (result.orphanedSnapshots > 0) console.info("[events] retention removed orphan snapshots", result.orphanedSnapshots);
         if (result.crops > 0) console.info("[events] retention removed face crops", result.crops);
         if (result.orphanedCrops > 0) console.info("[events] retention removed orphan face crops", result.orphanedCrops);
+        const record = (key: string, value: number | string): void => {
+          try {
+            store.setSetting(key, String(value));
+          } catch {
+            // A status write must never turn a successful cleanup into a failure.
+          }
+        };
+        record("retention_last_run", new Date().toISOString());
+        record("retention_last_error", "");
+        record("retention_last_events", result.events);
+        record("retention_last_notifications", result.notifications);
+        record("retention_last_snapshots", result.snapshots);
+        record("retention_last_orphaned_snapshots", result.orphanedSnapshots);
+        record("retention_last_crops", result.crops);
+        record("retention_last_orphaned_crops", result.orphanedCrops);
       })
-      .catch((error) => console.error("[events] retention", error instanceof Error ? error.name : "error"));
+      .catch((error) => {
+        console.error("[events] retention", error instanceof Error ? error.name : "error");
+        try {
+          store.setSetting("retention_last_error", error instanceof Error ? error.name : "error");
+        } catch {
+          // The database itself may be the failure.
+        }
+      });
   } catch (error) {
     console.error("[events] retention", error instanceof Error ? error.name : "error");
   }

@@ -1,0 +1,24 @@
+[Unit]
+# Optional local face DETECTION worker. Install and enable this unit only when
+# FACE_DETECTION_ENABLED=true in /opt/home-cctv/.env and the model has been
+# downloaded. Without it, detection is enabled in the app but the worker never
+# processes a job — the admin System page reports that as a warning.
+Description=Home CCTV Hub local face detection worker
+Documentation=file:/opt/home-cctv/docs/Face-Detection.md
+Requires=home-cctv.service
+After=home-cctv.service
+RequiresMountsFor=/opt/home-cctv
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/home-cctv
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/usr/bin/podman compose -f /opt/home-cctv/compose.yml --profile faces up -d face-worker
+ExecStop=/usr/bin/podman compose -f /opt/home-cctv/compose.yml --profile faces stop face-worker
+TimeoutStartSec=600
+TimeoutStopSec=120
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

@@ -40,6 +40,10 @@ def run_once(store: JobStore, detector, config: WorkerConfig) -> list[ProcessOut
     since = kolkata_iso(now - timedelta(days=config.backfill_days))
     stale = kolkata_iso(now - timedelta(seconds=config.stale_after_s))
 
+    # Written at the start and the end of every cycle: a worker that is idle
+    # still proves it is alive, while a crashed one stops refreshing this row.
+    store.heartbeat(int(config.poll_interval_s * 1000))
+
     queued = store.enqueue(since, config.batch_size * 20)
     reclaimed = store.reclaim_stale(stale)
     if queued or reclaimed:
@@ -51,6 +55,7 @@ def run_once(store: JobStore, detector, config: WorkerConfig) -> list[ProcessOut
     for outcome in outcomes:
         if outcome.faces:
             log.info("event %s: stored %d face(s)", outcome.event_id, outcome.faces)
+    store.heartbeat(int(config.poll_interval_s * 1000))
     return outcomes
 
 
@@ -111,6 +116,14 @@ def main(argv: list[str] | None = None) -> int:
                 run_once(store, detector, config)
             except Exception:  # a bad batch must not kill the worker
                 log.exception("worker cycle failed")
+                try:
+                    store.heartbeat(
+                        int(config.poll_interval_s * 1000),
+                        status="error",
+                        detail="worker cycle failed",
+                    )
+                except Exception:  # a broken database is already visible elsewhere
+                    log.debug("could not record worker heartbeat", exc_info=True)
             stopping.wait(config.poll_interval_s)
     finally:
         store.close()

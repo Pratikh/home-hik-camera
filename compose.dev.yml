@@ -1,0 +1,19 @@
+# Development-only port overlay for running the hub with `npm run dev` on the
+# host while MediaMTX stays in Podman.
+#
+# Production (`podman compose -f compose.yml up -d`) publishes only 3000 and the
+# WebRTC media port 8189. This overlay adds the MediaMTX signalling, HLS and API
+# ports on 127.0.0.1 only, so a host process can reach them and nothing on the
+# LAN can.
+#
+# Usage:
+#   podman compose -f compose.yml -f compose.dev.yml up -d mediamtx
+#   npm run dev
+name: home-cctv
+
+services:
+  mediamtx:
+    ports:
+      - "127.0.0.1:8888:8888"
+      - "127.0.0.1:8889:8889"
+      - "127.0.0.1:9997:9997"

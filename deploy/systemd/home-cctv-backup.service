@@ -1,0 +1,23 @@
+[Unit]
+# Nightly application-data backup. Uses the existing scripts/backup.sh: SQLite
+# online backup, event snapshots, face crops (when present), camera names,
+# integrity check, retention, and a status file read by the admin System page.
+Description=Home CCTV Hub application-data backup
+Documentation=file:/opt/home-cctv/README.md
+After=home-cctv.service
+RequiresMountsFor=/opt/home-cctv
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/home-cctv
+Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# The script defaults to <project>/data and <project>/backups with seven
+# retained copies. Override here or in /etc/default/home-cctv if needed.
+EnvironmentFile=-/etc/default/home-cctv
+ExecStart=/opt/home-cctv/scripts/backup.sh
+# The backup script fails loudly (non-zero) on an unreadable database, a failed
+# integrity check, or an unwritable destination. systemd records that failure.
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

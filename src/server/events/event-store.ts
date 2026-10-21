@@ -193,6 +193,9 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
   ip_address TEXT,
   user_agent TEXT
 );
+-- Session pruning and "sign out everywhere" both filter on these columns.
+CREATE INDEX IF NOT EXISTS auth_sessions_expires_at ON auth_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS auth_sessions_user_id ON auth_sessions(user_id);
 CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY,
   user_id TEXT,
@@ -276,6 +279,16 @@ CREATE TABLE IF NOT EXISTS face_processing (
 );
 CREATE INDEX IF NOT EXISTS face_processing_status ON face_processing(status);
 CREATE INDEX IF NOT EXISTS face_processing_finished_at ON face_processing(finished_at);
+-- Liveness marker written by the optional local face worker. One row, so it
+-- cannot grow; a missing or stale row is what makes a silent worker visible.
+CREATE TABLE IF NOT EXISTS face_worker_heartbeat (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  last_seen_at TEXT NOT NULL,
+  poll_interval_ms INTEGER NOT NULL,
+  pid INTEGER,
+  status TEXT NOT NULL,
+  detail TEXT
+);
 `;
 
 function mapEvent(row: Record<string, unknown>): CctvEvent {
@@ -678,6 +691,93 @@ export class EventStore {
       .prepare("SELECT snapshot_path FROM events WHERE timestamp < ? AND snapshot_path IS NOT NULL")
       .all(cutoffIso) as Array<{ snapshot_path: string }>;
     return rows.map((row) => row.snapshot_path);
+  }
+
+  /** Every snapshot path still referenced. Used by the orphan-file sweep. */
+  allSnapshotPaths(): string[] {
+    const rows = this.db
+      .prepare("SELECT snapshot_path FROM events WHERE snapshot_path IS NOT NULL AND snapshot_path <> ''")
+      .all() as Array<{ snapshot_path: string }>;
+    return rows.map((row) => row.snapshot_path);
+  }
+
+  /**
+   * Liveness marker for the optional local face worker.
+   *
+   * A row is only a hint: the health endpoint also checks its age against the
+   * worker's poll interval, so a cleanly exited or crashed worker becomes
+   * visible as "stopped" instead of silently looking healthy forever.
+   */
+  faceWorkerHeartbeat(): {
+    lastSeenAt: string;
+    pollIntervalMs: number;
+    pid: number | null;
+    status: string;
+    detail: string | null;
+  } | null {
+    const row = this.db
+      .prepare("SELECT last_seen_at, poll_interval_ms, pid, status, detail FROM face_worker_heartbeat WHERE id = 1")
+      .get() as
+      | { last_seen_at: string; poll_interval_ms: number; pid: number | null; status: string; detail: string | null }
+      | undefined;
+    if (!row) return null;
+    return {
+      lastSeenAt: row.last_seen_at,
+      pollIntervalMs: row.poll_interval_ms,
+      pid: row.pid,
+      status: row.status,
+      detail: row.detail,
+    };
+  }
+
+  /**
+   * Thumbnail-worker state persisted in `app_settings`.
+   *
+   * The worker runs in the instrumentation module, while the health route runs
+   * in a separate module instance; in-memory state is not shared reliably. The
+   * database is the common place to record whether generation is idle, busy, or
+   * stalled with a non-empty queue.
+   */
+  thumbnailWorkerStatus(): {
+    lastRunAt: string | null;
+    queued: number;
+    status: string | null;
+    lastError: string | null;
+  } {
+    const queued = this.setting("thumbnail_worker_queued");
+    return {
+      lastRunAt: this.setting("thumbnail_worker_last_run"),
+      queued: queued && /^\d+$/.test(queued) ? Number(queued) : 0,
+      status: this.setting("thumbnail_worker_status"),
+      lastError: this.setting("thumbnail_worker_last_error") || null,
+    };
+  }
+
+  /** The most recent retention pass, recorded for the admin status page. */
+  retentionStatus(): {
+    lastRunAt: string | null;
+    lastError: string | null;
+    events: number;
+    notifications: number;
+    snapshots: number;
+    orphanedSnapshots: number;
+    crops: number;
+    orphanedCrops: number;
+  } {
+    const numberSetting = (key: string): number => {
+      const value = this.setting(key);
+      return value && /^\d+$/.test(value) ? Number(value) : 0;
+    };
+    return {
+      lastRunAt: this.setting("retention_last_run"),
+      lastError: this.setting("retention_last_error"),
+      events: numberSetting("retention_last_events"),
+      notifications: numberSetting("retention_last_notifications"),
+      snapshots: numberSetting("retention_last_snapshots"),
+      orphanedSnapshots: numberSetting("retention_last_orphaned_snapshots"),
+      crops: numberSetting("retention_last_crops"),
+      orphanedCrops: numberSetting("retention_last_orphaned_crops"),
+    };
   }
 
   /**
@@ -1223,6 +1323,13 @@ export function openEventStore(dataDir: string): EventStore {
   db.exec("PRAGMA busy_timeout = 5000");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec("PRAGMA synchronous = NORMAL");
+  /*
+   * Bound the WAL file. A long-lived writer under continuous event ingestion
+   * would otherwise let the -wal file grow until the next checkpoint. 64 MB is
+   * far above steady-state traffic for this hub and cheap to keep.
+   */
+  db.exec("PRAGMA journal_size_limit = 67108864");
+  db.exec("PRAGMA wal_autocheckpoint = 1000");
   const store = new EventStore(db);
   stores.set(dataDir, store);
   return store;

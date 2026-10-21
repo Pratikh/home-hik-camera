@@ -316,7 +316,32 @@ so a run that finds fewer faces cannot leave stale files behind.
 
 `scripts/backup.sh` and `scripts/restore.sh` now include `data/face-crops/`
 alongside `data/events/`, so a restore cannot leave face rows pointing at files
-that do not exist. Neither script copies `.env`.
+that do not exist. `scripts/verify-backup.sh` checks every stored crop reference
+against the backup and fails if any file is missing. Neither script copies
+`.env`.
+
+## 11a. Liveness and admin visibility
+
+The worker writes one row to `face_worker_heartbeat` at the start and end of every
+cycle, including cycles with no work. The hub reads it on the ADMIN-only
+`/api/system/health` endpoint and on `/settings/system`:
+
+- `FACE_DETECTION_ENABLED=false` → the worker is reported as **disabled**, with
+  no warning and no error.
+- Enabled and the heartbeat is recent (within four poll intervals, minimum 30
+  seconds) → **running**.
+- Enabled but the heartbeat is missing or stale → **stopped**, with a warning and
+  the number of jobs waiting. This is what makes a silent worker visible.
+- A failed cycle records `status=error` with a short detail, which the admin page
+  shows alongside the queue counts.
+
+The check uses the same SQLite database and no new service. The heartbeat table
+is created idempotently by both the hub and the worker.
+
+In production the worker is started by `home-cctv-face-worker.service`
+(`deploy/systemd/`). Install it only when detection is enabled; if it is not
+installed while detection is on, the admin page says the worker has never checked
+in and shows the pending queue.
 
 ## 12. Performance
 

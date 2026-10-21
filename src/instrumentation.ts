@@ -11,4 +11,36 @@ export async function register() {
   // DVR search and FFmpeg run here, never on the event path.
   const { ensureTelegramMediaWorker } = await import("@/server/notifications/telegram-media");
   ensureTelegramMediaWorker();
+
+  // Expired sessions are dead rows, not usable credentials. Prune once at
+  // startup and then hourly; active sessions are never touched.
+  const { getConfig } = await import("@/lib/config");
+  const { accountStore } = await import("@/server/auth/accounts");
+  const { ensureThumbnailWorker } = await import("@/server/playback/thumbnail-worker");
+  const { pruneExpired } = await import("@/server/playback/thumbnail-store");
+  ensureThumbnailWorker();
+  const prune = (): void => {
+    try {
+      accountStore(getConfig().dataDir).pruneExpiredSessions();
+    } catch (error) {
+      console.error("[auth] session prune", error instanceof Error ? error.name : "error");
+    }
+  };
+  prune();
+  const timer = setInterval(prune, 60 * 60 * 1000);
+  // Thumbnail sprites are generated cache with their own retention window.
+  // Prune even when nobody opens the timeline, so an idle install cannot grow
+  // its cache forever.
+  const pruneThumbnails = (): void => {
+    void pruneExpired()
+      .then((removed) => {
+        if (removed > 0) console.info("[thumbnail] retention removed", removed, "day(s)");
+      })
+      .catch((error) => console.error("[thumbnail] retention", error instanceof Error ? error.name : "error"));
+  };
+  pruneThumbnails();
+  const thumbnailTimer = setInterval(pruneThumbnails, 6 * 60 * 60 * 1000);
+  // Never keep the process alive only for maintenance.
+  timer.unref?.();
+  thumbnailTimer.unref?.();
 }

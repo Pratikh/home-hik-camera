@@ -93,6 +93,30 @@ def test_run_once_processes_a_queued_snapshot(store: JobStore, config, data_dir:
     assert len(store.faces_for_event(EVENT_ID)) == 1
 
 
+def test_run_once_records_a_liveness_heartbeat(store: JobStore, config, data_dir: Path) -> None:
+    """An idle worker must still prove it is alive; the hub reads this row."""
+    worker_module.run_once(store, StubDetector([]), config)
+
+    row = store.connection.execute(
+        "SELECT last_seen_at, poll_interval_ms, pid, status FROM face_worker_heartbeat WHERE id = 1"
+    ).fetchone()
+    assert row is not None
+    assert row["last_seen_at"]
+    assert row["poll_interval_ms"] == int(config.poll_interval_s * 1000)
+    assert row["status"] == "running"
+    assert row["pid"] is not None
+
+
+def test_heartbeat_is_a_single_row_and_can_record_an_error(store: JobStore, config) -> None:
+    store.heartbeat(5000)
+    store.heartbeat(5000, status="error", detail="worker cycle failed")
+
+    rows = store.connection.execute("SELECT * FROM face_worker_heartbeat").fetchall()
+    assert len(rows) == 1
+    assert rows[0]["status"] == "error"
+    assert rows[0]["detail"] == "worker cycle failed"
+
+
 def test_run_once_twice_does_not_duplicate_work(store: JobStore, config, data_dir: Path) -> None:
     seed_event(store, timestamp=recent_timestamp())
     write_snapshot(data_dir, SNAPSHOT_PATH)

@@ -29,7 +29,12 @@ export const config = {
      * parse the login HTML as JSON and report a manifest syntax error. The
      * lookahead keeps the exclusion to that exact path, so `/manifest.webmanifest.bak`
      * (or any other prefix) still requires a session.
+     *
+     * The HMR paths are excluded because they are a WebSocket upgrade. Running
+     * them through this middleware returns a normal HTTP response, the handshake
+     * fails, and in development the client never finishes hydrating. They do not
+     * exist in the production build.
      */
-    "/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest\\.webmanifest(?=$|[/?#])|robots.txt|login|api/health|api/auth/login|api/auth/logout).*)",
+    "/((?!_next/static|_next/image|_next/hmr|_next/webpack-hmr|favicon.ico|icon.svg|manifest\\.webmanifest(?=$|[/?#])|robots.txt|login|api/health|api/auth/login|api/auth/logout).*)",
   ],
 };

@@ -4,9 +4,11 @@ out/
 coverage/
 data/
 backups/
+# Any real environment file is a secret. Only the placeholder is tracked.
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!/.env.example
 mediamtx/runtime.yml
 *.log
 *.tsbuildinfo

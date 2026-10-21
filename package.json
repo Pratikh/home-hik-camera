@@ -16,10 +16,14 @@
     "face:model": "python3 face-worker/scripts/download_model.py",
     "face:worker": "python3 face-worker/worker.py",
     "face:worker:once": "python3 face-worker/worker.py --once",
-    "test:face": "python3 -m pytest -q face-worker/tests",
-    "mediamtx:config": "node scripts/render-mediamtx-config.mjs",
-    "mediamtx:up": "podman compose up -d mediamtx",
-    "stack:up": "podman compose up -d"
+    "test:face": "sh -c 'if [ -x .venv-face/bin/python ]; then .venv-face/bin/python -m pytest -q face-worker/tests; else python3 -m pytest -q face-worker/tests; fi'",
+    "mediamtx:config": "node --env-file=.env scripts/render-mediamtx-config.mjs",
+    "mediamtx:up": "podman compose -f compose.yml -f compose.dev.yml up -d mediamtx",
+    "stack:up": "podman compose up -d",
+    "stack:down": "podman compose down",
+    "backup": "sh scripts/backup.sh",
+    "verify:backup": "sh scripts/verify-backup.sh",
+    "cleanup:snapshots": "sh scripts/cleanup-orphan-snapshots.sh"
   },
   "dependencies": {
     "fast-xml-parser": "^5.2.5",

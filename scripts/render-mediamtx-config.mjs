@@ -50,6 +50,34 @@ function additionalHosts(env) {
   return [...new Set(["127.0.0.1", ...extra])];
 }
 
+/**
+ * MediaMTX credentials are required.
+ *
+ * Removing the host port publications is not enough on its own: anything that
+ * can reach the container network (a stray container, a misconfigured publish,
+ * the host loopback during development) must still be rejected without the
+ * password. `MEDIAMTX_ALLOW_ANONYMOUS=true` is an explicit development-only
+ * escape hatch; production never sets it.
+ */
+export function mediamtxAuth(env) {
+  const allowAnonymous = String(env.MEDIAMTX_ALLOW_ANONYMOUS || "").trim().toLowerCase() === "true";
+  const password = String(env.MEDIAMTX_AUTH_PASSWORD || "").trim();
+  const user = String(env.MEDIAMTX_AUTH_USER || "hub").trim() || "hub";
+  if (!allowAnonymous && !password) {
+    throw new Error(
+      "MEDIAMTX_AUTH_PASSWORD is required. Generate one with `openssl rand -base64 32`, " +
+        "put it in .env, and recreate MediaMTX. Set MEDIAMTX_ALLOW_ANONYMOUS=true only for local development.",
+    );
+  }
+  if (password && password.length < 16) {
+    throw new Error("MEDIAMTX_AUTH_PASSWORD must be at least 16 characters.");
+  }
+  if (!/^[A-Za-z0-9._-]{1,64}$/.test(user)) {
+    throw new Error("MEDIAMTX_AUTH_USER must be 1-64 characters of A-Z a-z 0-9 . _ -");
+  }
+  return { user, password, allowAnonymous };
+}
+
 function pathBlock(name, source) {
   if (!source) {
     return [`  ${name}:`, "    source: publisher"].join("\n");
@@ -66,6 +94,25 @@ function pathBlock(name, source) {
 
 export function renderMediamtxConfig(env) {
   const hosts = additionalHosts(env);
+  const auth = mediamtxAuth(env);
+  const readUser = auth.password
+    ? [
+        `  - user: ${auth.user}`,
+        `    pass: ${yamlString(auth.password)}`,
+        "    ips: []",
+        "    permissions:",
+        "      - action: read",
+        "      - action: playback",
+      ]
+    : [
+        "# DEVELOPMENT ONLY: MEDIAMTX_ALLOW_ANONYMOUS=true. Never use in production.",
+        "  - user: any",
+        "    pass: ''",
+        "    ips: []",
+        "    permissions:",
+        "      - action: read",
+        "      - action: playback",
+      ];
   const lines = [
     "# Generated at startup from environment variables.",
     "logLevel: info",
@@ -94,23 +141,9 @@ export function renderMediamtxConfig(env) {
     "pprof: false",
     "authMethod: internal",
     "authInternalUsers:",
-    ...(String(env.MEDIAMTX_AUTH_PASSWORD || "").trim()
-      ? [
-          "  - user: hub",
-          `    pass: ${yamlString(String(env.MEDIAMTX_AUTH_PASSWORD).trim())}`,
-          "    ips: []",
-          "    permissions:",
-          "      - action: read",
-          "      - action: playback",
-        ]
-      : [
-          "  - user: any",
-          "    pass: ''",
-          "    ips: []",
-          "    permissions:",
-          "      - action: read",
-          "      - action: playback",
-        ]),
+    ...readUser,
+    "  # The MediaMTX API is reachable only on the internal compose network. It",
+    "  # is used by the hub to publish the playback source.",
     "  - user: any",
     "    pass: ''",
     "    ips: []",
@@ -134,7 +167,14 @@ function isDirectRun() {
 }
 
 if (isDirectRun()) {
-  const yaml = renderMediamtxConfig(process.env);
+  let yaml;
+  try {
+    yaml = renderMediamtxConfig(process.env);
+  } catch (error) {
+    // The message is configuration guidance only; it never contains a secret.
+    console.error(`[mediamtx] ${error instanceof Error ? error.message : "invalid configuration"}`);
+    process.exit(1);
+  }
   if (process.env.MEDIAMTX_CONFIG_STDOUT === "1") {
     process.stdout.write(yaml);
   } else {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getConfig } from "@/lib/config";
+import { validateNewPassword } from "@/lib/passwords";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { accountStore, type Role } from "@/server/auth/accounts";
 import { requireAdmin } from "@/server/http/require-user";
@@ -26,8 +27,12 @@ export async function POST(request: Request) {
   const username = typeof body?.username === "string" ? body.username.trim() : "";
   const password = typeof body?.password === "string" ? body.password : "";
   const role: Role | null = body?.role === "ADMIN" || body?.role === "VIEWER" ? body.role : null;
-  if (!validUsername(username) || password.length < 8 || password.length > 200 || !role) {
-    return NextResponse.json({ error: "Enter a username and a password of at least 8 characters." }, { status: 400 });
+  const policy = validateNewPassword(password);
+  if (!validUsername(username) || !policy.ok || !role) {
+    return NextResponse.json(
+      { error: !policy.ok ? policy.message : "Enter a username and a password of at least 8 characters." },
+      { status: 400 },
+    );
   }
   const accounts = accountStore(getConfig().dataDir);
   const created = accounts.createUser({ username, password, role });

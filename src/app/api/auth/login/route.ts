@@ -101,6 +101,9 @@ export async function POST(request: Request) {
 
   const accounts = accountStore(config.dataDir);
   accounts.ensureBootstrapAdmin(config.appUsername, config.appPassword);
+  // Opportunistic maintenance: expired rows are never usable, and login is the
+  // natural point where a returning user clears them.
+  accounts.pruneExpiredSessions();
   const user = accounts.findByUsername(username);
   const ip = clientIp(request);
   const userAgent = request.headers.get("user-agent");

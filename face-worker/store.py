@@ -15,6 +15,7 @@ Duplicate protection lives here:
 
 from __future__ import annotations
 
+import os
 import secrets
 import sqlite3
 from dataclasses import dataclass
@@ -61,6 +62,17 @@ CREATE TABLE IF NOT EXISTS face_processing (
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS face_processing_status ON face_processing(status);
+-- Single-row liveness marker for the hub's admin health page. It contains no
+-- CCTV data and no credentials: just enough to tell a stopped worker from an
+-- idle one.
+CREATE TABLE IF NOT EXISTS face_worker_heartbeat (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  last_seen_at TEXT NOT NULL,
+  poll_interval_ms INTEGER NOT NULL,
+  pid INTEGER,
+  status TEXT NOT NULL,
+  detail TEXT
+);
 """
 
 
@@ -103,10 +115,37 @@ class JobStore:
         self.connection.execute("PRAGMA journal_mode = WAL")
         self.connection.execute(f"PRAGMA busy_timeout = {int(busy_timeout_ms)}")
         self.connection.execute("PRAGMA foreign_keys = ON")
+        # Keep the shared WAL from growing without bound.
+        self.connection.execute("PRAGMA journal_size_limit = 67108864")
+        self.connection.execute("PRAGMA wal_autocheckpoint = 1000")
         self.connection.executescript(SCHEMA)
 
     def close(self) -> None:
         self.connection.close()
+
+    # -- liveness ------------------------------------------------------------
+
+    def heartbeat(self, poll_interval_ms: int, status: str = "running", detail: str | None = None) -> None:
+        """Record that the worker is alive.
+
+        The hub reads this single row on its admin status page. It is the only
+        signal that separates "detection is off" from "detection is on but the
+        worker died", so it is written every cycle, including idle ones.
+        """
+        self.connection.execute(
+            """
+            INSERT INTO face_worker_heartbeat
+              (id, last_seen_at, poll_interval_ms, pid, status, detail)
+            VALUES (1, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              last_seen_at = excluded.last_seen_at,
+              poll_interval_ms = excluded.poll_interval_ms,
+              pid = excluded.pid,
+              status = excluded.status,
+              detail = excluded.detail
+            """,
+            (utc_now(), int(poll_interval_ms), os.getpid(), status, detail),
+        )
 
     # -- queue ---------------------------------------------------------------
 
