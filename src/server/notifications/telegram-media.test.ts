@@ -535,6 +535,23 @@ describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
     expect(store.claimNextTelegramMediaJob(new Date().toISOString())?.eventId).toBe(EVENT_ID);
   });
 
+  it("TELEGRAM-MEDIA-034 holds a retried job until its next attempt time", () => {
+    const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-retry-"));
+    tempDirs.push(dataDir);
+    const store = openEventStore(dataDir);
+
+    enqueueEventMedia({ ...JOB, channel: "event" }, config(dataDir, { TELEGRAM_FACE_NOTIFICATIONS: "false", TELEGRAM_EVENT_NOTIFICATIONS: "true" }));
+    const first = store.claimNextTelegramMediaJob("2026-10-22T10:00:00.000Z")!;
+    expect(first).toMatchObject({ attempts: 1, channel: "event" });
+    store.retryTelegramMediaJob(first.id, "2026-10-22T10:03:00.000Z", "ffmpeg_failed", "2026-10-22T10:00:30.000Z");
+
+    // Before the scheduled time the worker sees nothing to do.
+    expect(store.claimNextTelegramMediaJob("2026-10-22T10:02:59.000Z")).toBeNull();
+    // After it, the same job is claimed again and the attempt count grows.
+    const second = store.claimNextTelegramMediaJob("2026-10-22T10:03:01.000Z")!;
+    expect(second).toMatchObject({ eventId: EVENT_ID, attempts: 2, channel: "event" });
+  });
+
   it("counts a finished job as done and prunes only finished jobs", () => {
     const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-prune-"));
     tempDirs.push(dataDir);
@@ -626,6 +643,31 @@ describe("TELEGRAM-MEDIA-032 / 033 — rule events queue the snapshot and the cl
     expect(outcome).toMatchObject({ image: "sent", video: "sent" });
     expect(sendPhoto).toHaveBeenCalledTimes(1);
     expect(sendVideo).toHaveBeenCalledTimes(1);
+  });
+
+  it("TELEGRAM-MEDIA-034 a retry only uploads the clip, never the snapshot twice", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    await prepareClip(dataDir);
+    const sendPhoto = vi.fn(async () => ok());
+    const sendVideo = vi.fn(async () => ok());
+
+    const outcome = await processFaceMediaJob(
+      { ...JOB, channel: "event", attempts: 2 },
+      {
+        config: config(dataDir, EVENT_CONFIG),
+        dataDir,
+        sendPhoto,
+        sendMediaGroup: vi.fn(async () => ok()),
+        sendVideo,
+        generateClip: vi.fn(async () => clipOk(dataDir)),
+        unlinkImpl: vi.fn(async () => undefined),
+        log: () => undefined,
+      },
+    );
+
+    expect(sendPhoto).not.toHaveBeenCalled();
+    expect(sendVideo).toHaveBeenCalledTimes(1);
+    expect(outcome).toMatchObject({ image: "skipped", video: "sent" });
   });
 
   it("TELEGRAM-MEDIA-033 stops an event job when the event channel is switched off", async () => {

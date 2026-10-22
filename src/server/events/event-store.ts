@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS telegram_media_jobs (
   channel TEXT NOT NULL DEFAULT 'face',
   status TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
+  next_attempt_at TEXT NOT NULL DEFAULT '',
   detail TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -537,6 +538,8 @@ export class EventStore {
 
     // Telegram media is queued for both channels; older rows were face-only.
     addColumn("telegram_media_jobs", "channel", "TEXT NOT NULL DEFAULT 'face'");
+    // A clip that lost the DVR's playback slot is retried a little later.
+    addColumn("telegram_media_jobs", "next_attempt_at", "TEXT NOT NULL DEFAULT ''");
 
     // Backfill priority for rows that predate the column. ALTER TABLE fills the
     // default 'NORMAL' on every existing row, so the work list is "rows written
@@ -1209,8 +1212,8 @@ export class EventStore {
       .prepare(
         `INSERT OR IGNORE INTO telegram_media_jobs
            (event_id, camera_id, camera_name, faces, max_confidence, event_timestamp,
-            snapshot_path, channel, status, attempts, detail, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, NULL, ?, ?)`,
+            snapshot_path, channel, status, attempts, next_attempt_at, detail, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, '', NULL, ?, ?)`,
       )
       .run(
         input.eventId,
@@ -1246,10 +1249,15 @@ export class EventStore {
     eventTimestamp: string;
     snapshotPath: string | null;
     channel: "face" | "event";
+    attempts: number;
   } | null {
     const row = this.db
-      .prepare("SELECT id FROM telegram_media_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1")
-      .get() as { id: number } | undefined;
+      .prepare(
+        `SELECT id FROM telegram_media_jobs
+         WHERE status = 'pending' AND (next_attempt_at = '' OR next_attempt_at <= ?)
+         ORDER BY id ASC LIMIT 1`,
+      )
+      .get(now) as { id: number } | undefined;
     if (!row) return null;
     const claimed = this.db
       .prepare(
@@ -1259,7 +1267,7 @@ export class EventStore {
     if (Number(claimed.changes) === 0) return null;
     const job = this.db
       .prepare(
-        `SELECT id, event_id, camera_id, camera_name, faces, max_confidence, event_timestamp, snapshot_path, channel
+        `SELECT id, event_id, camera_id, camera_name, faces, max_confidence, event_timestamp, snapshot_path, channel, attempts
          FROM telegram_media_jobs WHERE id = ?`,
       )
       .get(row.id) as {
@@ -1272,6 +1280,7 @@ export class EventStore {
       event_timestamp: string;
       snapshot_path: string | null;
       channel: string | null;
+      attempts: number;
     };
     return {
       id: job.id,
@@ -1283,7 +1292,24 @@ export class EventStore {
       eventTimestamp: job.event_timestamp,
       snapshotPath: job.snapshot_path,
       channel: job.channel === "event" ? "event" : "face",
+      attempts: job.attempts,
     };
+  }
+
+  /**
+   * Put a finished-but-retryable job back in the queue for later.
+   *
+   * The delay is what makes a DVR that is busy with live/playback work recover:
+   * the media worker does not hammer the one playback slot.
+   */
+  retryTelegramMediaJob(id: number, nextAttemptAt: string, detail: string | null, now: string): void {
+    this.db
+      .prepare(
+        `UPDATE telegram_media_jobs
+         SET status = 'pending', next_attempt_at = ?, detail = ?, updated_at = ?
+         WHERE id = ?`,
+      )
+      .run(nextAttemptAt, detail, now, id);
   }
 
   finishTelegramMediaJob(id: number, status: "done" | "failed", detail: string | null, now: string): void {

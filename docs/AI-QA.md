@@ -269,7 +269,9 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
   notification. The channel is independent of the face one. The text message is
   followed by the full camera snapshot and the same short clip the face channel
   sends, queued through the one durable background media worker (so a slow DVR
-  search or FFmpeg never delays event ingestion).
+  search or FFmpeg never delays event ingestion). A clip that lost the DVR's
+  playback slot is retried once after three minutes, without re-uploading the
+  snapshot.
 - Processing is idempotent: `face_processing` holds one row per event and
   `event_faces` has `UNIQUE(event_id, detection_index)`; a restart or a retry
   converges on the same rows. See `docs/Face-Detection.md`.

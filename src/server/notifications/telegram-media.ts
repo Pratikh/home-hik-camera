@@ -40,6 +40,8 @@ import {
 
 export const TELEGRAM_MEDIA_INTERVAL_MS = 1500;
 export const TELEGRAM_MEDIA_QUEUE_LIMIT = 50;
+/** How long a clip waits before it retries for a busy DVR playback slot. */
+export const TELEGRAM_MEDIA_RETRY_MS = 3 * 60 * 1000;
 const CLEANUP_EVERY_MS = 10 * 60 * 1000;
 
 export type TelegramMediaChannel = "face" | "event";
@@ -57,6 +59,11 @@ export type FaceMediaJob = {
    * stored on `events.snapshot_path`. The face crop is never sent to Telegram.
    */
   snapshotPath: string | null;
+  /**
+   * 1 on the first pass. A retry continues where the first pass stopped, so the
+   * snapshot is not uploaded twice.
+   */
+  attempts?: number;
   /**
    * Which Telegram channel accepted this event. Face jobs follow
    * TELEGRAM_FACE_NOTIFICATIONS; rule-event jobs follow
@@ -208,7 +215,7 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
   let imageCount = 0;
   let detail: string | null = null;
 
-  if (config.telegramFaceImage) {
+  if (config.telegramFaceImage && (job.attempts ?? 1) <= 1) {
     const file = snapshotFile(dataDir, job.snapshotPath);
     let snapshot: TelegramFile | null = null;
     if (file) {
@@ -340,13 +347,37 @@ async function mediaTick(): Promise<void> {
       eventTimestamp: claimed.eventTimestamp,
       snapshotPath: claimed.snapshotPath,
       channel: claimed.channel,
+      attempts: claimed.attempts,
     };
     const outcome = await processFaceMediaJob(job, { config });
+    const now = new Date().toISOString();
+
+    /*
+     * The DVR has a small number of playback slots. While someone is watching
+     * live or scrub playback, the clip's FFmpeg run can time out even though
+     * the snapshot worked. One delayed retry lets that job use a free slot
+     * instead of losing the clip forever; the snapshot is not uploaded twice.
+     */
+    const retryableVideo =
+      outcome.video === "skipped" &&
+      (outcome.videoReason === "ffmpeg_failed" || outcome.videoReason === "dvr_error") &&
+      claimed.attempts < 2;
+    if (retryableVideo) {
+      store.retryTelegramMediaJob(
+        claimed.id,
+        new Date(Date.now() + TELEGRAM_MEDIA_RETRY_MS).toISOString(),
+        outcome.videoReason,
+        now,
+      );
+      logLine(`event=${claimed.eventId} video=retry scheduled in ${Math.round(TELEGRAM_MEDIA_RETRY_MS / 1000)}s`);
+      return;
+    }
+
     store.finishTelegramMediaJob(
       claimed.id,
       outcome.image === "failed" || outcome.video === "failed" ? "failed" : "done",
       outcome.detail,
-      new Date().toISOString(),
+      now,
     );
   } catch (error) {
     console.error("[telegram-media] tick", error instanceof Error ? error.name : "error");
