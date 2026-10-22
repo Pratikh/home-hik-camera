@@ -9,6 +9,7 @@ import { attachStops, parseAlarmLogs, type MotionStart, type MotionStop } from "
 import { publishLiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type NewEvent } from "@/server/events/event-store";
 import { recordNotificationDecisions } from "@/server/events/notification-decisions";
+import { deliverTelegramEvent } from "@/server/events/telegram-event";
 import { runRetention } from "@/server/events/retention";
 import { captureEventSnapshot } from "@/server/events/snapshot";
 import { cooldownBlocks, cooldownWindowStart, evaluateRules } from "@/server/events/rule-engine";
@@ -122,12 +123,27 @@ async function poll(backfill: boolean): Promise<void> {
 
       // Notification history is the durable duplicate guard: an event/rule pair
       // recorded once is never notified again, even across restarts.
-      const { delivered } = recordNotificationDecisions({
+      const { delivered, deliveredRuleNames } = recordNotificationDecisions({
         store,
         event,
         evaluation,
         priority,
       });
+
+      /*
+       * Telegram is a delivery channel for an accepted rule decision, not a
+       * second decision engine. Only a real delivery (fresh decision, notify
+       * true) reaches it, so cooldown, quiet hours, priority, schedule and the
+       * duplicate guard have already been applied.
+       */
+      if (delivered) {
+        await deliverTelegramEvent({
+          event: { ...event, priority },
+          cameraName: names[event.cameraId] ?? `Camera ${event.cameraId}`,
+          ruleName: deliveredRuleNames[0] ?? null,
+          config,
+        });
+      }
 
       if (config.aiEnabled) {
         console.info("[events] AI processing started");

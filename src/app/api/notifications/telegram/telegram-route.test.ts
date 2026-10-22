@@ -63,6 +63,7 @@ beforeEach(() => {
     enabled: true,
     configured: true,
     faceNotifications: true,
+    eventNotifications: true,
     faceImage: true,
     faceVideo: true,
     videoPreSeconds: 5,

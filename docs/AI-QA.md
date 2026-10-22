@@ -262,6 +262,11 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
   active, `/faces` shows a small read-only status line; when it is off or
   expired, that line is absent. See
   [Face-Detection.md](Face-Detection.md#16-temporary-face-detection-notification-test).
+- Separately, `TELEGRAM_EVENT_NOTIFICATIONS=true` delivers an ordinary camera
+  event that a Notification Rule accepts. The rule decision (match, priority,
+  schedule, quiet hours, cooldown, duplicate protection) is recorded first, so
+  Telegram is delivery-only and a Telegram failure cannot suppress the browser
+  notification. The channel is independent of the face one.
 - Processing is idempotent: `face_processing` holds one row per event and
   `event_faces` has `UNIQUE(event_id, detection_index)`; a restart or a retry
   converges on the same rows. See `docs/Face-Detection.md`.
@@ -426,6 +431,7 @@ desired behaviour.
 | FACE-NOTIFY-001 … FACE-NOTIFY-016 | `src/server/events/face-notify.test.ts` |
 | FACE-NOTIFY-UI-001 … FACE-NOTIFY-UI-003 | `tests/e2e/face-notify.spec.ts` |
 | TELEGRAM-001 … TELEGRAM-018 | `src/server/notifications/telegram.test.ts`, `src/server/events/face-notify.test.ts`, `src/app/api/notifications/telegram/telegram-route.test.ts` |
+| TELEGRAM-RULE-001 … TELEGRAM-RULE-007 | `src/server/events/telegram-event.test.ts` |
 | TELEGRAM-UI-001 … TELEGRAM-UI-004 | `tests/e2e/telegram.spec.ts` |
 
 Face detection is split across three suites; the full mapping is in

@@ -153,10 +153,11 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `FACE_DETECTION_TEST_NOTIFICATIONS` | Temporary face-notification test mode. Default `false`. Additive; never identifies anyone. |
 | `FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS` | Per-camera cooldown for the test notification. Default `300`. |
 | `FACE_DETECTION_TEST_UNTIL` | ISO-8601 expiry with a timezone offset, e.g. `2026-10-12T10:00:00+05:30`. Empty or invalid means test notifications stay off. |
-| `TELEGRAM_NOTIFICATIONS_ENABLED` | Deliver accepted face notifications to Telegram. Default `false`. Server-side only. |
+| `TELEGRAM_NOTIFICATIONS_ENABLED` | Master Telegram switch. Default `false`. Server-side only. |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token. Read by the server; never sent to the browser or logged. |
 | `TELEGRAM_CHAT_ID` | Telegram destination chat. Server-side only. |
-| `TELEGRAM_FACE_NOTIFICATIONS` | Whether face detections may produce a Telegram message. Default `false`. |
+| `TELEGRAM_FACE_NOTIFICATIONS` | Whether face detections may produce a Telegram message. Default `false`. Independent of the rule-event channel. |
+| `TELEGRAM_EVENT_NOTIFICATIONS` | Whether an accepted Notification Rule decision (a matching camera event) may produce a Telegram message. Default `false`. Rule matching, priority, schedule, quiet hours, cooldown and duplicate protection are decided before Telegram is called. |
 | `TELEGRAM_COOLDOWN_SECONDS` | Informational only; Telegram shares the existing face notification cooldown. Default `300`. |
 | `TELEGRAM_EVENT_IMAGE` | Attach the full camera event snapshot to the Telegram message. Default `true`. `TELEGRAM_FACE_IMAGE` is the older name and still works. The face crop is never sent. |
 | `TELEGRAM_FACE_VIDEO` | Attach a short clip from the DVR recording. Default `true`. |
@@ -836,6 +837,8 @@ FACE_DETECTION_ENABLED=true python3 face-worker/worker.py
 Set `FACE_DETECTION_ENABLED`, `FACE_DETECTION_CONFIDENCE` (default `0.60`) and `FACE_DETECTION_MAX_FACES` (default `10`) in `.env`.
 
 Telegram can receive the same accepted notification (server-side only, with an ADMIN *Send Telegram Test* button on `/settings/notifications`). It shares the one decision, so the cooldown, duplicate protection and expiry are unchanged. A real detection also carries the full camera snapshot and a ~10 second clip cut from the DVR's own recording (H.265 converted to H.264 MP4 by FFmpeg, which the container image includes; text and snapshot still work without it). The face crop is not sent to Telegram. The clip is generated in the background and its temporary file is deleted after upload.
+
+The same Telegram delivery is available for ordinary camera events, not only faces: with `TELEGRAM_EVENT_NOTIFICATIONS=true` an event that a Notification Rule accepts is also sent to Telegram. The rule decision is made and recorded first (camera, event type, priority, schedule, quiet hours, cooldown, duplicate protection), and only then is Telegram called, so a Telegram failure never suppresses the browser notification or changes the history. `TELEGRAM_FACE_NOTIFICATIONS` and `TELEGRAM_EVENT_NOTIFICATIONS` are independent channels behind the `TELEGRAM_NOTIFICATIONS_ENABLED` master switch; rule events send text only.
 
 For a bounded real-world trial you can also raise a browser notification when a face is detected: set `FACE_DETECTION_TEST_NOTIFICATIONS=true` and `FACE_DETECTION_TEST_UNTIL` to the end of your window (ISO-8601 with an offset, for example `2026-10-12T10:00:00+05:30`). It is a temporary, additive test mode — motion notifications are unchanged, notifications are anonymous ("Face detected"), the per-camera cooldown defaults to 5 minutes, and the mode stops by itself at the expiry while face detection keeps running. See [docs/Face-Detection.md](docs/Face-Detection.md) for the model's provenance, security and privacy model, measured performance, retention and the future recognition plan.
 

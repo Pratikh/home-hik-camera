@@ -53,6 +53,12 @@ export type AppConfig = {
   /** Whether face detections may produce a Telegram message. */
   telegramFaceNotifications: boolean;
   /**
+   * Whether accepted general notification-rule decisions (motion/person/
+   * vehicle) may produce a Telegram message. Separate from the face-test path
+   * so enabling one never silently enables the other.
+   */
+  telegramEventNotifications: boolean;
+  /**
    * Accepted for compatibility with the documented environment. Telegram does
    * NOT apply its own cooldown: the face notification cooldown is the existing
    * `faceDetectionTestNotificationCooldownSeconds`, and a suppressed face
@@ -168,6 +174,7 @@ export function readConfig(env: Env): AppConfig {
     telegramBotToken: (env.TELEGRAM_BOT_TOKEN ?? "").trim(),
     telegramChatId: (env.TELEGRAM_CHAT_ID ?? "").trim(),
     telegramFaceNotifications: (env.TELEGRAM_FACE_NOTIFICATIONS ?? "").trim().toLowerCase() === "true",
+    telegramEventNotifications: (env.TELEGRAM_EVENT_NOTIFICATIONS ?? "").trim().toLowerCase() === "true",
     telegramCooldownSeconds: readBoundedInt(
       env.TELEGRAM_COOLDOWN_SECONDS,
       DEFAULT_TELEGRAM_COOLDOWN_SECONDS,

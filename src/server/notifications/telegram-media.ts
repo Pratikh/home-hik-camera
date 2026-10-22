@@ -343,6 +343,7 @@ export async function telegramMediaStatus(config: AppConfig = getConfig()): Prom
     enabled: state.enabled,
     configured: state.configured,
     faceNotifications: config.telegramFaceNotifications,
+    eventNotifications: config.telegramEventNotifications,
     faceImage: config.telegramFaceImage,
     faceVideo: config.telegramFaceVideo,
     videoPreSeconds: config.telegramVideoPreSeconds,

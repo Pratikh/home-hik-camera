@@ -65,6 +65,7 @@ export function TelegramTestButton() {
       {status ? (
         <p className="text-xs text-muted" data-testid="telegram-status">
           Telegram: <span className={on ? "text-online" : ""}>{on ? "Enabled" : "Disabled"}</span>
+          {" · "}Rule events: {status.eventNotifications && on ? "On" : "Off"}
           {" · "}Snapshot: {status.faceImage && on ? "On" : "Off"}
           {" · "}Video:{" "}
           {status.faceVideo && on ? `On (${status.clipSeconds}s, ${status.videoPreSeconds}s before)` : "Off"}

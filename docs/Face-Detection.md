@@ -692,6 +692,7 @@ TELEGRAM_NOTIFICATIONS_ENABLED=true
 TELEGRAM_BOT_TOKEN=123456:replace-me
 TELEGRAM_CHAT_ID=-1001234567890
 TELEGRAM_FACE_NOTIFICATIONS=true
+TELEGRAM_EVENT_NOTIFICATIONS=false
 TELEGRAM_COOLDOWN_SECONDS=300
 ```
 
@@ -701,6 +702,7 @@ TELEGRAM_COOLDOWN_SECONDS=300
 | `TELEGRAM_BOT_TOKEN` | Bot token from @BotFather. Server-side only. |
 | `TELEGRAM_CHAT_ID` | Destination chat. Server-side only. |
 | `TELEGRAM_FACE_NOTIFICATIONS` | Whether face detections may produce a Telegram message. The admin test button ignores this flag. |
+| `TELEGRAM_EVENT_NOTIFICATIONS` | Whether an accepted Notification Rule decision (a matching camera event) may produce a Telegram message. Default `false`; independent of the face channel. See the main README. |
 | `TELEGRAM_COOLDOWN_SECONDS` | Accepted for compatibility and informational only. Telegram does **not** keep its own cooldown: the effective cooldown is `FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS`. |
 
 Message format (HTML, escaped):

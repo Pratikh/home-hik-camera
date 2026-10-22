@@ -1,5 +1,7 @@
 import "server-only";
 import { getConfig, type AppConfig } from "@/lib/config";
+import { eventTitle, type EventClassification, type EventType } from "@/lib/events";
+import type { EventPriority } from "@/lib/priority";
 
 /**
  * Telegram notifications — server-side only.
@@ -46,6 +48,7 @@ export type TelegramConfig = Pick<
   | "telegramBotToken"
   | "telegramChatId"
   | "telegramFaceNotifications"
+  | "telegramEventNotifications"
 >;
 
 export type TelegramState = {
@@ -55,6 +58,8 @@ export type TelegramState = {
   configured: boolean;
   /** Enabled, configured and allowed for face detections. */
   faceReady: boolean;
+  /** Enabled, configured and allowed for general notification rules. */
+  eventReady: boolean;
   reason: TelegramFailureReason | null;
 };
 
@@ -122,6 +127,39 @@ export function buildTelegramFaceMessage(input: TelegramFaceInput): string {
   ].join("\n");
 }
 
+/** A general notification-rule match. Person/vehicle labels still come from the DVR. */
+export type TelegramEventInput = {
+  cameraName: string;
+  type: EventType;
+  classification: EventClassification | null;
+  priority: EventPriority;
+  /** Event timestamp; rendered in India time. */
+  eventTimestamp: string;
+  /** The rule that accepted the event, when known. */
+  ruleName?: string | null;
+};
+
+/**
+ * Build the rule-based notification message.
+ *
+ * This is deliberately separate from the face-test message: it is sent only
+ * after an accepted notification-rule decision, and it never identifies a
+ * person. The face path remains unchanged.
+ */
+export function buildTelegramEventMessage(input: TelegramEventInput): string {
+  const camera = escapeTelegramHtml(input.cameraName.trim() || "Camera");
+  const title = escapeTelegramHtml(eventTitle(input.type, input.classification));
+  const lines = [
+    `🔔 <b>${title}</b>`,
+    "",
+    `📹 Camera: ${camera}`,
+    `⚡ Priority: ${input.priority}`,
+    `🕐 ${escapeTelegramHtml(formatTelegramTime(input.eventTimestamp))}`,
+  ];
+  if (input.ruleName) lines.push(`📋 Rule: ${escapeTelegramHtml(input.ruleName)}`);
+  return lines.join("\n");
+}
+
 /** The message the admin test endpoint sends. */
 export function buildTelegramTestMessage(): string {
   return ["🏠 <b>Home CCTV Hub</b>", "", "Telegram notification test successful."].join("\n");
@@ -145,12 +183,13 @@ export function looksLikeInvalidChatId(value: string): boolean {
 export function telegramState(config: TelegramConfig = getConfig()): TelegramState {
   const enabled = config.telegramNotificationsEnabled;
   const configured = Boolean(config.telegramBotToken) && Boolean(config.telegramChatId);
-  if (!enabled) return { enabled, configured, faceReady: false, reason: "disabled" };
-  if (!configured) return { enabled, configured, faceReady: false, reason: "not_configured" };
+  if (!enabled) return { enabled, configured, faceReady: false, eventReady: false, reason: "disabled" };
+  if (!configured) return { enabled, configured, faceReady: false, eventReady: false, reason: "not_configured" };
   return {
     enabled,
     configured,
     faceReady: config.telegramFaceNotifications,
+    eventReady: config.telegramEventNotifications,
     reason: config.telegramFaceNotifications ? null : "disabled",
   };
 }
@@ -171,6 +210,8 @@ export type SendTelegramInput = {
   log?: (line: string) => void;
   /** When false, TELEGRAM_FACE_NOTIFICATIONS is not consulted (the test button). */
   requireFaceFlag?: boolean;
+  /** When true, TELEGRAM_EVENT_NOTIFICATIONS must be enabled. */
+  requireEventFlag?: boolean;
 };
 
 function logLine(message: string): void {
@@ -191,6 +232,7 @@ function preflight(input: {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   requireFaceFlag?: boolean;
+  requireEventFlag?: boolean;
 }): { ok: true; ready: Ready } | { ok: false; result: TelegramResult } {
   const config = input.config ?? getConfig();
   const logger = input.log ?? logLine;
@@ -205,6 +247,10 @@ function preflight(input: {
     return { ok: false, result: { ok: false, status: "not_configured", detail: null } };
   }
   if (input.requireFaceFlag && !config.telegramFaceNotifications) {
+    logger("disabled");
+    return { ok: false, result: { ok: false, status: "disabled", detail: null } };
+  }
+  if (input.requireEventFlag && !config.telegramEventNotifications) {
     logger("disabled");
     return { ok: false, result: { ok: false, status: "disabled", detail: null } };
   }
@@ -467,12 +513,30 @@ export async function notifyTelegramFace(
   });
 }
 
+/**
+ * Send one accepted rule notification to Telegram.
+ *
+ * The caller has already matched the rule, applied priority/schedule/quiet
+ * hours/cooldown and recorded the decision. This only handles delivery: a
+ * Telegram failure is returned, never thrown, so event storage and the browser
+ * notification are unaffected.
+ */
+export async function notifyTelegramEvent(
+  input: TelegramEventInput & Omit<SendTelegramInput, "text">,
+): Promise<TelegramResult> {
+  return sendTelegramMessage({
+    ...input,
+    text: buildTelegramEventMessage(input),
+    requireEventFlag: true,
+  });
+}
+
 /** A safe, user-facing sentence for the admin test endpoint. */
 export function telegramFailureMessage(result: TelegramResult): string {
   if (result.ok) return "Telegram test message sent.";
   switch (result.status) {
     case "disabled":
-      return "Telegram notifications are disabled (TELEGRAM_NOTIFICATIONS_ENABLED / TELEGRAM_FACE_NOTIFICATIONS).";
+      return "Telegram notifications are disabled (set TELEGRAM_NOTIFICATIONS_ENABLED=true on the server).";
     case "not_configured":
       return "Telegram is not configured: TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must both be set on the server.";
     case "invalid_chat_id":

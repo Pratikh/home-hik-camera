@@ -9,10 +9,12 @@ import {
   sendTelegramPhoto,
   sendTelegramVideo,
   type TelegramFile,
+  buildTelegramEventMessage,
   buildTelegramFaceMessage,
   buildTelegramTestMessage,
   escapeTelegramHtml,
   formatTelegramTime,
+  notifyTelegramEvent,
   notifyTelegramFace,
   redactTelegramSecret,
   sendTelegramMessage,
@@ -36,6 +38,7 @@ const CONFIG: TelegramConfig = {
   telegramBotToken: FAKE_TOKEN,
   telegramChatId: FAKE_CHAT_ID,
   telegramFaceNotifications: true,
+  telegramEventNotifications: true,
 };
 
 const FACE = {
@@ -130,7 +133,13 @@ describe("TELEGRAM-001 / 002 / 003 / 004 — when nothing may be sent", () => {
   });
 
   it("reports the state without exposing a secret", () => {
-    expect(telegramState(CONFIG)).toEqual({ enabled: true, configured: true, faceReady: true, reason: null });
+    expect(telegramState(CONFIG)).toEqual({
+      enabled: true,
+      configured: true,
+      faceReady: true,
+      eventReady: true,
+      reason: null,
+    });
     expect(telegramState({ ...CONFIG, telegramNotificationsEnabled: false })).toMatchObject({
       enabled: false,
       reason: "disabled",
@@ -644,5 +653,51 @@ describe("TELEGRAM-MEDIA-012 / 013 — response validation", () => {
     const result = await sendTelegramVideo({ video: VIDEO, config: CONFIG, fetchImpl, log: () => undefined });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.detail).toContain("unreadable response");
+  });
+});
+
+describe("rule-based Telegram events", () => {
+  it("builds a safe event message with camera, priority and rule", () => {
+    const message = buildTelegramEventMessage({
+      cameraName: "Parking <script>",
+      type: "motion",
+      classification: "person",
+      priority: "HIGH",
+      eventTimestamp: "2026-10-22T13:39:39+05:30",
+      ruleName: "parking-1-floor",
+    });
+    expect(message).toContain("Person detected");
+    expect(message).toContain("Parking &lt;script&gt;");
+    expect(message).toContain("HIGH");
+    expect(message).toContain("parking-1-floor");
+    expect(message).not.toContain(FAKE_TOKEN);
+  });
+
+  it("sends a rule event only when TELEGRAM_EVENT_NOTIFICATIONS is on", async () => {
+    const fetchImpl = okFetch();
+    const baseInput = {
+      text: "",
+      cameraName: "Parking",
+      type: "motion" as const,
+      classification: "person" as const,
+      priority: "HIGH" as const,
+      eventTimestamp: "2026-10-22T13:39:39+05:30",
+      fetchImpl,
+    };
+
+    const disabled = await notifyTelegramEvent({
+      ...baseInput,
+      config: { ...CONFIG, telegramEventNotifications: false },
+    });
+    expect(disabled).toEqual({ ok: false, status: "disabled", detail: null });
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    const sent = await notifyTelegramEvent({ ...baseInput, config: CONFIG });
+    expect(sent).toEqual({ ok: true, status: "sent" });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const body = requestBody(fetchImpl.mock.calls[0]!);
+    expect(String(body.text)).toContain("Person detected");
+    expect(String(body.text)).toContain("Parking");
+    expect(JSON.stringify(body)).not.toContain(FAKE_TOKEN);
   });
 });

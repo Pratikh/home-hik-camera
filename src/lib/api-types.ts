@@ -235,6 +235,8 @@ export type TelegramMediaStatusResponse = {
   configured: boolean;
   /** Whether face detections may notify at all. */
   faceNotifications: boolean;
+  /** Whether accepted notification-rule decisions may notify. */
+  eventNotifications: boolean;
   /** Whether the face crop and the event clip are attached. */
   faceImage: boolean;
   faceVideo: boolean;

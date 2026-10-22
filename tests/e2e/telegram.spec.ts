@@ -69,7 +69,7 @@ test.describe("TELEGRAM-UI - admin Telegram test button", () => {
     await answerWith(page, 409, {
       ok: false,
       reason: "disabled",
-      error: "Telegram notifications are disabled (TELEGRAM_NOTIFICATIONS_ENABLED / TELEGRAM_FACE_NOTIFICATIONS).",
+      error: "Telegram notifications are disabled (set TELEGRAM_NOTIFICATIONS_ENABLED=true on the server).",
     });
     await page.goto(ROUTES.notificationRules);
 
@@ -112,6 +112,7 @@ test.describe("TELEGRAM-MEDIA - status and temporary files", () => {
             enabled: true,
             configured: true,
             faceNotifications: true,
+            eventNotifications: true,
             faceImage: true,
             faceVideo: true,
             videoPreSeconds: 5,
@@ -152,6 +153,7 @@ test.describe("TELEGRAM-MEDIA - status and temporary files", () => {
             enabled: true,
             configured: true,
             faceNotifications: true,
+            eventNotifications: true,
             faceImage: true,
             faceVideo: true,
             videoPreSeconds: 5,

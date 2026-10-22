@@ -17,10 +17,11 @@ export function recordNotificationDecisions(input: {
   evaluation: EvaluationResult;
   /** Base priority, used for the "no rule matched" row. */
   priority: EventPriority;
-}): { delivered: boolean; recorded: number } {
+}): { delivered: boolean; recorded: number; deliveredRuleNames: string[] } {
   const { store, event, evaluation, priority } = input;
   let delivered = false;
   let recorded = 0;
+  const deliveredRuleNames: string[] = [];
 
   for (const decision of evaluation.decisions) {
     const fresh = store.recordNotification({
@@ -37,6 +38,7 @@ export function recordNotificationDecisions(input: {
     recorded += 1;
     if (decision.notify) {
       delivered = true;
+      deliveredRuleNames.push(decision.ruleName);
       console.info("[events] Notification rule matched");
     } else if (decision.reason) {
       console.info("[events] Notification suppressed", decision.reason);
@@ -57,5 +59,5 @@ export function recordNotificationDecisions(input: {
     recorded += 1;
   }
   if (delivered) store.markNotified(event.id);
-  return { delivered, recorded };
+  return { delivered, recorded, deliveredRuleNames };
 }
