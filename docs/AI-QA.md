@@ -266,7 +266,10 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
   event that a Notification Rule accepts. The rule decision (match, priority,
   schedule, quiet hours, cooldown, duplicate protection) is recorded first, so
   Telegram is delivery-only and a Telegram failure cannot suppress the browser
-  notification. The channel is independent of the face one.
+  notification. The channel is independent of the face one. The text message is
+  followed by the full camera snapshot and the same short clip the face channel
+  sends, queued through the one durable background media worker (so a slow DVR
+  search or FFmpeg never delays event ingestion).
 - Processing is idempotent: `face_processing` holds one row per event and
   `event_faces` has `UNIQUE(event_id, detection_index)`; a restart or a retry
   converges on the same rows. See `docs/Face-Detection.md`.

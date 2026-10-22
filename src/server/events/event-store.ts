@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS telegram_media_jobs (
   max_confidence REAL NOT NULL,
   event_timestamp TEXT NOT NULL,
   snapshot_path TEXT,
+  channel TEXT NOT NULL DEFAULT 'face',
   status TEXT NOT NULL,
   attempts INTEGER NOT NULL DEFAULT 0,
   detail TEXT,
@@ -533,6 +534,9 @@ export class EventStore {
     // after seed() below once their old single-value fields are visible.
     addColumn("notification_rules", "camera_ids", "TEXT");
     addColumn("notification_rules", "event_types", "TEXT");
+
+    // Telegram media is queued for both channels; older rows were face-only.
+    addColumn("telegram_media_jobs", "channel", "TEXT NOT NULL DEFAULT 'face'");
 
     // Backfill priority for rows that predate the column. ALTER TABLE fills the
     // default 'NORMAL' on every existing row, so the work list is "rows written
@@ -1184,6 +1188,8 @@ export class EventStore {
     maxConfidence: number;
     eventTimestamp: string;
     snapshotPath: string | null;
+    /** Which Telegram channel queued the job. Older rows default to "face". */
+    channel?: "face" | "event";
     now: string;
     limit?: number;
   }): "queued" | "duplicate" | "full" {
@@ -1203,8 +1209,8 @@ export class EventStore {
       .prepare(
         `INSERT OR IGNORE INTO telegram_media_jobs
            (event_id, camera_id, camera_name, faces, max_confidence, event_timestamp,
-            snapshot_path, status, attempts, detail, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, NULL, ?, ?)`,
+            snapshot_path, channel, status, attempts, detail, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, NULL, ?, ?)`,
       )
       .run(
         input.eventId,
@@ -1214,6 +1220,7 @@ export class EventStore {
         input.maxConfidence,
         input.eventTimestamp,
         input.snapshotPath,
+        input.channel ?? "face",
         input.now,
         input.now,
       );
@@ -1238,6 +1245,7 @@ export class EventStore {
     maxConfidence: number;
     eventTimestamp: string;
     snapshotPath: string | null;
+    channel: "face" | "event";
   } | null {
     const row = this.db
       .prepare("SELECT id FROM telegram_media_jobs WHERE status = 'pending' ORDER BY id ASC LIMIT 1")
@@ -1251,7 +1259,7 @@ export class EventStore {
     if (Number(claimed.changes) === 0) return null;
     const job = this.db
       .prepare(
-        `SELECT id, event_id, camera_id, camera_name, faces, max_confidence, event_timestamp, snapshot_path
+        `SELECT id, event_id, camera_id, camera_name, faces, max_confidence, event_timestamp, snapshot_path, channel
          FROM telegram_media_jobs WHERE id = ?`,
       )
       .get(row.id) as {
@@ -1263,6 +1271,7 @@ export class EventStore {
       max_confidence: number;
       event_timestamp: string;
       snapshot_path: string | null;
+      channel: string | null;
     };
     return {
       id: job.id,
@@ -1273,6 +1282,7 @@ export class EventStore {
       maxConfidence: job.max_confidence,
       eventTimestamp: job.event_timestamp,
       snapshotPath: job.snapshot_path,
+      channel: job.channel === "event" ? "event" : "face",
     };
   }
 

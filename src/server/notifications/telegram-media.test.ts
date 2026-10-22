@@ -8,6 +8,7 @@ import { openEventStore } from "@/server/events/event-store";
 import type { TelegramFile, TelegramResult } from "@/server/notifications/telegram";
 import type { ClipDiagnostics } from "@/server/notifications/event-clip";
 import {
+  enqueueEventMedia,
   enqueueFaceMedia,
   logVideoDiagnostics,
   processFaceMediaJob,
@@ -573,5 +574,80 @@ describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
     // Two kept, the oldest dropped.
     expect(store.telegramMediaQueueDepth()).toBe(2);
     expect(store.claimNextTelegramMediaJob(now)?.eventId).toBe(`evt_${String(1).padStart(24, "0")}`);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * TELEGRAM-MEDIA-032 / 033 — rule events use the same durable media queue.
+ *
+ * The face channel is deliberately off in these tests: a rule-event job must
+ * still attach the snapshot and the clip, and vice versa.
+ * ------------------------------------------------------------------------- */
+
+describe("TELEGRAM-MEDIA-032 / 033 — rule events queue the snapshot and the clip", () => {
+  const EVENT_CONFIG = { TELEGRAM_FACE_NOTIFICATIONS: "false", TELEGRAM_EVENT_NOTIFICATIONS: "true" };
+
+  it("TELEGRAM-MEDIA-032 queues with only the event channel on, and the worker remembers the channel", () => {
+    const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-event-"));
+    tempDirs.push(dataDir);
+    const cfg = config(dataDir, EVENT_CONFIG);
+    const job: FaceMediaJob = { ...JOB, channel: "event" };
+
+    expect(enqueueFaceMedia(job, cfg)).toBe("disabled");
+    expect(telegramMediaQueueDepth(dataDir)).toBe(0);
+
+    expect(enqueueEventMedia(job, cfg)).toBe("queued");
+    expect(telegramMediaQueueDepth(dataDir)).toBe(1);
+
+    const claimed = openEventStore(dataDir).claimNextTelegramMediaJob(new Date().toISOString());
+    expect(claimed).toMatchObject({ eventId: EVENT_ID, channel: "event" });
+  });
+
+  it("TELEGRAM-MEDIA-033 uploads the full snapshot and the clip for an event job", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    await prepareClip(dataDir);
+    const sendPhoto = vi.fn(async () => ok());
+    const sendVideo = vi.fn(async () => ok());
+
+    const outcome = await processFaceMediaJob(
+      { ...JOB, channel: "event" },
+      {
+        config: config(dataDir, EVENT_CONFIG),
+        dataDir,
+        sendPhoto,
+        sendMediaGroup: vi.fn(async () => ok()),
+        sendVideo,
+        generateClip: vi.fn(async () => clipOk(dataDir)),
+        unlinkImpl: vi.fn(async () => undefined),
+        log: () => undefined,
+      },
+    );
+
+    expect(outcome).toMatchObject({ image: "sent", video: "sent" });
+    expect(sendPhoto).toHaveBeenCalledTimes(1);
+    expect(sendVideo).toHaveBeenCalledTimes(1);
+  });
+
+  it("TELEGRAM-MEDIA-033 stops an event job when the event channel is switched off", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const sendPhoto = vi.fn(async () => ok());
+    const generateClip = vi.fn(async () => clipOk(dataDir));
+
+    const outcome = await processFaceMediaJob(
+      { ...JOB, channel: "event" },
+      {
+        config: config(dataDir, { TELEGRAM_FACE_NOTIFICATIONS: "true", TELEGRAM_EVENT_NOTIFICATIONS: "false" }),
+        dataDir,
+        sendPhoto,
+        sendMediaGroup: vi.fn(async () => ok()),
+        sendVideo: vi.fn(async () => ok()),
+        generateClip,
+        log: () => undefined,
+      },
+    );
+
+    expect(outcome).toMatchObject({ image: "skipped", video: "skipped", videoReason: "disabled" });
+    expect(sendPhoto).not.toHaveBeenCalled();
+    expect(generateClip).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,7 @@ import { publishLiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type NewEvent } from "@/server/events/event-store";
 import { recordNotificationDecisions } from "@/server/events/notification-decisions";
 import { deliverTelegramEvent } from "@/server/events/telegram-event";
+import { enqueueEventMedia } from "@/server/notifications/telegram-media";
 import { runRetention } from "@/server/events/retention";
 import { captureEventSnapshot } from "@/server/events/snapshot";
 import { cooldownBlocks, cooldownWindowStart, evaluateRules } from "@/server/events/rule-engine";
@@ -136,13 +137,16 @@ async function poll(backfill: boolean): Promise<void> {
        * true) reaches it, so cooldown, quiet hours, priority, schedule and the
        * duplicate guard have already been applied.
        */
+      const cameraName = names[event.cameraId] ?? `Camera ${event.cameraId}`;
+      let telegramSent = false;
       if (delivered) {
-        await deliverTelegramEvent({
-          event: { ...event, priority },
-          cameraName: names[event.cameraId] ?? `Camera ${event.cameraId}`,
-          ruleName: deliveredRuleNames[0] ?? null,
-          config,
-        });
+        telegramSent =
+          (await deliverTelegramEvent({
+            event: { ...event, priority },
+            cameraName,
+            ruleName: deliveredRuleNames[0] ?? null,
+            config,
+          })) === "sent";
       }
 
       if (config.aiEnabled) {
@@ -164,11 +168,32 @@ async function poll(backfill: boolean): Promise<void> {
       const snapshot = await captureEventSnapshot({ cameraId: event.cameraId, eventId: event.id, at, client });
       if (snapshot) store.setSnapshotPath(event.id, snapshot);
 
+      /*
+       * The text message has already gone out. Queue the snapshot and the clip
+       * the same way the face path does: instant, durable and drained by the one
+       * media worker, so a slow DVR search or FFmpeg never delays ingestion.
+       * A missing snapshot is not fatal; the clip is still attempted.
+       */
+      if (telegramSent) {
+        enqueueEventMedia(
+          {
+            eventId: event.id,
+            cameraId: event.cameraId,
+            cameraName,
+            faces: 0,
+            maxConfidence: 0,
+            eventTimestamp: event.timestamp,
+            snapshotPath: snapshot,
+          },
+          config,
+        );
+      }
+
       const stored = store.get(event.id);
       if (stored) {
         publishLiveEvent({
           notify: delivered,
-          event: { ...stored, cameraName: names[event.cameraId] ?? `Camera ${event.cameraId}` },
+          event: { ...stored, cameraName },
         });
       }
     }

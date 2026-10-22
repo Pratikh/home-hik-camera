@@ -24,9 +24,10 @@ import {
 } from "@/server/notifications/event-clip";
 
 /**
- * Background delivery of the Telegram face image and event clip.
+ * Background delivery of the Telegram event snapshot and clip, for both the
+ * face channel and ordinary rule notifications.
  *
- * The face notification decision never waits for this: it enqueues a job and
+ * The notification decision never waits for this: it enqueues a job and
  * returns. One worker drains the queue one job at a time, so a slow DVR search
  * or an FFmpeg transcode can never delay event ingestion, face detection, the
  * browser notification or another job's text message.
@@ -41,6 +42,8 @@ export const TELEGRAM_MEDIA_INTERVAL_MS = 1500;
 export const TELEGRAM_MEDIA_QUEUE_LIMIT = 50;
 const CLEANUP_EVERY_MS = 10 * 60 * 1000;
 
+export type TelegramMediaChannel = "face" | "event";
+
 export type FaceMediaJob = {
   eventId: string;
   cameraId: number;
@@ -54,6 +57,12 @@ export type FaceMediaJob = {
    * stored on `events.snapshot_path`. The face crop is never sent to Telegram.
    */
   snapshotPath: string | null;
+  /**
+   * Which Telegram channel accepted this event. Face jobs follow
+   * TELEGRAM_FACE_NOTIFICATIONS; rule-event jobs follow
+   * TELEGRAM_EVENT_NOTIFICATIONS, so disabling one never strands the other.
+   */
+  channel?: TelegramMediaChannel;
 };
 
 export type MediaStep = "sent" | "skipped" | "failed";
@@ -99,9 +108,13 @@ export function telegramMediaQueueDepth(dataDir: string = getConfig().dataDir): 
  * Returns "queued" when the job is in the queue — including when an identical
  * event was already queued, since the UNIQUE event_id makes that a no-op.
  */
-export function enqueueFaceMedia(job: FaceMediaJob, config: AppConfig = getConfig()): "queued" | "disabled" | "full" {
+export function enqueueTelegramMedia(
+  job: FaceMediaJob,
+  config: AppConfig = getConfig(),
+): "queued" | "disabled" | "full" {
   const state = telegramState(config);
-  if (!state.enabled || !state.configured || !state.faceReady) return "disabled";
+  const ready = job.channel === "event" ? state.eventReady : state.faceReady;
+  if (!state.enabled || !state.configured || !ready) return "disabled";
   try {
     const result = openEventStore(config.dataDir).enqueueTelegramMediaJob({
       ...job,
@@ -117,6 +130,16 @@ export function enqueueFaceMedia(job: FaceMediaJob, config: AppConfig = getConfi
     console.error("[telegram-media] enqueue", error instanceof Error ? error.name : "error");
     return "disabled";
   }
+}
+
+/** Queue the snapshot and clip for an accepted face-test notification. */
+export function enqueueFaceMedia(job: FaceMediaJob, config: AppConfig = getConfig()): "queued" | "disabled" | "full" {
+  return enqueueTelegramMedia({ ...job, channel: "face" }, config);
+}
+
+/** Queue the snapshot and clip for an accepted general rule notification. */
+export function enqueueEventMedia(job: FaceMediaJob, config: AppConfig = getConfig()): "queued" | "disabled" | "full" {
+  return enqueueTelegramMedia({ ...job, channel: "event" }, config);
 }
 
 function logLine(message: string): void {
@@ -175,7 +198,8 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
   const unlinkImpl = deps.unlinkImpl ?? unlink;
 
   const state = telegramState(config);
-  if (!state.enabled || !state.configured || !state.faceReady) {
+  const ready = job.channel === "event" ? state.eventReady : state.faceReady;
+  if (!state.enabled || !state.configured || !ready) {
     return { eventId: job.eventId, image: "skipped", imageCount: 0, video: "skipped", videoReason: "disabled", detail: null };
   }
 
@@ -315,6 +339,7 @@ async function mediaTick(): Promise<void> {
       maxConfidence: claimed.maxConfidence,
       eventTimestamp: claimed.eventTimestamp,
       snapshotPath: claimed.snapshotPath,
+      channel: claimed.channel,
     };
     const outcome = await processFaceMediaJob(job, { config });
     store.finishTelegramMediaJob(
