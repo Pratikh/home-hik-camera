@@ -35,7 +35,21 @@ async function update(request: Request, context: { params: Promise<{ id: string 
   if (!existing) return NextResponse.json({ error: "Notification rule not found" }, { status: 404 });
 
   // A partial update keeps every field the caller did not send.
-  const parsed = parseRuleBody({ ...existing, ...raw }, id);
+  const merged: Record<string, unknown> = { ...existing, ...raw };
+  /*
+   * An older client that sends only cameraId/eventType/classification must not
+   * have its change ignored because the row already carries V5.2 arrays. If no
+   * array was supplied, drop the inherited arrays so the parser falls back to
+   * the legacy fields it just received.
+   */
+  if (raw.cameraIds === undefined && raw.cameraId !== undefined) merged.cameraIds = undefined;
+  if (
+    raw.eventTypes === undefined &&
+    (raw.eventType !== undefined || raw.classification !== undefined)
+  ) {
+    merged.eventTypes = undefined;
+  }
+  const parsed = parseRuleBody(merged, id);
   if (!parsed) return NextResponse.json({ error: "Invalid notification rule" }, { status: 400 });
   store.saveRule(parsed);
   return NextResponse.json({ rule: parsed });

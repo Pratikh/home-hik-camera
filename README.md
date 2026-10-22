@@ -531,14 +531,20 @@ Only HIGH and CRITICAL count as **Important**, which drives the dashboard feed a
 
 Rules are edited at **/settings/notifications** (ADMIN only). A rule combines:
 
-- **Camera** — one camera or all
-- **Event** — any event, person, vehicle, or unclassified motion
+- **Cameras** — a multi-select checkbox group. Select any combination, or
+  **All cameras**; unchecking one camera clears “All cameras”, and selecting
+  every camera checks it again. At least one camera is required; an empty
+  selection is never treated as “all”.
+- **Events** — a multi-select checkbox group: Person, Vehicle, and Motion
+  (unclassified motion). At least one is required.
 - **Minimum priority** — ignore events below a floor
 - **Schedule** — an optional `HH:MM`–`HH:MM` window, plus optional days of the week. A window such as `22:00`–`06:00` spans midnight, so a Friday rule also covers early Saturday
 - **Quiet hours** behavior (below)
 - **Cooldown** — seconds between notifications for that rule
 
 Rules are never hard-coded. The shipped defaults are examples only, and every field is editable. **Test a rule** dry-runs the engine and reports which rules would match, without storing an event or sending a notification.
+
+Camera and event selections are stored as JSON arrays in `notification_rules.camera_ids` and `notification_rules.event_types`. Existing single-value rows are backfilled idempotently from `camera_id` / `event_type` / `classification` on startup; their matching behavior is unchanged. The legacy columns remain in sync for older queries. See [docs/Rule-Multi-Select.md](docs/Rule-Multi-Select.md).
 
 ### Quiet hours
 
@@ -617,7 +623,7 @@ Every route checks the session and the role on the server. Camera ids, event ids
 
 `data/events.sqlite` holds events, notification rules, notification history, and this hub's users, sessions, and audit log. V5 adds its columns and tables additively on first start: existing events are kept, priorities are backfilled once from what the DVR reported, and pre-V5 rules receive readable names. The migration is idempotent and runs automatically, so there is no separate migration command.
 
-Indexes cover the query shapes actually used: `(camera_id, timestamp)`, `(type, timestamp)`, `(classification, timestamp)`, `(priority, timestamp)`, plus `notified`, and `notification_history` on `(event_id, rule_id)` unique, `event_id`, `rule_id`, and `created_at`. V5.2 adds `auth_sessions(expires_at)`, `auth_sessions(user_id)` and the single-row `face_worker_heartbeat` table. All migrations are additive and idempotent; no command is required.
+Indexes cover the query shapes actually used: `(camera_id, timestamp)`, `(type, timestamp)`, `(classification, timestamp)`, `(priority, timestamp)`, plus `notified`, and `notification_history` on `(event_id, rule_id)` unique, `event_id`, `rule_id`, and `created_at`. V5.2 adds `auth_sessions(expires_at)`, `auth_sessions(user_id)`, the single-row `face_worker_heartbeat` table, and the multi-select columns `notification_rules.camera_ids` / `notification_rules.event_types`. All migrations are additive and idempotent; no command is required, and existing notification rules are preserved and backfilled.
 
 ### Podman operations
 

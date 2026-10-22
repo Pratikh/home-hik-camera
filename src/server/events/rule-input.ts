@@ -1,12 +1,19 @@
+import { CAMERA_IDS, isValidCameraId } from "@/lib/cameras";
 import {
   DEFAULT_COOLDOWN_SECONDS,
+  RULE_EVENT_TYPE_LABELS,
+  cameraIdsFromLegacy,
+  isRuleEventType,
   isSupportedEventType,
+  legacyRuleFields,
   MAX_COOLDOWN_SECONDS,
   QUIET_BEHAVIORS,
+  ruleEventTypesFromLegacy,
   WEEKDAYS,
   type EventClassification,
   type NotificationRule,
   type QuietHoursBehavior,
+  type RuleEventType,
   type Weekday,
 } from "@/lib/events";
 import { isEventPriority, type EventPriority } from "@/lib/priority";
@@ -14,8 +21,11 @@ import { parseClock } from "@/lib/time-kolkata";
 
 /**
  * Parse an untrusted rule body into a NotificationRule.
+ *
  * Every field that reaches the database is validated here; nothing is trusted
- * from the browser, including camera ids and the rule id itself.
+ * from the browser, including camera ids, event filters and the rule id itself.
+ * Both the V5.2 array form and the older single-value form are accepted, so an
+ * existing rule or an older client keeps working.
  */
 export function parseRuleBody(value: unknown, id: string): NotificationRule | null {
   if (!value || typeof value !== "object") return null;
@@ -25,8 +35,8 @@ export function parseRuleBody(value: unknown, id: string): NotificationRule | nu
   if (body.name !== undefined && typeof body.name !== "string") return null;
 
   // A rule may only target an event type this DVR actually produces. Other types
-// in the model (alarm, intrusion, …) are not offered and are rejected so a rule
-// can never silently match nothing.
+  // in the model (alarm, intrusion, …) are not offered and are rejected so a rule
+  // can never silently match nothing.
   const eventType =
     body.eventType === null || body.eventType === undefined || body.eventType === ""
       ? null
@@ -46,10 +56,39 @@ export function parseRuleBody(value: unknown, id: string): NotificationRule | nu
   const cameraId =
     body.cameraId === null || body.cameraId === undefined
       ? null
-      : body.cameraId === 1 || body.cameraId === 2 || body.cameraId === 3 || body.cameraId === 4
+      : isValidCameraId(body.cameraId)
         ? body.cameraId
         : undefined;
   if (cameraId === undefined) return null;
+
+  /*
+   * Multi-select fields. This is the form the current UI sends. When present it
+   * wins over the legacy single values; it must never be empty and every id /
+   * token must be one the server knows.
+   *
+   * `null` is accepted as "not supplied" for compatibility, but an explicit
+   * empty array is rejected — it can never mean all cameras or all events.
+   */
+  let cameraIds: number[] | null = null;
+  if (body.cameraIds !== undefined && body.cameraIds !== null) {
+    const parsed = readCameraIds(body.cameraIds);
+    if (!parsed) return null;
+    cameraIds = parsed;
+  }
+
+  let eventTypes: RuleEventType[] | null = null;
+  if (body.eventTypes !== undefined && body.eventTypes !== null) {
+    const parsed = readEventTypes(body.eventTypes);
+    if (!parsed) return null;
+    eventTypes = parsed;
+  }
+
+  // Legacy rule bodies omit the arrays; convert their single values to arrays.
+  const resolvedCameraIds = cameraIds ?? cameraIdsFromLegacy(cameraId);
+  if (!resolvedCameraIds || resolvedCameraIds.length === 0) return null;
+
+  const resolvedEventTypes = eventTypes ?? ruleEventTypesFromLegacy(eventType, classification);
+  if (!resolvedEventTypes || resolvedEventTypes.length === 0) return null;
 
   const minimumPriority: EventPriority | null | undefined =
     body.minimumPriority === null || body.minimumPriority === undefined || body.minimumPriority === ""
@@ -77,13 +116,19 @@ export function parseRuleBody(value: unknown, id: string): NotificationRule | nu
 
   if (typeof body.enabled !== "boolean") return null;
 
+  const legacy = legacyRuleFields({
+    cameraIds: resolvedCameraIds,
+    eventTypes: resolvedEventTypes,
+    fallback: { cameraId, eventType, classification },
+  });
+
   return {
     id,
-    name: name || defaultName({ eventType, classification, cameraId }),
+    name: name || defaultName(resolvedCameraIds, resolvedEventTypes),
     enabled: body.enabled,
-    cameraId,
-    eventType,
-    classification,
+    cameraIds: resolvedCameraIds,
+    eventTypes: resolvedEventTypes,
+    ...legacy,
     minimumPriority,
     scheduleStart,
     scheduleEnd,
@@ -93,6 +138,28 @@ export function parseRuleBody(value: unknown, id: string): NotificationRule | nu
     quietHoursBehavior: behavior,
     cooldownSeconds,
   };
+}
+
+/** Validate a multi-select camera array. Unknown or duplicate ids are rejected. */
+function readCameraIds(value: unknown): number[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const ids: number[] = [];
+  for (const item of value) {
+    if (!isValidCameraId(item)) return null;
+    if (!ids.includes(item)) ids.push(item);
+  }
+  return ids;
+}
+
+/** Validate a multi-select event array against the filters this DVR supports. */
+function readEventTypes(value: unknown): RuleEventType[] | null {
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const types: RuleEventType[] = [];
+  for (const item of value) {
+    if (!isRuleEventType(item)) return null;
+    if (!types.includes(item)) types.push(item);
+  }
+  return types;
 }
 
 /** A clock is either absent, or a valid HH:MM. Anything else is rejected. */
@@ -129,21 +196,13 @@ function readCooldown(value: unknown): number | null {
   return seconds;
 }
 
-function defaultName(input: {
-  eventType: string | null;
-  classification: string | null;
-  cameraId: number | null;
-}): string {
-  const what =
-    input.classification === "person"
-      ? "Person"
-      : input.classification === "vehicle"
-        ? "Vehicle"
-        : input.classification === ""
-          ? "Motion"
-          : input.eventType
-            ? input.eventType.replace(/_/g, " ")
-            : "Any event";
-  const where = input.cameraId ? `Camera ${input.cameraId}` : "All cameras";
+function defaultName(cameraIds: number[], eventTypes: RuleEventType[]): string {
+  const what = eventTypes.map((type) => RULE_EVENT_TYPE_LABELS[type]).join(", ");
+  const where =
+    cameraIds.length === CAMERA_IDS.length
+      ? "All cameras"
+      : cameraIds.length === 1
+        ? `Camera ${cameraIds[0]}`
+        : `Cameras ${cameraIds.join(", ")}`;
   return `${what} - ${where}`;
 }

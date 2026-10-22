@@ -8,6 +8,7 @@ import { getCameraNameMap } from "@/server/cameras/names";
 import { attachStops, parseAlarmLogs, type MotionStart, type MotionStop } from "@/server/events/event-normalizer";
 import { publishLiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type NewEvent } from "@/server/events/event-store";
+import { recordNotificationDecisions } from "@/server/events/notification-decisions";
 import { runRetention } from "@/server/events/retention";
 import { captureEventSnapshot } from "@/server/events/snapshot";
 import { cooldownBlocks, cooldownWindowStart, evaluateRules } from "@/server/events/rule-engine";
@@ -121,39 +122,12 @@ async function poll(backfill: boolean): Promise<void> {
 
       // Notification history is the durable duplicate guard: an event/rule pair
       // recorded once is never notified again, even across restarts.
-      let delivered = false;
-      for (const decision of evaluation.decisions) {
-        const fresh = store.recordNotification({
-          eventId: event.id,
-          ruleId: decision.ruleId,
-          ruleName: decision.ruleName,
-          cameraId: event.cameraId,
-          priority: decision.priority,
-          status: decision.notify ? "sent" : "suppressed",
-          reason: decision.reason,
-          eventTimestamp: event.timestamp,
-        });
-        if (!fresh) continue;
-        if (decision.notify) {
-          delivered = true;
-          console.info("[events] Notification rule matched");
-        } else if (decision.reason) {
-          console.info("[events] Notification suppressed", decision.reason);
-        }
-      }
-      if (evaluation.decisions.length === 0) {
-        store.recordNotification({
-          eventId: event.id,
-          ruleId: null,
-          ruleName: null,
-          cameraId: event.cameraId,
-          priority,
-          status: "suppressed",
-          reason: "No notification rule matched",
-          eventTimestamp: event.timestamp,
-        });
-      }
-      if (delivered) store.markNotified(event.id);
+      const { delivered } = recordNotificationDecisions({
+        store,
+        event,
+        evaluation,
+        priority,
+      });
 
       if (config.aiEnabled) {
         console.info("[events] AI processing started");

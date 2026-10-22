@@ -13,7 +13,17 @@ import type {
   NotificationStatus,
   Weekday,
 } from "@/lib/events";
-import { DEFAULT_COOLDOWN_SECONDS, isEventType, WEEKDAYS } from "@/lib/events";
+import {
+  DEFAULT_COOLDOWN_SECONDS,
+  cameraIdsFromLegacy,
+  isEventType,
+  isRuleEventType,
+  legacyRuleFields,
+  ruleEventTypesFromLegacy,
+  WEEKDAYS,
+  type RuleEventType,
+} from "@/lib/events";
+import { isValidCameraId } from "@/lib/cameras";
 import { isFaceId, type DetectedFace, type FaceProcessingSummary, type FaceQuery } from "@/lib/faces";
 import { defaultPriority, isEventPriority, priorityRank, type EventPriority } from "@/lib/priority";
 
@@ -71,6 +81,8 @@ type RuleRow = {
   camera_id: number | null;
   event_type: string | null;
   classification: string | null;
+  camera_ids: string | null;
+  event_types: string | null;
   minimum_priority: string | null;
   schedule_start: string | null;
   schedule_end: string | null;
@@ -113,6 +125,11 @@ CREATE TABLE IF NOT EXISTS notification_rules (
   camera_id INTEGER,
   event_type TEXT,
   classification TEXT,
+  -- Multi-select selections, JSON arrays. NULL on rows written before V5.2 and
+  -- on any row the legacy columns already describe fully. The legacy columns
+  -- stay authoritative for those rows.
+  camera_ids TEXT,
+  event_types TEXT,
   quiet_hours_start TEXT,
   quiet_hours_end TEXT,
   created_at TEXT NOT NULL,
@@ -348,6 +365,43 @@ function mapFace(row: Record<string, unknown>): DetectedFace {
   };
 }
 
+/**
+ * Read the V5.2 multi-select columns. `null` means "no multi-select data; use
+ * the legacy columns". A malformed value is also treated as absent so a corrupt
+ * row cannot crash rule loading or silently widen a match.
+ */
+function parseCameraIds(value: string | null): number[] | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    const ids: number[] = [];
+    for (const item of parsed) {
+      if (!isValidCameraId(item)) return null;
+      if (!ids.includes(item)) ids.push(item);
+    }
+    return ids;
+  } catch {
+    return null;
+  }
+}
+
+function parseEventTypes(value: string | null): RuleEventType[] | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    const types: RuleEventType[] = [];
+    for (const item of parsed) {
+      if (!isRuleEventType(item)) return null;
+      if (!types.includes(item)) types.push(item);
+    }
+    return types;
+  } catch {
+    return null;
+  }
+}
+
 function parseDays(value: string | null): Weekday[] {
   if (!value) return [];
   return value
@@ -359,16 +413,27 @@ function parseDays(value: string | null): Weekday[] {
 function mapRule(row: RuleRow): NotificationRule {
   const classification = row.classification;
   const behavior = row.quiet_hours_behavior;
+  const legacyCameraId = row.camera_id !== null && isValidCameraId(row.camera_id) ? row.camera_id : null;
+  const legacyEventType = row.event_type && isEventType(row.event_type) ? row.event_type : null;
+  const legacyClassification: EventClassification | "" | null =
+    classification === "person" || classification === "vehicle" || classification === ""
+      ? classification
+      : null;
+  /*
+   * New rows carry authoritative arrays. Old rows fall back to their legacy
+   * single values, converted without widening or narrowing the match.
+   */
+  const cameraIds = parseCameraIds(row.camera_ids) ?? cameraIdsFromLegacy(legacyCameraId);
+  const eventTypes = parseEventTypes(row.event_types) ?? ruleEventTypesFromLegacy(legacyEventType, legacyClassification);
   return {
     id: row.id,
     name: row.name && row.name.trim() ? row.name : defaultRuleName(row),
     enabled: row.enabled === 1,
-    cameraId: row.camera_id,
-    eventType: row.event_type && isEventType(row.event_type) ? row.event_type : null,
-    classification:
-      classification === "person" || classification === "vehicle" || classification === ""
-        ? classification
-        : null,
+    cameraIds,
+    eventTypes,
+    cameraId: legacyCameraId,
+    eventType: legacyEventType,
+    classification: legacyClassification,
     minimumPriority: row.minimum_priority && isEventPriority(row.minimum_priority) ? row.minimum_priority : null,
     scheduleStart: row.schedule_start,
     scheduleEnd: row.schedule_end,
@@ -433,6 +498,8 @@ export class EventStore {
     this.db.exec(SCHEMA);
     this.migrate();
     this.seed();
+    // Seeded default rules are legacy-shaped too, so backfill after seed().
+    this.backfillRuleSelections();
   }
 
   /**
@@ -462,6 +529,10 @@ export class EventStore {
     addColumn("notification_rules", "days_of_week", "TEXT");
     addColumn("notification_rules", "quiet_hours_behavior", "TEXT");
     addColumn("notification_rules", "cooldown_seconds", "INTEGER");
+    // V5.2 multi-select. Additive and idempotent; legacy rows are backfilled
+    // after seed() below once their old single-value fields are visible.
+    addColumn("notification_rules", "camera_ids", "TEXT");
+    addColumn("notification_rules", "event_types", "TEXT");
 
     // Backfill priority for rows that predate the column. ALTER TABLE fills the
     // default 'NORMAL' on every existing row, so the work list is "rows written
@@ -500,6 +571,30 @@ export class EventStore {
       CREATE INDEX IF NOT EXISTS events_priority_timestamp ON events(priority, timestamp);
       CREATE INDEX IF NOT EXISTS events_notified ON events(notified);
     `);
+  }
+
+  /**
+   * V5.2: fill the multi-select columns for rules written before they existed.
+   *
+   * Additive and idempotent. It only fills rows whose columns are still NULL,
+   * never rewrites an existing array, and never deletes or renames a rule. Rows
+   * whose legacy event type cannot be represented are left NULL; `mapRule` then
+   * keeps using the legacy fields for matching.
+   */
+  private backfillRuleSelections(): void {
+    const rows = this.db
+      .prepare("SELECT * FROM notification_rules WHERE camera_ids IS NULL OR event_types IS NULL")
+      .all() as unknown as RuleRow[];
+    if (rows.length === 0) return;
+    const update = this.db.prepare(
+      "UPDATE notification_rules SET camera_ids = ?, event_types = ? WHERE id = ?",
+    );
+    for (const row of rows) {
+      const mapped = mapRule(row);
+      if (!mapped.cameraIds || mapped.cameraIds.length === 0) continue;
+      if (!mapped.eventTypes || mapped.eventTypes.length === 0) continue;
+      update.run(JSON.stringify(mapped.cameraIds), JSON.stringify(mapped.eventTypes), row.id);
+    }
   }
 
   private seed(): void {
@@ -903,19 +998,31 @@ export class EventStore {
 
   saveRule(rule: NotificationRule): void {
     const now = new Date().toISOString();
+    /*
+     * The arrays are the source of truth. A legacy-shaped caller still works:
+     * its single values are converted to arrays, and the legacy columns are kept
+     * in sync for older queries. Empty arrays are preserved as empty (match
+     * nothing), never interpreted as "all".
+     */
+    const cameraIds = rule.cameraIds ?? cameraIdsFromLegacy(rule.cameraId) ?? [];
+    const eventTypes =
+      rule.eventTypes ?? ruleEventTypesFromLegacy(rule.eventType, rule.classification) ?? [];
+    const legacy = legacyRuleFields({ cameraIds, eventTypes, fallback: rule });
     this.db
       .prepare(
         `INSERT INTO notification_rules
-          (id, name, enabled, camera_id, event_type, classification, minimum_priority, schedule_start,
-           schedule_end, days_of_week, quiet_hours_start, quiet_hours_end, quiet_hours_behavior,
-           cooldown_seconds, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (id, name, enabled, camera_id, event_type, classification, camera_ids, event_types,
+           minimum_priority, schedule_start, schedule_end, days_of_week, quiet_hours_start,
+           quiet_hours_end, quiet_hours_behavior, cooldown_seconds, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
           name = excluded.name,
           enabled = excluded.enabled,
           camera_id = excluded.camera_id,
           event_type = excluded.event_type,
           classification = excluded.classification,
+          camera_ids = excluded.camera_ids,
+          event_types = excluded.event_types,
           minimum_priority = excluded.minimum_priority,
           schedule_start = excluded.schedule_start,
           schedule_end = excluded.schedule_end,
@@ -930,9 +1037,11 @@ export class EventStore {
         rule.id,
         rule.name,
         rule.enabled ? 1 : 0,
-        rule.cameraId,
-        rule.eventType,
-        rule.classification,
+        legacy.cameraId,
+        legacy.eventType,
+        legacy.classification,
+        JSON.stringify(cameraIds),
+        JSON.stringify(eventTypes),
         rule.minimumPriority,
         rule.scheduleStart,
         rule.scheduleEnd,

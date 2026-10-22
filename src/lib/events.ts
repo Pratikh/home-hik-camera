@@ -1,9 +1,100 @@
+import { CAMERA_IDS, isValidCameraId } from "@/lib/cameras";
 import { atLeast, isEventPriority, type EventPriority } from "@/lib/priority";
 import { KOLKATA_OFFSET, formatKolkataIso, kolkataDayBounds, kolkataParts, parseClock } from "@/lib/time-kolkata";
 
 export const EVENT_TYPES = ["motion", "person", "vehicle", "alarm", "line_crossing", "intrusion", "video_loss", "storage_error"] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 export type EventClassification = "person" | "vehicle";
+
+/**
+ * What a notification rule can select.
+ *
+ * This DVR emits motion only. "Person" and "Vehicle" are the DVR's
+ * classification labels on a motion event; "Motion" means unclassified motion.
+ * These three are the actual filters the rule UI can offer, so they are also
+ * the multi-select tokens stored with a rule.
+ */
+export const RULE_EVENT_TYPES = ["person", "vehicle", "motion"] as const;
+export type RuleEventType = (typeof RULE_EVENT_TYPES)[number];
+
+export const RULE_EVENT_TYPE_LABELS: Record<RuleEventType, string> = {
+  person: "Person",
+  vehicle: "Vehicle",
+  motion: "Motion",
+};
+
+export function isRuleEventType(value: unknown): value is RuleEventType {
+  return typeof value === "string" && (RULE_EVENT_TYPES as readonly string[]).includes(value);
+}
+
+/** Does one selected event filter describe this event? */
+export function ruleEventTypeMatches(
+  selected: RuleEventType,
+  event: { type: EventType; classification: EventClassification | null },
+): boolean {
+  if (selected === "person") return event.type === "motion" && event.classification === "person";
+  if (selected === "vehicle") return event.type === "motion" && event.classification === "vehicle";
+  // "Motion" means unclassified motion, matching the old classification === "".
+  return event.type === "motion" && event.classification === null;
+}
+
+/**
+ * Convert the legacy single camera/event fields into the multi-select form.
+ *
+ * A null legacy camera means "all cameras"; it becomes the explicit camera id
+ * list so an empty selection can never be mistaken for all cameras later.
+ * Returns null only for a legacy event type this model cannot represent.
+ */
+export function cameraIdsFromLegacy(cameraId: number | null): number[] | null {
+  if (cameraId === null) return [...CAMERA_IDS];
+  return isValidCameraId(cameraId) ? [cameraId] : null;
+}
+
+export function ruleEventTypesFromLegacy(
+  eventType: EventType | null,
+  classification: EventClassification | "" | null,
+): RuleEventType[] | null {
+  if (classification === "person") return ["person"];
+  if (classification === "vehicle") return ["vehicle"];
+  if (classification === "") return ["motion"];
+  if (classification === null && (eventType === null || eventType === "motion")) {
+    // Legacy "Any event" / "Motion" rules matched every motion-family event.
+    return ["person", "vehicle", "motion"];
+  }
+  return null;
+}
+
+/**
+ * Derive the legacy single-value columns from a multi-select rule.
+ *
+ * Multi-camera and mixed-event selections have no exact single-value form, so
+ * those legacy columns become the broadest safe value. The arrays remain the
+ * source of truth in this version; the legacy columns exist for older queries.
+ */
+export function legacyRuleFields(input: {
+  cameraIds: number[];
+  eventTypes: RuleEventType[];
+  fallback: Pick<NotificationRule, "cameraId" | "eventType" | "classification">;
+}): Pick<NotificationRule, "cameraId" | "eventType" | "classification"> {
+  const cameraId =
+    input.cameraIds.length === CAMERA_IDS.length
+      ? null
+      : input.cameraIds.length === 1
+        ? input.cameraIds[0]!
+        : null;
+
+  let eventType = input.fallback.eventType;
+  let classification = input.fallback.classification;
+  if (input.eventTypes.length === 1) {
+    const only = input.eventTypes[0]!;
+    eventType = "motion";
+    classification = only === "motion" ? "" : only;
+  } else if (input.eventTypes.length > 1) {
+    eventType = "motion";
+    classification = null;
+  }
+  return { cameraId, eventType, classification };
+}
 
 /**
  * Event types this DVR actually produces.
@@ -76,6 +167,22 @@ export type NotificationRule = {
   id: string;
   name: string;
   enabled: boolean;
+  /**
+   * Multi-select camera ids. New rules always carry this. It is optional only so
+   * a legacy rule object (and an older caller) can still be represented; when it
+   * is absent, `cameraId` is used.
+   */
+  cameraIds?: number[] | null;
+  /**
+   * Multi-select event filters. New rules always carry this. When absent, the
+   * legacy `eventType` + `classification` pair is used.
+   */
+  eventTypes?: RuleEventType[] | null;
+  /**
+   * Legacy single-value fields. Rows written by older versions still use these,
+   * and they are kept in sync when a new rule is saved so older queries remain
+   * meaningful.
+   */
   cameraId: number | null;
   eventType: EventType | null;
   classification: EventClassification | "" | null;
@@ -217,10 +324,23 @@ export function ruleMatches(
   event: { cameraId: number; type: EventType; classification: EventClassification | null },
 ): boolean {
   if (!rule.enabled) return false;
-  if (rule.cameraId !== null && rule.cameraId !== event.cameraId) return false;
-  if (rule.eventType && rule.eventType !== event.type) return false;
-  if (rule.classification === "") return event.classification === null;
-  if (rule.classification) return rule.classification === event.classification;
+
+  if (rule.cameraIds !== undefined && rule.cameraIds !== null) {
+    // An explicitly empty selection matches nothing. It is never "all cameras".
+    if (rule.cameraIds.length === 0 || !rule.cameraIds.includes(event.cameraId)) return false;
+  } else if (rule.cameraId !== null && rule.cameraId !== event.cameraId) {
+    return false;
+  }
+
+  if (rule.eventTypes !== undefined && rule.eventTypes !== null) {
+    if (rule.eventTypes.length === 0 || !rule.eventTypes.some((selected) => ruleEventTypeMatches(selected, event))) {
+      return false;
+    }
+  } else {
+    if (rule.eventType && rule.eventType !== event.type) return false;
+    if (rule.classification === "") return event.classification === null;
+    if (rule.classification) return rule.classification === event.classification;
+  }
   return true;
 }
 

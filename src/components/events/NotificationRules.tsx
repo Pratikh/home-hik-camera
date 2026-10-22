@@ -10,9 +10,15 @@ import {
   DEFAULT_COOLDOWN_SECONDS,
   MAX_COOLDOWN_SECONDS,
   QUIET_BEHAVIORS,
+  RULE_EVENT_TYPES,
+  RULE_EVENT_TYPE_LABELS,
   WEEKDAYS,
+  cameraIdsFromLegacy,
+  legacyRuleFields,
+  ruleEventTypesFromLegacy,
   type NotificationRule,
   type QuietHoursBehavior,
+  type RuleEventType,
   type Weekday,
 } from "@/lib/events";
 import { EVENT_PRIORITIES, type EventPriority } from "@/lib/priority";
@@ -34,6 +40,8 @@ function blankRule(): NotificationRule {
     id: "",
     name: "",
     enabled: true,
+    cameraIds: [...CAMERA_IDS],
+    eventTypes: ["person"],
     cameraId: null,
     eventType: "motion",
     classification: "person",
@@ -46,6 +54,29 @@ function blankRule(): NotificationRule {
     quietHoursBehavior: "suppress",
     cooldownSeconds: DEFAULT_COOLDOWN_SECONDS,
   };
+}
+
+/** Arrays are authoritative; fall back for an old rule object from any caller. */
+function cameraSelection(rule: NotificationRule): number[] {
+  return rule.cameraIds ?? cameraIdsFromLegacy(rule.cameraId) ?? [];
+}
+
+function eventSelection(rule: NotificationRule): RuleEventType[] {
+  return rule.eventTypes ?? ruleEventTypesFromLegacy(rule.eventType, rule.classification) ?? [];
+}
+
+/** Apply a new selection and keep the legacy display/storage fields in sync. */
+function withSelection(rule: NotificationRule, cameraIds: number[], eventTypes: RuleEventType[]): NotificationRule {
+  return {
+    ...rule,
+    cameraIds,
+    eventTypes,
+    ...legacyRuleFields({ cameraIds, eventTypes, fallback: rule }),
+  };
+}
+
+function editableRule(rule: NotificationRule): NotificationRule {
+  return withSelection(rule, cameraSelection(rule), eventSelection(rule));
 }
 
 export function NotificationRules() {
@@ -85,6 +116,9 @@ export function NotificationRules() {
     event.preventDefault();
     setError(null);
     setMessage(null);
+    // The inline warnings beside the checkbox groups already say what is
+    // missing; do not duplicate them in the page-level error banner.
+    if (cameraSelection(rule).length === 0 || eventSelection(rule).length === 0) return;
     const { id: _id, ...payload } = rule;
     void _id;
     try {
@@ -202,7 +236,7 @@ export function NotificationRules() {
               </span>
             </div>
             <p className="mt-1 text-xs text-muted">
-              {rule.cameraId ? cameraName(names, rule.cameraId) : "All cameras"} · {describeEvent(rule)} ·{" "}
+              {describeCameras(rule, names)} · {describeEvent(rule)} ·{" "}
               {rule.scheduleStart && rule.scheduleEnd ? `${rule.scheduleStart}–${rule.scheduleEnd}` : "Any time"} ·
               Cooldown {formatCooldown(rule.cooldownSeconds)}
             </p>
@@ -216,7 +250,7 @@ export function NotificationRules() {
               <button type="button" onClick={() => void toggleEnabled(rule)} className="h-9 rounded-lg border border-line px-3 text-xs">
                 {rule.enabled ? "Disable" : "Enable"}
               </button>
-              <button type="button" onClick={() => setDraft({ ...rule })} className="h-9 rounded-lg border border-line px-3 text-xs">
+              <button type="button" onClick={() => setDraft(editableRule(rule))} className="h-9 rounded-lg border border-line px-3 text-xs">
                 Edit
               </button>
               <button
@@ -279,12 +313,17 @@ export function NotificationRules() {
   );
 }
 
+function describeCameras(rule: NotificationRule, names: Record<number, string>): string {
+  const ids = cameraSelection(rule);
+  if (ids.length === 0) return "No cameras selected";
+  if (ids.length === CAMERA_IDS.length) return "All cameras";
+  return ids.map((id) => cameraName(names, id)).join(", ");
+}
+
 function describeEvent(rule: NotificationRule): string {
-  if (rule.classification === "person") return "Person";
-  if (rule.classification === "vehicle") return "Vehicle";
-  if (rule.classification === "") return "Unclassified motion";
-  if (rule.eventType) return rule.eventType.replace(/_/g, " ");
-  return "Any event";
+  const types = eventSelection(rule);
+  if (types.length === 0) return "No events selected";
+  return types.map((type) => RULE_EVENT_TYPE_LABELS[type]).join(", ");
 }
 
 function formatCooldown(seconds: number): string {
@@ -316,8 +355,27 @@ function RuleForm({
     set("daysOfWeek", next);
   }
 
-  const eventValue =
-    rule.classification === null ? "any" : rule.classification === "" ? "unclassified" : rule.classification;
+  const selectedCameras = cameraSelection(rule);
+  const selectedEvents = eventSelection(rule);
+  const allCameras = CAMERA_IDS.every((id) => selectedCameras.includes(id));
+
+  function toggleCamera(id: number) {
+    const next = selectedCameras.includes(id)
+      ? selectedCameras.filter((camera) => camera !== id)
+      : [...selectedCameras, id].sort((left, right) => left - right);
+    onChange(withSelection(rule, next, selectedEvents));
+  }
+
+  function toggleAllCameras() {
+    onChange(withSelection(rule, allCameras ? [] : [...CAMERA_IDS], selectedEvents));
+  }
+
+  function toggleEventType(type: RuleEventType) {
+    const next = selectedEvents.includes(type)
+      ? selectedEvents.filter((eventType) => eventType !== type)
+      : RULE_EVENT_TYPES.filter((eventType) => eventType === type || selectedEvents.includes(eventType));
+    onChange(withSelection(rule, selectedCameras, next));
+  }
 
   return (
     <form onSubmit={onSubmit} className="mt-4 space-y-3 rounded-xl border border-teal/40 bg-card p-4">
@@ -334,36 +392,62 @@ function RuleForm({
       </label>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Camera</span>
-          <select
-            value={rule.cameraId ?? "all"}
-            onChange={(event) => set("cameraId", event.target.value === "all" ? null : Number(event.target.value))}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          >
-            <option value="all">All cameras</option>
-            {CAMERA_IDS.map((id) => <option key={id} value={id}>{cameraName(names, id)}</option>)}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Event</span>
-          <select
-            value={eventValue}
-            onChange={(event) => {
-              const value = event.target.value;
-              if (value === "any") onChange({ ...rule, classification: null, eventType: null });
-              else if (value === "unclassified") onChange({ ...rule, classification: "", eventType: "motion" });
-              else onChange({ ...rule, classification: value as "person" | "vehicle", eventType: "motion" });
-            }}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          >
-            <option value="any">Any event</option>
-            <option value="person">Person</option>
-            <option value="vehicle">Vehicle</option>
-            <option value="unclassified">Unclassified motion</option>
-          </select>
-        </label>
+        <fieldset className="min-w-0 text-sm">
+          <legend className="mb-1 block text-muted">Camera</legend>
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-line bg-bg p-2">
+            <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 hover:bg-white/5 focus-within:bg-white/5">
+              <input
+                type="checkbox"
+                checked={allCameras}
+                onChange={toggleAllCameras}
+                className="h-4 w-4 shrink-0 accent-teal"
+              />
+              <span className="font-medium">All cameras</span>
+            </label>
+            <div className="my-1 border-t border-line" />
+            {CAMERA_IDS.map((id) => (
+              <label
+                key={id}
+                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 hover:bg-white/5 focus-within:bg-white/5"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedCameras.includes(id)}
+                  onChange={() => toggleCamera(id)}
+                  className="h-4 w-4 shrink-0 accent-teal"
+                />
+                <span className="min-w-0 truncate">{cameraName(names, id)}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <fieldset className="min-w-0 text-sm">
+          <legend className="mb-1 block text-muted">Event</legend>
+          <div className="rounded-lg border border-line bg-bg p-2">
+            {RULE_EVENT_TYPES.map((type) => (
+              <label
+                key={type}
+                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 hover:bg-white/5 focus-within:bg-white/5"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedEvents.includes(type)}
+                  onChange={() => toggleEventType(type)}
+                  className="h-4 w-4 shrink-0 accent-teal"
+                />
+                <span>{RULE_EVENT_TYPE_LABELS[type]}</span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-muted">Motion means unclassified motion. Person and vehicle are DVR classifications.</p>
+        </fieldset>
       </div>
+      {selectedCameras.length === 0 ? (
+        <p className="text-sm text-warn" role="alert">Select at least one camera.</p>
+      ) : null}
+      {selectedEvents.length === 0 ? (
+        <p className="text-sm text-warn" role="alert">Select at least one event.</p>
+      ) : null}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-sm">
