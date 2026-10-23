@@ -64,21 +64,22 @@ services:
         max-file: "3"
     restart: unless-stopped
 
-  # Live object DETECTION worker (optional, off by default).
+  # Live object DETECTION worker. Part of the normal stack; it publishes no
+  # ports and never touches the DVR directly.
   #
-  # It reads the Admin's configuration from the shared database, samples the
-  # H.264 substreams through MediaMTX over the compose network and writes one
-  # object_detection_tracks row per tracked object. It publishes no ports and
-  # never touches the DVR directly.
+  # It reads the Admin's configuration from the shared SQLite database, samples
+  # the H.264 substreams through MediaMTX over the compose network and writes one
+  # object_detection_tracks row per tracked object. Detection itself is
+  # controlled ONLY by Settings → Detection (SQLite); when it is off the process
+  # keeps running idle and the container stays healthy.
   #
-  #   1. python3 object-worker/scripts/download_model.py     # once, on the host
-  #   2. podman compose --profile objects up -d object-worker
-  #   3. enable detection and cameras on /settings/detection
+  # The YOLOX-Nano model lives in ./object-worker/models (kept out of git). On
+  # first start the entrypoint downloads it once if missing; an existing model is
+  # verified and reused, so later starts need no network.
   object-worker:
     build:
       context: .
       dockerfile: object-worker/Dockerfile
-    profiles: ["objects"]
     env_file:
       - .env
     environment:
@@ -88,16 +89,30 @@ services:
       OBJECT_DETECTION_STREAM: rtsp
     volumes:
       - ./data:/app/data
-      - ./object-worker/models:/app/models:ro
+      # Writable so the entrypoint can provision the model on a fresh install.
+      - ./object-worker/models:/app/models
     depends_on:
       mediamtx:
         condition: service_healthy
+      # The hub owns the SQLite schema (and therefore the file the worker reads).
+      # service_started is enough; the worker also retries/restarts if the
+      # database is momentarily missing, so no fragile sleep is needed.
+      web:
+        condition: service_started
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-    # Idles (and reports "disabled") when the feature is off; restarts on a crash.
+    # Healthy while the heartbeat is fresh, including detection disabled; only a
+    # crashed/hung worker (or an explicit model error) is unhealthy.
+    healthcheck:
+      test: ["CMD", "python3", "scripts/healthcheck.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    # Restart after a crash, Podman restart or server reboot; idle is not a crash.
     restart: unless-stopped
 
   # Local face DETECTION worker (optional, off by default).

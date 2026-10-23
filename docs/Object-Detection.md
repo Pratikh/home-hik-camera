@@ -158,15 +158,33 @@ Start with Parking only, watch the metrics, then add cameras gradually.
 
 ## 7. Install / run
 
+The worker is part of the normal stack and starts automatically:
+
 ```bash
-# 1. once: fetch the model
-python3 object-worker/scripts/download_model.py
-
-# 2. start the worker profile (no ports are published)
-podman compose --profile objects up -d object-worker
-
-# 3. enable detection and at least one camera in /settings/detection
+podman compose up -d               # web, MediaMTX and object-worker
+podman compose ps                  # object-worker should be healthy
+podman compose logs -f object-worker
 ```
+
+No profile flag and no manual model step are needed. On the first start the
+container provisions the YOLOX-Nano model once into `./object-worker/models`
+(checksum verified, ~3.6 MB). If the file is already present it is verified and
+reused, so later starts are offline-safe; to pre-fetch it on an air-gapped host:
+
+```bash
+npm run object:model               # python3 object-worker/scripts/download_model.py
+```
+
+Then enable detection and at least one camera in `/settings/detection`. That is
+the only switch: Compose controls whether the worker process exists, SQLite
+(Settings) controls whether it analyses frames. With detection off the container
+stays running and healthy (heartbeat `disabled`) with no inference; toggling it
+on starts detection without restarting the container.
+
+The healthcheck reads the worker's existing heartbeat: fresh heartbeat is healthy
+whether detection is enabled or disabled; a crashed/hung process (or a model
+error) is unhealthy. Restart policy is `unless-stopped`, so the worker returns
+after a container crash, Podman restart or server reboot.
 
 Local development without Podman for the worker:
 
@@ -177,6 +195,9 @@ python3 -m venv .venv-object
 
 # MediaMTX must keep the development port overlay (internal RTSP on loopback)
 podman compose -f compose.yml -f compose.dev.yml up -d mediamtx
+
+# stop the container worker so the host worker is the only one running
+podman compose stop object-worker
 
 # run the worker on the host (reads the same ./data and MediaMTX)
 npm run object:worker:local

@@ -46,7 +46,8 @@ Next.js hub (container, port 3000)
         │  server-side WHEP/HLS proxy + MediaMTX API
         ▼
 MediaMTX (container, internal ports 8888/8889/9997; published ICE port 8189)
-        │  RTSP client
+        │  RTSP client (internal substreams)
+        ├── object-worker (container, no ports) → YOLOX-Nano → SQLite / events
         ▼
 Hikvision DVR on the home LAN (never public)
 ```
@@ -220,7 +221,7 @@ Production is started by systemd (see [Production deployment](#production-deploy
 Manual control from the project directory:
 
 ```bash
-npm run stack:up        # podman compose up -d   (web + mediamtx)
+npm run stack:up        # podman compose up -d   (web + MediaMTX + object-worker)
 podman compose ps
 podman compose logs -f
 npm run stack:down      # podman compose down
@@ -233,8 +234,12 @@ use the workaround described under [Requirements](#requirements):
 DOCKER_CONFIG=/tmp/home-cctv-docker npm run stack:up
 ```
 
-Both services use `restart: unless-stopped`, so a crashed container comes back on
-its own (`podman inspect home-cctv-web-1 --format '{{.RestartCount}}'`). Note that
+All services use `restart: unless-stopped`, so a crashed container comes back on
+its own (`podman inspect home-cctv-web-1 --format '{{.RestartCount}}'`). The
+object-detection worker is part of the default stack; it idles cheaply and stays
+healthy while detection is disabled, and Settings → Detection controls whether it
+runs inference (no container restart needed). Its YOLOX-Nano model is provisioned
+once into `./object-worker/models` on first start and reused afterwards. Note that
 `podman stop`/`podman kill` is an *explicit* stop, which that policy deliberately
 does not undo — use `podman start`, `npm run stack:up`, or `systemctl start home-cctv` afterwards.
 
