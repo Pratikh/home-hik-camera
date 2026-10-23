@@ -2,20 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import {
   TELEGRAM_API_BASE,
   TELEGRAM_MAX_VIDEO_BYTES,
-  buildTelegramPhotoCaption,
-  buildTelegramVideoCaption,
   looksLikeInvalidChatId,
   sendTelegramMediaGroup,
   sendTelegramPhoto,
   sendTelegramVideo,
   type TelegramFile,
-  buildTelegramEventMessage,
-  buildTelegramFaceMessage,
   buildTelegramTestMessage,
-  escapeTelegramHtml,
-  formatTelegramTime,
-  notifyTelegramEvent,
-  notifyTelegramFace,
   redactTelegramSecret,
   sendTelegramMessage,
   telegramFailureMessage,
@@ -39,13 +31,6 @@ const CONFIG: TelegramConfig = {
   telegramChatId: FAKE_CHAT_ID,
   telegramFaceNotifications: true,
   telegramEventNotifications: true,
-};
-
-const FACE = {
-  cameraName: "Parking",
-  faces: 1,
-  maxConfidence: 0.82,
-  eventTimestamp: "2026-10-10T12:30:00+05:30",
 };
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -80,8 +65,9 @@ describe("TELEGRAM-001 / 002 / 003 / 004 — when nothing may be sent", () => {
   it("TELEGRAM-002 sends no request while TELEGRAM_FACE_NOTIFICATIONS is false", async () => {
     const fetchImpl = okFetch();
     const log = vi.fn();
-    const result = await notifyTelegramFace({
-      ...FACE,
+    const result = await sendTelegramMessage({
+      text: "hello",
+      requireFaceFlag: true,
       config: { ...CONFIG, telegramFaceNotifications: false },
       fetchImpl,
       log,
@@ -155,11 +141,19 @@ describe("TELEGRAM-001 / 002 / 003 / 004 — when nothing may be sent", () => {
   });
 });
 
+describe("TELEGRAM-007 — the admin test message", () => {
+  it("formats the test message", () => {
+    expect(buildTelegramTestMessage()).toBe(
+      ["🏠 <b>Home CCTV Hub</b>", "", "Telegram notification test successful."].join("\n"),
+    );
+  });
+});
+
 describe("TELEGRAM-005 / 006 — the request Telegram receives", () => {
   it("posts sendMessage with the configured chat id, HTML text and a timeout", async () => {
     const fetchImpl = okFetch();
     const result = await sendTelegramMessage({
-      text: buildTelegramFaceMessage(FACE),
+      text: "<b>Home CCTV Hub</b>",
       config: CONFIG,
       fetchImpl,
       log: () => undefined,
@@ -180,7 +174,7 @@ describe("TELEGRAM-005 / 006 — the request Telegram receives", () => {
     expect(body.chat_id).toBe(FAKE_CHAT_ID);
     expect(body.parse_mode).toBe("HTML");
     expect(body.disable_web_page_preview).toBe(true);
-    expect(String(body.text)).toContain("👤 <b>Face detected</b>");
+    expect(String(body.text)).toContain("Home CCTV Hub");
   });
 
   it("TELEGRAM-006 never invents a chat id", async () => {
@@ -201,73 +195,6 @@ describe("TELEGRAM-005 / 006 — the request Telegram receives", () => {
     const result = await sendTelegramMessage({ text: "   ", config: CONFIG, fetchImpl, log: () => undefined });
     expect(result).toEqual({ ok: false, status: "invalid_text", detail: null });
     expect(fetchImpl).not.toHaveBeenCalled();
-  });
-});
-
-describe("TELEGRAM-007 / 008 — message formatting", () => {
-  it("TELEGRAM-007 formats one face and several faces", () => {
-    expect(buildTelegramFaceMessage(FACE)).toBe(
-      [
-        "👤 <b>Face detected</b>",
-        "",
-        "📹 Camera: Parking",
-        "👥 Faces: 1",
-        "🎯 Confidence: 82%",
-        "🕐 10 Oct 2026, 12:30 PM",
-      ].join("\n"),
-    );
-
-    expect(buildTelegramFaceMessage({ ...FACE, faces: 3, maxConfidence: 0.914 })).toBe(
-      [
-        "👤 <b>Faces detected</b>",
-        "",
-        "📹 Camera: Parking",
-        "👥 Faces: 3",
-        "🎯 Max confidence: 91%",
-        "🕐 10 Oct 2026, 12:30 PM",
-      ].join("\n"),
-    );
-  });
-
-  it("renders the timestamp in India time with a 12-hour clock", () => {
-    expect(formatTelegramTime("2026-10-10T12:30:00+05:30")).toBe("10 Oct 2026, 12:30 PM");
-    expect(formatTelegramTime("2026-10-10T00:05:00+05:30")).toBe("10 Oct 2026, 12:05 AM");
-    expect(formatTelegramTime("2026-10-10T19:00:00Z")).toBe("11 Oct 2026, 12:30 AM");
-    expect(formatTelegramTime("not-a-date")).toBe("unknown time");
-  });
-
-  it("TELEGRAM-008 escapes HTML-sensitive characters", () => {
-    expect(escapeTelegramHtml("Park & Ride <script>alert(1)</script>")).toBe(
-      "Park &amp; Ride &lt;script&gt;alert(1)&lt;/script&gt;",
-    );
-    // The ampersand is escaped first, so escapes are not double-escaped.
-    expect(escapeTelegramHtml("a & b")).toBe("a &amp; b");
-
-    const message = buildTelegramFaceMessage({ ...FACE, cameraName: "Front <b>Gate</b> & Co" });
-    expect(message).toContain("📹 Camera: Front &lt;b&gt;Gate&lt;/b&gt; &amp; Co");
-    // The only markup Telegram may interpret is our own title tag.
-    expect(message.match(/<b>/g)).toHaveLength(1);
-    expect(message.match(/<\/b>/g)).toHaveLength(1);
-  });
-
-  it("carries no path, no identity and no secret", () => {
-    const message = buildTelegramFaceMessage(FACE);
-    expect(message).not.toContain("face-crops");
-    expect(message).not.toContain(".jpg");
-    // No filesystem path of any shape (the closing </b> tag is markup, not a path).
-    expect(message).not.toMatch(/\bdata\//);
-    expect(message).not.toMatch(/\/app\//);
-    expect(message).not.toMatch(/2026\//);
-    expect(message.toLowerCase()).not.toContain("priyanka");
-    expect(message.toLowerCase()).not.toContain("embedding");
-    expect(message).not.toContain(FAKE_TOKEN);
-    expect(message).not.toContain(FAKE_CHAT_ID);
-  });
-
-  it("formats the test message", () => {
-    expect(buildTelegramTestMessage()).toBe(
-      ["🏠 <b>Home CCTV Hub</b>", "", "Telegram notification test successful."].join("\n"),
-    );
   });
 });
 
@@ -458,11 +385,10 @@ function formOf(call: unknown[]): FormData {
 }
 
 describe("TELEGRAM-MEDIA-002 — sendPhoto", () => {
-  it("uploads the crop as multipart with the caption", async () => {
+  it("uploads the image as multipart without a caption", async () => {
     const fetchImpl = okFetch();
     const result = await sendTelegramPhoto({
       photo: PHOTO,
-      caption: buildTelegramPhotoCaption({ cameraName: "Parking" }),
       config: CONFIG,
       fetchImpl,
       log: () => undefined,
@@ -477,10 +403,9 @@ describe("TELEGRAM-MEDIA-002 — sendPhoto", () => {
 
     const form = formOf(fetchImpl.mock.calls[0]!);
     expect(form.get("chat_id")).toBe(FAKE_CHAT_ID);
-    expect(form.get("parse_mode")).toBe("HTML");
-    // The caption names the full snapshot, not a face crop.
-    expect(String(form.get("caption"))).toContain("Full camera snapshot");
-    expect(String(form.get("caption"))).toContain("Parking");
+    // Media only: no caption, so no parse_mode is sent either.
+    expect(form.get("caption")).toBeNull();
+    expect(form.get("parse_mode")).toBeNull();
     const photo = form.get("photo") as Blob;
     expect(photo.size).toBe(PHOTO.bytes.length);
     expect(photo.type).toBe("image/jpeg");
@@ -525,7 +450,6 @@ describe("TELEGRAM-MEDIA-011 / 019 — sendVideo and sendMediaGroup", () => {
     const fetchImpl = okFetch();
     const result = await sendTelegramVideo({
       video: VIDEO,
-      caption: buildTelegramVideoCaption({ cameraName: "Parking", eventTimestamp: FACE.eventTimestamp }),
       config: CONFIG,
       fetchImpl,
       log: () => undefined,
@@ -538,7 +462,8 @@ describe("TELEGRAM-MEDIA-011 / 019 — sendVideo and sendMediaGroup", () => {
     const form = formOf(fetchImpl.mock.calls[0]!);
     expect(form.get("chat_id")).toBe(FAKE_CHAT_ID);
     expect(form.get("supports_streaming")).toBe("true");
-    expect(String(form.get("caption"))).toContain("CCTV video clip");
+    // Media only: no caption.
+    expect(form.get("caption")).toBeNull();
     expect((form.get("video") as Blob).size).toBe(VIDEO.bytes.length);
   });
 
@@ -559,7 +484,6 @@ describe("TELEGRAM-MEDIA-011 / 019 — sendVideo and sendMediaGroup", () => {
     const fetchImpl = okFetch();
     const result = await sendTelegramMediaGroup({
       photos: [PHOTO, { ...PHOTO, filename: "face-2.jpg", bytes: new Uint8Array([0xff, 0xd8, 0xff, 9]) }],
-      caption: buildTelegramPhotoCaption({ cameraName: "Parking" }),
       config: CONFIG,
       fetchImpl,
       log: () => undefined,
@@ -572,7 +496,7 @@ describe("TELEGRAM-MEDIA-011 / 019 — sendVideo and sendMediaGroup", () => {
     const form = formOf(fetchImpl.mock.calls[0]!);
     const media = JSON.parse(String(form.get("media"))) as Array<Record<string, string>>;
     expect(media).toHaveLength(2);
-    expect(media[0]).toMatchObject({ type: "photo", media: "attach://photo0", parse_mode: "HTML" });
+    expect(media[0]).toMatchObject({ type: "photo", media: "attach://photo0" });
     expect(media[1]).toMatchObject({ type: "photo", media: "attach://photo1" });
     expect(media[1]!.caption).toBeUndefined();
     expect((form.get("photo0") as Blob).size).toBe(PHOTO.bytes.length);
@@ -653,51 +577,5 @@ describe("TELEGRAM-MEDIA-012 / 013 — response validation", () => {
     const result = await sendTelegramVideo({ video: VIDEO, config: CONFIG, fetchImpl, log: () => undefined });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.detail).toContain("unreadable response");
-  });
-});
-
-describe("rule-based Telegram events", () => {
-  it("builds a safe event message with camera, priority and rule", () => {
-    const message = buildTelegramEventMessage({
-      cameraName: "Parking <script>",
-      type: "motion",
-      classification: "person",
-      priority: "HIGH",
-      eventTimestamp: "2026-10-22T13:39:39+05:30",
-      ruleName: "parking-1-floor",
-    });
-    expect(message).toContain("Person detected");
-    expect(message).toContain("Parking &lt;script&gt;");
-    expect(message).toContain("HIGH");
-    expect(message).toContain("parking-1-floor");
-    expect(message).not.toContain(FAKE_TOKEN);
-  });
-
-  it("sends a rule event only when TELEGRAM_EVENT_NOTIFICATIONS is on", async () => {
-    const fetchImpl = okFetch();
-    const baseInput = {
-      text: "",
-      cameraName: "Parking",
-      type: "motion" as const,
-      classification: "person" as const,
-      priority: "HIGH" as const,
-      eventTimestamp: "2026-10-22T13:39:39+05:30",
-      fetchImpl,
-    };
-
-    const disabled = await notifyTelegramEvent({
-      ...baseInput,
-      config: { ...CONFIG, telegramEventNotifications: false },
-    });
-    expect(disabled).toEqual({ ok: false, status: "disabled", detail: null });
-    expect(fetchImpl).not.toHaveBeenCalled();
-
-    const sent = await notifyTelegramEvent({ ...baseInput, config: CONFIG });
-    expect(sent).toEqual({ ok: true, status: "sent" });
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    const body = requestBody(fetchImpl.mock.calls[0]!);
-    expect(String(body.text)).toContain("Person detected");
-    expect(String(body.text)).toContain("Parking");
-    expect(JSON.stringify(body)).not.toContain(FAKE_TOKEN);
   });
 });

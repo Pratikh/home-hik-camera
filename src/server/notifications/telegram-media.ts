@@ -3,11 +3,10 @@ import { readFile, unlink } from "node:fs/promises";
 import type { AppConfig } from "@/lib/config";
 import { getConfig } from "@/lib/config";
 import type { TelegramMediaStatusResponse } from "@/lib/api-types";
+import { faceCropFile } from "@/lib/face-path";
 import { snapshotFile } from "@/lib/snapshot-path";
 import { openEventStore } from "@/server/events/event-store";
 import {
-  buildTelegramPhotoCaption,
-  buildTelegramVideoCaption,
   sendTelegramMediaGroup,
   sendTelegramPhoto,
   sendTelegramVideo,
@@ -59,6 +58,12 @@ export type FaceMediaJob = {
    * stored on `events.snapshot_path`. The face crop is never sent to Telegram.
    */
   snapshotPath: string | null;
+  /**
+   * Stored face crop for this event, relative to DATA_DIR/face-crops. Resolved
+   * by the worker when the job runs, because face detection may finish after the
+   * notification was queued. Preferred over the full snapshot.
+   */
+  cropPath?: string | null;
   /**
    * 1 on the first pass. A retry continues where the first pass stopped, so the
    * snapshot is not uploaded twice.
@@ -210,45 +215,12 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
     return { eventId: job.eventId, image: "skipped", imageCount: 0, video: "skipped", videoReason: "disabled", detail: null };
   }
 
-  /* ---- face crop(s) ---------------------------------------------------- */
+  /* ---- video first: a media-only notification prefers the clip ---------- */
+  let video: MediaStep = "skipped";
+  let videoReason: string | null = null;
   let image: MediaStep = "skipped";
   let imageCount = 0;
   let detail: string | null = null;
-
-  if (config.telegramFaceImage && (job.attempts ?? 1) <= 1) {
-    const file = snapshotFile(dataDir, job.snapshotPath);
-    let snapshot: TelegramFile | null = null;
-    if (file) {
-      try {
-        const bytes = await readFileImpl(file);
-        if (bytes.length > 0) {
-          snapshot = { bytes, filename: "camera-snapshot.jpg", contentType: "image/jpeg" };
-        }
-      } catch {
-        // Snapshot already removed by retention: skip the image only.
-      }
-    }
-
-    if (!snapshot) {
-      log(`event=${job.eventId} image=skipped reason=no_snapshot`);
-    } else {
-      imageCount = 1;
-      log(`event=${job.eventId} image-upload started bytes=${snapshot.bytes.length}`);
-      const sendPhoto = deps.sendPhoto ?? sendTelegramPhoto;
-      const result: TelegramResult = await sendPhoto({
-        photo: snapshot,
-        caption: buildTelegramPhotoCaption({ cameraName: job.cameraName, eventTimestamp: job.eventTimestamp }),
-        config,
-      });
-      image = result.ok ? "sent" : "failed";
-      if (!result.ok) detail = result.detail ?? result.status;
-      log(`event=${job.eventId} image-upload completed image=${image}`);
-    }
-  }
-
-  /* ---- one clip per event ---------------------------------------------- */
-  let video: MediaStep = "skipped";
-  let videoReason: string | null = null;
 
   if (config.telegramFaceVideo) {
     const generate = deps.generateClip ?? generateEventClip;
@@ -269,31 +241,70 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
         const bytes = await readFileImpl(clip.path);
         const sendVideo = deps.sendVideo ?? sendTelegramVideo;
         log(`telegram-upload started event=${job.eventId} bytes=${bytes.length}`);
+        // Media only: no caption, so the chat receives just the clip.
         const result = await sendVideo({
           video: { bytes, filename: "cctv-event.mp4", contentType: "video/mp4" },
-          caption: buildTelegramVideoCaption({ cameraName: job.cameraName, eventTimestamp: job.eventTimestamp }),
           config,
         });
-        video = result.ok ? "sent" : "failed";
-        if (!result.ok) {
-          videoReason = result.status;
-          detail = detail ?? result.detail ?? result.status;
+        if (result.ok) {
+          video = "sent";
+          log(
+            `telegram-upload completed event=${job.eventId} video=sent seconds=${clip.durationSeconds} bytes=${clip.bytes}`,
+          );
+          return { eventId: job.eventId, image, imageCount, video, videoReason, detail };
         }
-        log(
-          `telegram-upload completed event=${job.eventId} video=${video} seconds=${clip.durationSeconds} bytes=${clip.bytes}` +
-            (result.ok ? "" : ` reason=${result.status}`),
-        );
-        if (!result.ok) logVideoDiagnostics(clip.diagnostics, null, result, log);
+        video = "failed";
+        videoReason = result.status;
+        detail = result.detail ?? result.status;
+        log(`telegram-upload completed event=${job.eventId} video=failed reason=${result.status}`);
+        logVideoDiagnostics(clip.diagnostics, null, result, log);
       } catch (error) {
         video = "failed";
         videoReason = "read_failed";
-        detail = detail ?? (error instanceof Error ? error.name : "read_failed");
+        detail = error instanceof Error ? error.name : "read_failed";
         log(`ERROR stage=telegram-upload event=${job.eventId} error=read_failed`);
       } finally {
         // Temporary by definition: removed after a successful or failed upload.
         await unlinkImpl(clip.path).catch(() => undefined);
       }
     }
+  }
+
+  /* ---- image fallback: face crop first, then the full snapshot ---------- */
+  if (config.telegramFaceImage && (job.attempts ?? 1) <= 1) {
+    const cropFile = faceCropFile(dataDir, job.cropPath ?? null);
+    const snapshot = cropFile ? null : snapshotFile(dataDir, job.snapshotPath);
+    const file = cropFile ?? snapshot;
+    let photo: TelegramFile | null = null;
+    if (file) {
+      try {
+        const bytes = await readFileImpl(file);
+        if (bytes.length > 0) {
+          photo = { bytes, filename: cropFile ? "person.jpg" : "camera-snapshot.jpg", contentType: "image/jpeg" };
+        }
+      } catch {
+        // Removed by retention: fall through to the next source, if any.
+      }
+    }
+
+    if (!photo) {
+      log(`event=${job.eventId} image=skipped reason=no_image`);
+    } else {
+      imageCount = 1;
+      log(`event=${job.eventId} image-upload started bytes=${photo.bytes.length} source=${cropFile ? "face-crop" : "snapshot"}`);
+      const sendPhoto = deps.sendPhoto ?? sendTelegramPhoto;
+      // Media only: no caption.
+      const result: TelegramResult = await sendPhoto({ photo, config });
+      image = result.ok ? "sent" : "failed";
+      if (!result.ok) detail = detail ?? result.detail ?? result.status;
+      log(`event=${job.eventId} image-upload completed image=${image}`);
+    }
+  }
+
+  if (image !== "sent") {
+    // Deliberately no text fallback: the chat must not receive the old verbose
+    // message when the event has no usable media.
+    log(`event=${job.eventId} MEDIA_UNAVAILABLE`);
   }
 
   return { eventId: job.eventId, image, imageCount, video, videoReason, detail };
@@ -346,6 +357,9 @@ async function mediaTick(): Promise<void> {
       maxConfidence: claimed.maxConfidence,
       eventTimestamp: claimed.eventTimestamp,
       snapshotPath: claimed.snapshotPath,
+      // Face detection can finish after the notification was queued, so the
+      // crop is resolved here, when the job actually runs.
+      cropPath: store.cropPathForEvent(claimed.eventId),
       channel: claimed.channel,
       attempts: claimed.attempts,
     };
@@ -354,12 +368,13 @@ async function mediaTick(): Promise<void> {
 
     /*
      * The DVR has a small number of playback slots. While someone is watching
-     * live or scrub playback, the clip's FFmpeg run can time out even though
-     * the snapshot worked. One delayed retry lets that job use a free slot
-     * instead of losing the clip forever; the snapshot is not uploaded twice.
+     * live or scrub playback, the clip's FFmpeg run can time out. One delayed
+     * retry lets that job use a free slot. It only applies when no image was
+     * already sent: the accepted event must produce exactly one notification.
      */
     const retryableVideo =
       outcome.video === "skipped" &&
+      outcome.image !== "sent" &&
       (outcome.videoReason === "ffmpeg_failed" || outcome.videoReason === "dvr_error") &&
       claimed.attempts < 2;
     if (retryableVideo) {
@@ -373,9 +388,12 @@ async function mediaTick(): Promise<void> {
       return;
     }
 
+    // A notification succeeded if either media leg reached the chat; the other
+    // leg failing is recorded in the outcome, not as a failed notification.
+    const delivered = outcome.image === "sent" || outcome.video === "sent";
     store.finishTelegramMediaJob(
       claimed.id,
-      outcome.image === "failed" || outcome.video === "failed" ? "failed" : "done",
+      !delivered && (outcome.image === "failed" || outcome.video === "failed") ? "failed" : "done",
       outcome.detail,
       now,
     );

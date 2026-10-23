@@ -9,7 +9,6 @@ import { attachStops, parseAlarmLogs, type MotionStart, type MotionStop } from "
 import { publishLiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type NewEvent } from "@/server/events/event-store";
 import { recordNotificationDecisions } from "@/server/events/notification-decisions";
-import { deliverTelegramEvent } from "@/server/events/telegram-event";
 import { enqueueEventMedia } from "@/server/notifications/telegram-media";
 import { runRetention } from "@/server/events/retention";
 import { captureEventSnapshot } from "@/server/events/snapshot";
@@ -124,30 +123,14 @@ async function poll(backfill: boolean): Promise<void> {
 
       // Notification history is the durable duplicate guard: an event/rule pair
       // recorded once is never notified again, even across restarts.
-      const { delivered, deliveredRuleNames } = recordNotificationDecisions({
+      const { delivered } = recordNotificationDecisions({
         store,
         event,
         evaluation,
         priority,
       });
 
-      /*
-       * Telegram is a delivery channel for an accepted rule decision, not a
-       * second decision engine. Only a real delivery (fresh decision, notify
-       * true) reaches it, so cooldown, quiet hours, priority, schedule and the
-       * duplicate guard have already been applied.
-       */
       const cameraName = names[event.cameraId] ?? `Camera ${event.cameraId}`;
-      let telegramSent = false;
-      if (delivered) {
-        telegramSent =
-          (await deliverTelegramEvent({
-            event: { ...event, priority },
-            cameraName,
-            ruleName: deliveredRuleNames[0] ?? null,
-            config,
-          })) === "sent";
-      }
 
       if (config.aiEnabled) {
         console.info("[events] AI processing started");
@@ -169,12 +152,13 @@ async function poll(backfill: boolean): Promise<void> {
       if (snapshot) store.setSnapshotPath(event.id, snapshot);
 
       /*
-       * The text message has already gone out. Queue the snapshot and the clip
-       * the same way the face path does: instant, durable and drained by the one
-       * media worker, so a slow DVR search or FFmpeg never delays ingestion.
-       * A missing snapshot is not fatal; the clip is still attempted.
+       * The accepted rule decision is delivered to Telegram as media only: the
+       * worker tries the clip first, then the face crop, then the snapshot, and
+       * never sends the old text message. Queueing is instant; the DVR search
+       * and FFmpeg run in the durable media worker, so event ingestion never
+       * waits for them.
        */
-      if (telegramSent) {
+      if (delivered) {
         enqueueEventMedia(
           {
             eventId: event.id,

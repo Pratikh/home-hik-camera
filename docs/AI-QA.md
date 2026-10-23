@@ -258,20 +258,21 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
   `/settings/notifications`); it shares the one decision, so the cooldown,
   duplicate protection and expiry are unchanged and Telegram keeps no history of
   its own. It is additive — motion/person notifications and their rules are
-  untouched — and it says "Face detected", never a name. When the window is
-  active, `/faces` shows a small read-only status line; when it is off or
-  expired, that line is absent. See
+  untouched. Telegram receives one media message per accepted detection (clip,
+  else face crop, else snapshot), never a text message and never a name. When
+  the window is active, `/faces` shows a small read-only status line; when it is
+  off or expired, that line is absent. See
   [Face-Detection.md](Face-Detection.md#16-temporary-face-detection-notification-test).
 - Separately, `TELEGRAM_EVENT_NOTIFICATIONS=true` delivers an ordinary camera
   event that a Notification Rule accepts. The rule decision (match, priority,
   schedule, quiet hours, cooldown, duplicate protection) is recorded first, so
   Telegram is delivery-only and a Telegram failure cannot suppress the browser
-  notification. The channel is independent of the face one. The text message is
-  followed by the full camera snapshot and the same short clip the face channel
-  sends, queued through the one durable background media worker (so a slow DVR
-  search or FFmpeg never delays event ingestion). A clip that lost the DVR's
-  playback slot is retried once after three minutes, without re-uploading the
-  snapshot.
+  notification. The channel is independent of the face one. Each accepted event
+  produces exactly one media message — the clip, else the face crop, else the
+  snapshot — queued through the one durable background media worker (so a slow
+  DVR search or FFmpeg never delays event ingestion). There is no text fallback.
+  A clip that lost the DVR's playback slot is retried once after three minutes,
+  without re-uploading an image.
 - Processing is idempotent: `face_processing` holds one row per event and
   `event_faces` has `UNIQUE(event_id, detection_index)`; a restart or a retry
   converges on the same rows. See `docs/Face-Detection.md`.

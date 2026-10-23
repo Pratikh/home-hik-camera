@@ -1,7 +1,5 @@
 import "server-only";
 import { getConfig, type AppConfig } from "@/lib/config";
-import { eventTitle, type EventClassification, type EventType } from "@/lib/events";
-import type { EventPriority } from "@/lib/priority";
 
 /**
  * Telegram notifications — server-side only.
@@ -63,103 +61,12 @@ export type TelegramState = {
   reason: TelegramFailureReason | null;
 };
 
-export type TelegramFaceInput = {
-  cameraName: string;
-  faces: number;
-  maxConfidence: number;
-  /** Event timestamp; rendered in India time. */
-  eventTimestamp: string;
-};
-
 /**
  * Escape the three characters Telegram's HTML parse mode treats as markup.
  *
  * The ampersand must be replaced first, or the escapes introduced for `<` and
  * `>` would themselves be escaped again.
  */
-export function escapeTelegramHtml(value: string): string {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
-}
-
-/**
- * "10 Oct 2026, 12:30 PM" in India time, the zone the whole application uses.
- * Built from parts so the day/month order and the AM/PM casing are fixed.
- */
-export function formatTelegramTime(value: string | Date): string {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) return "unknown time";
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).formatToParts(date);
-  const bag: Record<string, string> = {};
-  for (const part of parts) if (part.type !== "literal") bag[part.type] = part.value;
-  const period = (bag.dayPeriod ?? "").toUpperCase();
-  return `${bag.day} ${bag.month} ${bag.year}, ${bag.hour}:${bag.minute}${period ? ` ${period}` : ""}`;
-}
-
-/**
- * The face-detection message. Detection only: it says "Face detected", never a
- * name, and it carries no image, no path and no identifier.
- */
-export function buildTelegramFaceMessage(input: TelegramFaceInput): string {
-  const camera = escapeTelegramHtml(input.cameraName.trim() || "Camera");
-  const faces = Math.max(1, Math.round(input.faces));
-  const confidence = `${Math.round(Math.min(1, Math.max(0, input.maxConfidence)) * 100)}%`;
-  const title = faces === 1 ? "👤 <b>Face detected</b>" : "👤 <b>Faces detected</b>";
-  const confidenceLine =
-    faces === 1 ? `🎯 Confidence: ${confidence}` : `🎯 Max confidence: ${confidence}`;
-  return [
-    title,
-    "",
-    `📹 Camera: ${camera}`,
-    `👥 Faces: ${faces}`,
-    confidenceLine,
-    `🕐 ${escapeTelegramHtml(formatTelegramTime(input.eventTimestamp))}`,
-  ].join("\n");
-}
-
-/** A general notification-rule match. Person/vehicle labels still come from the DVR. */
-export type TelegramEventInput = {
-  cameraName: string;
-  type: EventType;
-  classification: EventClassification | null;
-  priority: EventPriority;
-  /** Event timestamp; rendered in India time. */
-  eventTimestamp: string;
-  /** The rule that accepted the event, when known. */
-  ruleName?: string | null;
-};
-
-/**
- * Build the rule-based notification message.
- *
- * This is deliberately separate from the face-test message: it is sent only
- * after an accepted notification-rule decision, and it never identifies a
- * person. The face path remains unchanged.
- */
-export function buildTelegramEventMessage(input: TelegramEventInput): string {
-  const camera = escapeTelegramHtml(input.cameraName.trim() || "Camera");
-  const title = escapeTelegramHtml(eventTitle(input.type, input.classification));
-  const lines = [
-    `🔔 <b>${title}</b>`,
-    "",
-    `📹 Camera: ${camera}`,
-    `⚡ Priority: ${input.priority}`,
-    `🕐 ${escapeTelegramHtml(formatTelegramTime(input.eventTimestamp))}`,
-  ];
-  if (input.ruleName) lines.push(`📋 Rule: ${escapeTelegramHtml(input.ruleName)}`);
-  return lines.join("\n");
-}
-
 /** The message the admin test endpoint sends. */
 export function buildTelegramTestMessage(): string {
   return ["🏠 <b>Home CCTV Hub</b>", "", "Telegram notification test successful."].join("\n");
@@ -473,62 +380,6 @@ export async function sendTelegramVideo(
   }
   form.append("video", fileBlob(input.video), input.video.filename);
   return postTelegram("sendVideo", form, null, ready);
-}
-
-/**
- * Short caption for the full camera snapshot.
- *
- * The face crop is never uploaded: it is too small to identify anything, and it
- * stays internal to the Faces UI.
- */
-export function buildTelegramPhotoCaption(input: { cameraName: string; eventTimestamp?: string }): string {
-  const lines = ["📷 <b>Full camera snapshot</b>", "", `📹 ${escapeTelegramHtml(input.cameraName.trim() || "Camera")}`];
-  if (input.eventTimestamp) lines.push(`🕐 ${escapeTelegramHtml(formatTelegramTime(input.eventTimestamp))}`);
-  return lines.join("\n");
-}
-
-/** Short caption for the event clip. */
-export function buildTelegramVideoCaption(input: { cameraName: string; eventTimestamp: string }): string {
-  return [
-    "🎥 <b>CCTV video clip</b>",
-    "",
-    `📹 ${escapeTelegramHtml(input.cameraName.trim() || "Camera")}`,
-    `🕐 ${escapeTelegramHtml(formatTelegramTime(input.eventTimestamp))}`,
-  ].join("\n");
-}
-
-/**
- * Send the face-detection message for one accepted notification.
- *
- * Called only from the existing face notification decision, after the decision
- * has been recorded as `sent`. A failure here is logged and ignored.
- */
-export async function notifyTelegramFace(
-  input: TelegramFaceInput & Omit<SendTelegramInput, "text">,
-): Promise<TelegramResult> {
-  return sendTelegramMessage({
-    ...input,
-    text: buildTelegramFaceMessage(input),
-    requireFaceFlag: true,
-  });
-}
-
-/**
- * Send one accepted rule notification to Telegram.
- *
- * The caller has already matched the rule, applied priority/schedule/quiet
- * hours/cooldown and recorded the decision. This only handles delivery: a
- * Telegram failure is returned, never thrown, so event storage and the browser
- * notification are unaffected.
- */
-export async function notifyTelegramEvent(
-  input: TelegramEventInput & Omit<SendTelegramInput, "text">,
-): Promise<TelegramResult> {
-  return sendTelegramMessage({
-    ...input,
-    text: buildTelegramEventMessage(input),
-    requireEventFlag: true,
-  });
 }
 
 /** A safe, user-facing sentence for the admin test endpoint. */

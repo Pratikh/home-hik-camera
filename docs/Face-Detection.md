@@ -684,7 +684,7 @@ apply exactly as they do for the browser notification.
 existing face-test decision
         │  (accepted, not suppressed)
         ├── browser notification   (server-sent events → Notification API)
-        └── Telegram message       (Bot API sendMessage, server-side only)
+        └── Telegram media         (Bot API sendVideo/sendPhoto, server-side only)
 ```
 
 ```bash
@@ -705,34 +705,36 @@ TELEGRAM_COOLDOWN_SECONDS=300
 | `TELEGRAM_EVENT_NOTIFICATIONS` | Whether an accepted Notification Rule decision (a matching camera event) may produce a Telegram message. Default `false`; independent of the face channel. See the main README. |
 | `TELEGRAM_COOLDOWN_SECONDS` | Accepted for compatibility and informational only. Telegram does **not** keep its own cooldown: the effective cooldown is `FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS`. |
 
-Message format (HTML, escaped):
+**Media only.** A person/face notification is one media message, chosen in this
+order:
 
 ```
-👤 <b>Face detected</b>
-
-📹 Camera: Parking
-👥 Faces: 1
-🎯 Confidence: 82%
-🕐 10 Oct 2026, 12:30 PM
+1. the ~10 second event clip   (sendVideo)
+2. the stored face crop        (sendPhoto)
+3. the full camera snapshot    (sendPhoto)
+4. nothing — log MEDIA_UNAVAILABLE
 ```
 
-Several faces use `👤 <b>Faces detected</b>`, `👥 Faces: 3` and
-`🎯 Max confidence: 91%`. No image, crop, path, person name or embedding is ever
-sent — this is still detection only.
+There is **no text fallback**: the old verbose "Face detected" message is never
+sent. Media carries no caption. The face crop is read from
+`DATA_DIR/face-crops` through the same path guard used by `/api/faces/<id>/image`,
+so a filesystem path or a public URL never reaches Telegram. This is still
+detection only: no person name and no embedding is ever sent.
 
-**Failure isolation.** A Telegram outage is logged (`[telegram] notification
-failed`) and nothing else changes: the decision stays recorded, the browser
-notification has already gone out, the worker keeps detecting and the event
-pipeline keeps running. There is no retry, so a message is sent at most once per
-accepted notification.
+**Failure isolation.** A Telegram outage is logged (`telegram media send failed`
+with the event id and a safe reason) and nothing else changes: the decision stays
+recorded, the browser notification has already gone out, the worker keeps
+detecting and the event pipeline keeps running. A clip that loses the DVR's
+playback slot is retried once after three minutes; an accepted event produces at
+most one media notification.
 
-#### Full camera snapshot and event clip
+#### Image and clip sources
 
-A real detection can also carry the face crop and a short clip:
+A real detection carries the face crop or the snapshot, and a short clip:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `TELEGRAM_EVENT_IMAGE` | `true` | Attach the full camera event snapshot. (`TELEGRAM_FACE_IMAGE` is the older name and still works.) |
+| `TELEGRAM_EVENT_IMAGE` | `true` | Allow the image fallback: face crop first, then the full camera snapshot. (`TELEGRAM_FACE_IMAGE` is the older name and still works.) |
 | `TELEGRAM_FACE_VIDEO` | `true` | Attach a short clip from the DVR recording. |
 | `TELEGRAM_VIDEO_PRE_SECONDS` | `5` | Seconds of footage before the event timestamp. |
 | `TELEGRAM_VIDEO_POST_SECONDS` | `5` | Seconds after. Default total: a 10 second clip. |
@@ -740,17 +742,16 @@ A real detection can also carry the face crop and a short clip:
 | `TELEGRAM_VIDEO_TIMEOUT_SECONDS` | `30` | How long FFmpeg may run for one clip. |
 | `FFMPEG_PATH` | `ffmpeg` | FFmpeg executable, used only for the clip. |
 
-`TELEGRAM_EVENT_IMAGE` attaches the full camera snapshot; the older
-`TELEGRAM_FACE_IMAGE` name is still accepted. The face crop is never uploaded.
+`TELEGRAM_EVENT_IMAGE` enables the image fallback; the older
+`TELEGRAM_FACE_IMAGE` name is still accepted. The image is only sent when no clip
+could be produced.
 
-- **Image.** The **full camera event snapshot** for the event is uploaded once
-  with `sendPhoto`, with the camera and the event time as its caption. It is the
-  same file `/api/events/<id>/snapshot` serves and it is read through the same
-  path guard, so the bytes go to Telegram and a filesystem path never does.
-  The **face crop is no longer sent to Telegram**: it is too small to identify
-  anything, and it stays internal to `/faces` and the event detail view.
-  An event whose snapshot is missing sends the text (and the clip) without the
-  image.
+- **Image.** The stored **face crop** for the event is preferred, because it
+  shows the detected person; when there is none, the **full camera event
+  snapshot** is used. Both are read through their path guards and uploaded with
+  `sendPhoto`, with no caption, so the bytes go to Telegram and a filesystem path
+  never does. An event with neither image and no clip sends nothing and logs
+  `MEDIA_UNAVAILABLE`.
 - **Clip.** The DVR's own recording track is used, through the same playback
   search and RTSP URL builders as browser playback: the recording that covers
   the event is located, the 10 second window is cut with FFmpeg, and H.265 is

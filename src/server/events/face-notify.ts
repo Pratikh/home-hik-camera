@@ -10,11 +10,6 @@ import {
 import { getCameraNameMap } from "@/server/cameras/names";
 import { publishLiveEvent, type LiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type EventStore, type FaceTestCandidate } from "@/server/events/event-store";
-import {
-  notifyTelegramFace,
-  type TelegramFaceInput,
-  type TelegramResult,
-} from "@/server/notifications/telegram";
 import { enqueueFaceMedia, type FaceMediaJob } from "@/server/notifications/telegram-media";
 
 /**
@@ -62,25 +57,12 @@ export type FaceTestDecision = {
   status: "sent" | "suppressed";
   reason: "SENT" | "COOLDOWN";
   /**
-   * What the Telegram leg did for this decision. In-memory only: Telegram has no
-   * history of its own, so it can never compete with the recorded decision.
-   */
-  telegram: TelegramOutcome;
-  /**
-   * Whether the background media job (face crop + event clip) was queued. The
-   * clip is generated later by the media worker, never here.
+   * Whether the background media job (face crop / clip) was queued. Telegram
+   * receives media only; the clip is generated later by the media worker, never
+   * here.
    */
   media: "queued" | "disabled" | "full" | "skipped";
 };
-
-/** "skipped" means the decision was suppressed, so nothing was sent anywhere. */
-export type TelegramOutcome = "sent" | "disabled" | "failed" | "skipped";
-
-function telegramOutcome(result: TelegramResult): TelegramOutcome {
-  if (result.ok) return "sent";
-  if (result.status === "disabled" || result.status === "not_configured") return "disabled";
-  return "failed";
-}
 
 export type FaceTestRun = {
   active: boolean;
@@ -103,14 +85,9 @@ export type FaceTestRunInput = {
   /** Injected in tests; defaults to the real server-sent event hub. */
   publish?: (payload: LiveEvent) => void;
   /**
-   * Injected in tests; defaults to the real Telegram sender. It is called only
-   * for an accepted (not suppressed) notification, so Telegram shares the
-   * existing cooldown, expiry and duplicate protection.
-   */
-  telegram?: (input: TelegramFaceInput) => Promise<TelegramResult>;
-  /**
-   * Injected in tests; defaults to queueing the background media job. The clip
-   * is produced off this path, so an FFmpeg run never delays the decision.
+   * Injected in tests; defaults to queueing the background media job. Telegram
+   * shares the existing cooldown, expiry and duplicate protection: only an
+   * accepted decision queues media.
    */
   enqueueMedia?: (job: FaceMediaJob) => "queued" | "disabled" | "full";
   /** Injected in tests so no DVR lookup happens. */
@@ -172,7 +149,6 @@ export async function runFaceTestNotifications(input: FaceTestRunInput): Promise
 
   const cameraNames = input.cameraNames ?? (await getCameraNameMap(input.dataDir));
   const publish = input.publish ?? publishLiveEvent;
-  const telegram = input.telegram ?? notifyTelegramFace;
   const enqueueMedia = input.enqueueMedia ?? ((job: FaceMediaJob) => enqueueFaceMedia(job));
   const decisions: FaceTestDecision[] = [];
 
@@ -202,7 +178,7 @@ export async function runFaceTestNotifications(input: FaceTestRunInput): Promise
     }
 
     if (onCooldown) {
-      decisions.push(decision(candidate, cameraName, "suppressed", "COOLDOWN", "skipped", "skipped"));
+      decisions.push(decision(candidate, cameraName, "suppressed", "COOLDOWN", "skipped"));
       logger(
         `event=${candidate.eventId} camera=${cameraId} camera_name="${cameraName}" faces=${candidate.faces} ` +
           `max_confidence=${candidate.maxConfidence.toFixed(2)} result=SUPPRESSED reason=COOLDOWN`,
@@ -226,55 +202,31 @@ export async function runFaceTestNotifications(input: FaceTestRunInput): Promise
     });
 
     /*
-     * Telegram rides on the same accepted decision: it is attempted only here,
-     * after the decision is recorded as `sent`. A failure is contained — the
-     * browser notification has already gone out and the pipeline continues.
-     */
-    let telegramResult: TelegramOutcome = "failed";
-    try {
-      telegramResult = telegramOutcome(
-        await telegram({
-          cameraName,
-          faces: candidate.faces,
-          maxConfidence: candidate.maxConfidence,
-          eventTimestamp: candidate.eventTimestamp,
-        }),
-      );
-    } catch (error) {
-      // The sender is fail-safe, but a throw must never escape into the loop.
-      console.error("[telegram] notification failed", error instanceof Error ? error.name : "error");
-      telegramResult = "failed";
-    }
-
-    /*
-     * The same accepted decision also queues the face crop and the event clip.
-     * Queueing is instant; the DVR search and the FFmpeg conversion happen in
-     * the media worker, so nothing here waits for them.
+     * Telegram receives media only for an accepted face notification. The worker
+     * prefers the clip, then the stored face crop, then the event snapshot. The
+     * old text message is never sent. Queueing is instant; the DVR search and
+     * FFmpeg run in the media worker, so nothing here waits for them.
      */
     let media: FaceTestDecision["media"] = "skipped";
-    if (telegramResult === "sent") {
-      try {
-        media = enqueueMedia({
-          eventId: candidate.eventId,
-          cameraId,
-          cameraName,
-          faces: candidate.faces,
-          maxConfidence: candidate.maxConfidence,
-          eventTimestamp: candidate.eventTimestamp,
-          // The full camera snapshot for the event. The face crop stays internal
-          // to the Faces UI and is never uploaded to Telegram.
-          snapshotPath: store.snapshotPath(candidate.eventId),
-        });
-      } catch (error) {
-        console.error("[telegram-media] enqueue", error instanceof Error ? error.name : "error");
-        media = "skipped";
-      }
+    try {
+      media = enqueueMedia({
+        eventId: candidate.eventId,
+        cameraId,
+        cameraName,
+        faces: candidate.faces,
+        maxConfidence: candidate.maxConfidence,
+        eventTimestamp: candidate.eventTimestamp,
+        snapshotPath: store.snapshotPath(candidate.eventId),
+      });
+    } catch (error) {
+      console.error("[telegram-media] enqueue", error instanceof Error ? error.name : "error");
+      media = "skipped";
     }
 
-    decisions.push(decision(candidate, cameraName, "sent", "SENT", telegramResult, media));
+    decisions.push(decision(candidate, cameraName, "sent", "SENT", media));
     logger(
       `event=${candidate.eventId} camera=${cameraId} camera_name="${cameraName}" faces=${candidate.faces} ` +
-        `max_confidence=${candidate.maxConfidence.toFixed(2)} result=SENT telegram=${telegramResult} media=${media}`,
+        `max_confidence=${candidate.maxConfidence.toFixed(2)} result=SENT media=${media}`,
     );
   }
 
@@ -298,7 +250,6 @@ function decision(
   cameraName: string,
   status: "sent" | "suppressed",
   reason: "SENT" | "COOLDOWN",
-  telegram: TelegramOutcome,
   media: FaceTestDecision["media"],
 ): FaceTestDecision {
   return {
@@ -309,7 +260,6 @@ function decision(
     maxConfidence: candidate.maxConfidence,
     status,
     reason,
-    telegram,
     media,
   };
 }

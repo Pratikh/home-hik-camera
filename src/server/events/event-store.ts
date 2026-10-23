@@ -1124,6 +1124,24 @@ export class EventStore {
     return { faces: rows.map(mapFace), total: total.count };
   }
 
+  /**
+   * Best stored face crop for one event, or null.
+   *
+   * Used by the Telegram media worker: the crop is the preferred still image for
+   * a person notification. Only a path the server itself stored is returned; the
+   * caller still confines it to DATA_DIR/face-crops with `faceCropFile`.
+   */
+  cropPathForEvent(eventId: string): string | null {
+    const row = this.db
+      .prepare(
+        `SELECT crop_path FROM event_faces
+         WHERE event_id = ? AND crop_path IS NOT NULL AND crop_path <> ''
+         ORDER BY confidence DESC, detection_index ASC LIMIT 1`,
+      )
+      .get(eventId) as { crop_path: string } | undefined;
+    return row?.crop_path ?? null;
+  }
+
   /** Faces for one event, strongest first. Used by the event detail panel. */
   facesForEvent(eventId: string): DetectedFace[] {
     const rows = this.db
