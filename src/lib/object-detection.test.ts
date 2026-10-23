@@ -4,6 +4,7 @@ import {
   OBJECT_DETECTION_DEFAULTS,
   classificationForRawClass,
   effectiveCameraDetection,
+  effectiveDetectionSource,
   validateCameraDetectionSettings,
   validateObjectDetectionSettings,
   workerHeartbeatFresh,
@@ -196,5 +197,22 @@ describe("workerHeartbeatFresh", () => {
     expect(workerHeartbeatFresh("2026-10-23T15:59:45+05:30", now)).toBe(true);
     expect(workerHeartbeatFresh("2026-10-23T15:58:00+05:30", now)).toBe(false);
     expect(workerHeartbeatFresh("not-a-date", now)).toBe(false);
+  });
+});
+
+describe("effective detection source", () => {
+  it("uses the configured source while object detection is enabled", () => {
+    for (const source of ["ai_only", "dvr_only", "ai_both"] as const) {
+      expect(effectiveDetectionSource({ enabled: true, detectionSource: source })).toBe(source);
+    }
+  });
+
+  it("restores the historical DVR behaviour while object detection is disabled", () => {
+    // There are no AI events to prefer when the detector is off; a stored
+    // "AI only" default must not suppress DVR Human/Vehicle notifications.
+    expect(effectiveDetectionSource({ enabled: false, detectionSource: "ai_only" })).toBe("ai_both");
+    expect(effectiveDetectionSource({ enabled: false, detectionSource: "dvr_only" })).toBe("ai_both");
+    expect(effectiveDetectionSource({ enabled: false, detectionSource: "ai_both" })).toBe("ai_both");
+    expect(effectiveDetectionSource(OBJECT_DETECTION_DEFAULTS)).toBe("ai_both");
   });
 });

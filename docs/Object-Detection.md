@@ -95,15 +95,22 @@ browser form is a convenience, not a trust boundary. Every save is audited.
 
 ### Detection source
 
-- **AI only (default):** only object-worker events raise person/vehicle
-  notifications. DVR person/vehicle events are stored and searchable, but do not
-  notify.
+- **AI only (default, applies only while object detection is ON):** only
+  object-worker events raise person/vehicle notifications. DVR person/vehicle
+  events are stored and searchable, but do not notify.
 - **DVR only:** the historical behaviour; the DVR labels notify.
 - **AI + DVR:** both notify; existing cooldown and notification history remain
   the duplicate guard.
 
+The source setting decides between the two classifiers, so it only applies while
+object detection is enabled. With the detection switch **OFF** there are no AI
+events to prefer, and the historical pre-AI behaviour returns automatically:
+DVR Motion/Human/Vehicle events are ingested and notify through the normal rules
+again. No container or application restart is needed.
+
 Rules, schedules, quiet hours, priority, cooldown, deduplication and notification
-history are unchanged in every mode.
+history are unchanged in every mode. DVR event ingestion is independent of the
+object worker: stopping, disabling or crashing the worker never stops DVR events.
 
 ## 4. Events, snapshots and the UI
 
@@ -226,8 +233,11 @@ worker starts.
 ## 9. Disable
 
 Switch detection off on `/settings/detection` (the worker idles and loads no
-model), or stop the service: `podman compose stop object-worker`. Choose
-**DVR only** as the detection source to restore the historical DVR behaviour.
+model), or stop the service: `podman compose stop object-worker`. Detection OFF
+restores the historical DVR behaviour automatically: DVR Motion/Human/Vehicle
+events keep being ingested and can notify through the normal rules, while no AI
+inference or AI events run. The detection-source setting is kept but is only
+applied while detection is ON.
 
 ## 10. Troubleshooting
 

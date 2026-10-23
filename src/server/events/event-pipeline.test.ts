@@ -3,6 +3,7 @@ import type { AppConfig } from "@/lib/config";
 import type { NotificationRule } from "@/lib/events";
 import { memoryEventStore } from "@/server/events/event-store";
 import { processEventNotification } from "@/server/events/event-pipeline";
+import { effectiveDetectionSource } from "@/lib/object-detection";
 
 /**
  * One shared decision point for DVR and AI events. These tests pin the
@@ -84,6 +85,71 @@ function mediaJobs(store: ReturnType<typeof memoryEventStore>, eventId: string) 
 }
 
 describe("detection source gate", () => {
+  it("detection OFF: the DVR's person label notifies as it did before AI", () => {
+    const store = memoryEventStore();
+    for (const existing of store.rules()) store.deleteRule(existing.id);
+    store.saveRule(rule());
+    const item = event("hikvision", "person");
+    seed(store, item);
+
+    const result = processEventNotification({
+      store,
+      event: item,
+      config: CONFIG,
+      // The stored setting can still be "AI only"; it only applies while the
+      // detector is enabled. This mirrors event-processor's effective source.
+      detectionSource: effectiveDetectionSource({ enabled: false, detectionSource: "ai_only" }),
+      cameraName: "Parking",
+      snapshotPath: "2026/10/23/1-evt-dvr.jpg",
+    });
+
+    expect(result.delivered).toBe(true);
+    expect(decisions(store, item.id)[0]!.status).toBe("sent");
+  });
+
+  it("detection OFF: DVR vehicle and motion keep the historical behaviour", () => {
+    const store = memoryEventStore();
+    for (const existing of store.rules()) store.deleteRule(existing.id);
+    store.saveRule(rule({ eventTypes: ["motion", "vehicle"] }));
+    const vehicle = event("hikvision", "vehicle");
+    const motion = event("hikvision", null);
+    seed(store, vehicle);
+    seed(store, motion);
+
+    for (const item of [vehicle, motion]) {
+      expect(
+        processEventNotification({
+          store,
+          event: item,
+          config: CONFIG,
+          detectionSource: effectiveDetectionSource({ enabled: false, detectionSource: "ai_only" }),
+          cameraName: "Parking",
+          snapshotPath: null,
+        }).delivered,
+      ).toBe(true);
+    }
+  });
+
+  it("detection ON keeps AI-only semantics: DVR labels are stored but do not notify", () => {
+    const store = memoryEventStore();
+    for (const existing of store.rules()) store.deleteRule(existing.id);
+    store.saveRule(rule());
+    const item = event("hikvision", "person");
+    seed(store, item);
+
+    const result = processEventNotification({
+      store,
+      event: item,
+      config: CONFIG,
+      detectionSource: effectiveDetectionSource({ enabled: true, detectionSource: "ai_only" }),
+      cameraName: "Parking",
+      snapshotPath: null,
+    });
+
+    expect(result.delivered).toBe(false);
+    expect(decisions(store, item.id)).toHaveLength(0);
+  });
+
   it("AI only: the DVR's person label is stored but does not notify", () => {
     const store = memoryEventStore();
     for (const existing of store.rules()) store.deleteRule(existing.id);

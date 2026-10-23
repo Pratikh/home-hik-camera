@@ -6,6 +6,7 @@ import type { AppConfig } from "@/lib/config";
 import type { NotificationRule } from "@/lib/events";
 import { memoryEventStore, openEventStore } from "@/server/events/event-store";
 import { ingestObjectTracks } from "@/server/detection/object-ingest";
+import { readObjectDetectionConfig, saveObjectDetectionConfig } from "@/server/detection/settings-store";
 
 /**
  * Worker track → hub event. The event must keep the detector's exact frame,
@@ -107,17 +108,25 @@ function seedTrack(
   return { eventId, trackId, firstSeen, lastSeen, relative };
 }
 
-function newStore() {
+function newStore(dataDir: string) {
   const store = memoryEventStore();
   for (const existing of store.rules()) store.deleteRule(existing.id);
   store.saveRule(rule());
+  // The ingest gate reads the shared SQLite configuration, so the file-backed
+  // store at this test's data dir must have detection enabled too.
+  const fileStore = openEventStore(dataDir);
+  const detection = readObjectDetectionConfig(fileStore.db);
+  saveObjectDetectionConfig(fileStore.db, {
+    settings: { ...detection.settings, enabled: true },
+    cameras: detection.cameras,
+  });
   return store;
 }
 
 describe("ingestObjectTracks", () => {
   it("creates one event with the detector's exact frame, confidence and box", async () => {
     const dataDir = tempDir();
-    const store = newStore();
+    const store = newStore(dataDir);
     const track = seedTrack(store, dataDir);
 
     const result = await ingestObjectTracks({
@@ -170,7 +179,7 @@ describe("ingestObjectTracks", () => {
 
   it("is idempotent and keeps the event end time in sync while the track lives", async () => {
     const dataDir = tempDir();
-    const store = newStore();
+    const store = newStore(dataDir);
     const track = seedTrack(store, dataDir);
 
     await ingestObjectTracks({ store, config: config(dataDir), cameraNames: { 1: "Parking" }, dvrOffsetOverrideMs: 0 });
@@ -196,7 +205,7 @@ describe("ingestObjectTracks", () => {
 
   it("shifts the clip timestamp by the measured DVR clock offset", async () => {
     const dataDir = tempDir();
-    const store = newStore();
+    const store = newStore(dataDir);
     const track = seedTrack(store, dataDir);
 
     await ingestObjectTracks({
@@ -218,7 +227,7 @@ describe("ingestObjectTracks", () => {
 
   it("creates the event even when the snapshot file has disappeared", async () => {
     const dataDir = tempDir();
-    const store = newStore();
+    const store = newStore(dataDir);
     const track = seedTrack(store, dataDir, { writeSnapshot: false });
 
     const result = await ingestObjectTracks({ store, config: config(dataDir), cameraNames: { 1: "Parking" }, dvrOffsetOverrideMs: 0 });
@@ -229,5 +238,31 @@ describe("ingestObjectTracks", () => {
       .prepare("SELECT snapshot_path FROM telegram_media_jobs WHERE event_id = ?")
       .get(track.eventId) as { snapshot_path: string | null } | undefined;
     expect(job?.snapshot_path).toBeNull();
+  });
+});
+
+describe("object detection disabled", () => {
+  it("does not turn leftover tracks into AI events while the detector is off", async () => {
+    const dataDir = tempDir();
+    const store = newStore(dataDir);
+    // Switch the feature off after the stores were prepared.
+    const fileStore = openEventStore(dataDir);
+    const detection = readObjectDetectionConfig(fileStore.db);
+    saveObjectDetectionConfig(fileStore.db, {
+      settings: { ...detection.settings, enabled: false },
+      cameras: detection.cameras,
+    });
+    const track = seedTrack(store, dataDir);
+
+    const result = await ingestObjectTracks({
+      store,
+      config: config(dataDir),
+      cameraNames: { 1: "Parking" },
+      dvrOffsetOverrideMs: 0,
+    });
+
+    expect(result.created).toBe(0);
+    expect(result.skipped).toBe(1);
+    expect(store.get(track.eventId)).toBeNull();
   });
 });

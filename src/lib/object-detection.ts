@@ -43,12 +43,28 @@ export const DETECTION_SOURCE_LABELS: Record<DetectionSource, string> = {
 
 export const DETECTION_SOURCE_DESCRIPTIONS: Record<DetectionSource, string> = {
   ai_only:
-    "Only the object-detection worker raises person/vehicle notifications. DVR person/vehicle events are still stored and searchable, but do not notify.",
+    "Only the object-detection worker raises person/vehicle notifications while object detection is enabled. DVR person/vehicle events are still stored and searchable, but do not notify. When object detection is off, the DVR's own labels notify as before.",
   dvr_only:
     "The historical behaviour: the DVR's own Human/Vehicle labels raise notifications. The object detector may still store events but they are not the notification source.",
   ai_both:
     "Both sources can notify. The existing per-rule cooldown and duplicate protection still apply, so a burst cannot notify twice per rule.",
 };
+
+/**
+ * The source gate that actually applies to the current configuration.
+ *
+ * Detection source is a choice *between the two classifiers*, so it only has a
+ * meaning while server-side object detection is enabled. With detection OFF
+ * there are no AI events to prefer: the historical pre-AI behaviour must apply,
+ * and the DVR's own Human/Vehicle labels may notify again. Without this, a
+ * stored "AI only" default would silently suppress every DVR classification
+ * notification just because the newer detector is switched off.
+ */
+export function effectiveDetectionSource(
+  settings: Pick<ObjectDetectionSettings, "enabled" | "detectionSource">,
+): DetectionSource {
+  return settings.enabled ? settings.detectionSource : "ai_both";
+}
 
 /** Slider stops offered by the UI; the stored value may be any value in range. */
 export const CONFIDENCE_SLIDER_VALUES = [0.5, 0.6, 0.7, 0.8, 0.9, 0.99] as const;

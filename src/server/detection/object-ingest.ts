@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import type { AppConfig } from "@/lib/config";
 import { getConfig } from "@/lib/config";
 import { defaultPriority } from "@/lib/priority";
+import { effectiveDetectionSource } from "@/lib/object-detection";
 import { snapshotFile } from "@/lib/snapshot-path";
 import { getCameraNameMap } from "@/server/cameras/names";
 import { getDvrOverview } from "@/server/hikvision/hikvision-status";
@@ -126,8 +127,17 @@ export async function ingestObjectTracks(input: {
   const result: ObjectIngestResult = { created: 0, updated: 0, skipped: 0 };
   if (tracks.length === 0) return result;
 
+  // AI events exist only while detection is enabled. A track left behind by a
+  // worker that was switched off (or crashed) must not turn into an AI event
+  // after the Admin disabled the feature; DVR ingestion is unaffected.
+  const detection = objectDetectionConfig(config.dataDir).settings;
+  if (!detection.enabled) {
+    result.skipped = tracks.length;
+    return result;
+  }
+
   const names = input.cameraNames ?? (await getCameraNameMap(config.dataDir));
-  const detectionSource = objectDetectionConfig(config.dataDir).settings.detectionSource;
+  const detectionSource = effectiveDetectionSource(detection);
   const offset = input.dvrOffsetOverrideMs ?? (await dvrOffsetMs(input.now ?? Date.now()));
 
   for (const track of tracks) {

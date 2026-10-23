@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { getConfig } from "@/lib/config";
 import { formatKolkataIso, kolkataDayBounds, todayInKolkata } from "@/lib/time-kolkata";
 import { defaultPriority } from "@/lib/priority";
+import { effectiveDetectionSource } from "@/lib/object-detection";
 import { createAIProvider } from "@/server/ai/ai-provider";
 import { getCameraNameMap } from "@/server/cameras/names";
 import { attachStops, parseAlarmLogs, type MotionStart, type MotionStop } from "@/server/events/event-normalizer";
@@ -108,8 +109,10 @@ async function poll(backfill: boolean): Promise<void> {
     const store = openEventStore(config.dataDir);
     const names = await getCameraNameMap(config.dataDir);
     // The Admin's detection-source choice decides whether DVR person/vehicle
-    // events may notify. It is read once per poll (a single SQLite row).
-    const detectionSource = objectDetectionConfig(config.dataDir).settings.detectionSource;
+    // events may notify. It is read once per poll (a single SQLite row) and only
+    // applies while object detection is enabled: with detection OFF there are no
+    // AI events to prefer, so the historical DVR behaviour must remain.
+    const detectionSource = effectiveDetectionSource(objectDetectionConfig(config.dataDir).settings);
     const ai = createAIProvider(config.aiEnabled);
     for (const event of paired.events) {
       const priority = defaultPriority(event.type, event.classification);
