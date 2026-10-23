@@ -37,6 +37,8 @@ export function SettingsView() {
         <span className="text-muted"> · </span>
         <Link href="/settings/notifications" className="text-teal">Notification rules</Link>
         <span className="text-muted"> · </span>
+        <Link href="/settings/detection" className="text-teal">Object detection</Link>
+        <span className="text-muted"> · </span>
         <Link href="/settings/audit-log" className="text-teal">Audit log</Link>
         <span className="text-muted"> · </span>
         <Link href="/settings/system" className="text-teal">System</Link>

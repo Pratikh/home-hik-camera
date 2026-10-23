@@ -23,9 +23,12 @@ import {
   WEEKDAYS,
   type RuleEventType,
 } from "@/lib/events";
-import { isValidCameraId } from "@/lib/cameras";
+import { CAMERA_IDS, isValidCameraId } from "@/lib/cameras";
 import { isFaceId, type DetectedFace, type FaceProcessingSummary, type FaceQuery } from "@/lib/faces";
 import { defaultPriority, isEventPriority, priorityRank, type EventPriority } from "@/lib/priority";
+
+/** Sources that can create an event row. The DVR poller and the object detector. */
+export type EventSource = "hikvision" | "object-detection-worker";
 
 export type NewEvent = {
   id: string;
@@ -35,9 +38,13 @@ export type NewEvent = {
   classification: EventClassification | null;
   timestamp: string;
   endTimestamp: string | null;
-  source: "hikvision";
+  source: EventSource;
   metaId: string;
   priority?: EventPriority;
+  /** Detector confidence, when the source measured one. */
+  confidence?: number | null;
+  /** Extra metadata merged with the legacy `metaId` field. */
+  metadata?: Record<string, unknown>;
 };
 
 export type EventQuery = {
@@ -168,6 +175,13 @@ CREATE TABLE IF NOT EXISTS telegram_media_jobs (
   faces INTEGER NOT NULL,
   max_confidence REAL NOT NULL,
   event_timestamp TEXT NOT NULL,
+  -- Timestamp used for the recording clip search. AI events are shifted by the
+  -- measured DVR clock offset, while event_timestamp is the real event time
+  -- used for the caption.
+  clip_timestamp TEXT,
+  -- Safe, non-secret caption metadata.
+  classification TEXT,
+  confidence REAL,
   snapshot_path TEXT,
   channel TEXT NOT NULL DEFAULT 'face',
   status TEXT NOT NULL,
@@ -192,6 +206,83 @@ CREATE TABLE IF NOT EXISTS event_ai_results (
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+--
+-- Live object detection (additive; the detection worker shares these tables).
+CREATE TABLE IF NOT EXISTS object_detection_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  enabled INTEGER NOT NULL DEFAULT 0,
+  person_enabled INTEGER NOT NULL DEFAULT 1,
+  person_confidence REAL NOT NULL DEFAULT 0.7,
+  vehicle_enabled INTEGER NOT NULL DEFAULT 1,
+  vehicle_confidence REAL NOT NULL DEFAULT 0.7,
+  base_fps REAL NOT NULL DEFAULT 1,
+  active_fps REAL NOT NULL DEFAULT 3,
+  max_fps REAL NOT NULL DEFAULT 5,
+  motion_boost INTEGER NOT NULL DEFAULT 1,
+  activity_timeout_s INTEGER NOT NULL DEFAULT 10,
+  disappearance_timeout_s INTEGER NOT NULL DEFAULT 3,
+  max_concurrent INTEGER NOT NULL DEFAULT 1,
+  queue_size INTEGER NOT NULL DEFAULT 2,
+  min_event_duration_s REAL NOT NULL DEFAULT 0,
+  detection_source TEXT NOT NULL DEFAULT 'ai_only',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS object_detection_camera_settings (
+  camera_id INTEGER PRIMARY KEY,
+  enabled INTEGER NOT NULL DEFAULT 0,
+  person_enabled INTEGER NOT NULL DEFAULT 1,
+  person_confidence REAL,
+  vehicle_enabled INTEGER NOT NULL DEFAULT 1,
+  vehicle_confidence REAL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS object_detection_tracks (
+  id TEXT PRIMARY KEY,
+  camera_id INTEGER NOT NULL,
+  classification TEXT NOT NULL,
+  raw_class TEXT NOT NULL,
+  confidence REAL NOT NULL,
+  threshold REAL NOT NULL,
+  x INTEGER NOT NULL,
+  y INTEGER NOT NULL,
+  width INTEGER NOT NULL,
+  height INTEGER NOT NULL,
+  first_seen TEXT NOT NULL,
+  last_seen TEXT NOT NULL,
+  detection_count INTEGER NOT NULL DEFAULT 1,
+  snapshot_path TEXT,
+  event_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  detector TEXT,
+  model TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS object_detection_tracks_status ON object_detection_tracks(status, updated_at);
+CREATE INDEX IF NOT EXISTS object_detection_tracks_event ON object_detection_tracks(event_id);
+CREATE INDEX IF NOT EXISTS object_detection_tracks_camera ON object_detection_tracks(camera_id, status);
+--
+CREATE TABLE IF NOT EXISTS object_detection_test_requests (
+  id TEXT PRIMARY KEY,
+  event_id TEXT NOT NULL,
+  camera_id INTEGER NOT NULL,
+  snapshot_path TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  result TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS object_detection_test_requests_status
+  ON object_detection_test_requests(status, created_at);
+CREATE TABLE IF NOT EXISTS object_worker_heartbeat (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  status TEXT NOT NULL,
+  detail TEXT,
+  metrics TEXT,
+  updated_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
@@ -540,6 +631,10 @@ export class EventStore {
     addColumn("telegram_media_jobs", "channel", "TEXT NOT NULL DEFAULT 'face'");
     // A clip that lost the DVR's playback slot is retried a little later.
     addColumn("telegram_media_jobs", "next_attempt_at", "TEXT NOT NULL DEFAULT ''");
+    // Caption metadata and the DVR-adjusted clip time (additive columns).
+    addColumn("telegram_media_jobs", "classification", "TEXT");
+    addColumn("telegram_media_jobs", "confidence", "REAL");
+    addColumn("telegram_media_jobs", "clip_timestamp", "TEXT");
 
     // Backfill priority for rows that predate the column. ALTER TABLE fills the
     // default 'NORMAL' on every existing row, so the work list is "rows written
@@ -570,6 +665,25 @@ export class EventStore {
       for (const row of rows) update.run(defaultRuleName(row), row.id);
       this.setSetting("v5_rule_names_backfilled", "1");
     }
+
+    // Object-detection defaults. INSERT OR IGNORE only: existing Admin settings
+    // are never overwritten by a restart or a migration.
+    const nowIso = new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT OR IGNORE INTO object_detection_settings
+           (id, enabled, person_enabled, person_confidence, vehicle_enabled, vehicle_confidence,
+            base_fps, active_fps, max_fps, motion_boost, activity_timeout_s, disappearance_timeout_s,
+            max_concurrent, queue_size, min_event_duration_s, detection_source, created_at, updated_at)
+         VALUES (1, 0, 1, 0.7, 1, 0.7, 1, 3, 5, 1, 10, 3, 1, 2, 0, 'ai_only', ?, ?)`,
+      )
+      .run(nowIso, nowIso);
+    const seedCamera = this.db.prepare(
+      `INSERT OR IGNORE INTO object_detection_camera_settings
+         (camera_id, enabled, person_enabled, person_confidence, vehicle_enabled, vehicle_confidence, created_at, updated_at)
+       VALUES (?, 0, 1, NULL, 1, NULL, ?, ?)`,
+    );
+    for (const cameraId of CAMERA_IDS) seedCamera.run(cameraId, nowIso, nowIso);
 
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS events_camera_timestamp ON events(camera_id, timestamp);
@@ -626,7 +740,7 @@ export class EventStore {
         `INSERT INTO events (
           id, dedupe_key, camera_id, type, classification, timestamp, end_timestamp, confidence,
           snapshot_path, recording_start, recording_end, source, metadata, created_at, priority
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(dedupe_key) DO NOTHING`,
       )
       .run(
@@ -637,14 +751,115 @@ export class EventStore {
         event.classification,
         event.timestamp,
         event.endTimestamp,
+        event.confidence ?? null,
         event.timestamp,
         event.endTimestamp,
         event.source,
-        JSON.stringify({ metaId: event.metaId }),
+        JSON.stringify({ metaId: event.metaId, ...(event.metadata ?? {}) }),
         new Date().toISOString(),
         priority,
       );
     return Number(result.changes) > 0;
+  }
+
+  /**
+   * Object-detection tracks that the hub still has to turn into events, or whose
+   * event needs its end time refreshed. The join is the durable "processed"
+   * marker: an event row with the track's event_id means it was ingested.
+   */
+  objectTracksNeedingEvents(limit = 50): Array<{
+    trackId: string;
+    eventId: string;
+    cameraId: number;
+    classification: EventClassification;
+    rawClass: string;
+    confidence: number;
+    threshold: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    firstSeen: string;
+    lastSeen: string;
+    detectionCount: number;
+    snapshotPath: string | null;
+    status: string;
+    detector: string | null;
+    model: string | null;
+    existingEventId: string | null;
+    existingEnd: string | null;
+  }> {
+    const rows = this.db
+      .prepare(
+        `SELECT t.*, e.id AS existing_event_id, e.end_timestamp AS existing_end
+         FROM object_detection_tracks t
+         LEFT JOIN events e ON e.id = t.event_id
+         WHERE t.event_id IS NOT NULL
+           AND t.classification IN ('person', 'vehicle')
+           AND (e.id IS NULL OR IFNULL(e.end_timestamp, '') <> IFNULL(t.last_seen, ''))
+         ORDER BY t.first_seen ASC
+         LIMIT ?`,
+      )
+      .all(limit) as Array<Record<string, unknown>>;
+    return rows.map((row) => ({
+      trackId: String(row.id),
+      eventId: String(row.event_id),
+      cameraId: Number(row.camera_id),
+      classification: row.classification as EventClassification,
+      rawClass: String(row.raw_class),
+      confidence: Number(row.confidence),
+      threshold: Number(row.threshold),
+      x: Number(row.x),
+      y: Number(row.y),
+      width: Number(row.width),
+      height: Number(row.height),
+      firstSeen: String(row.first_seen),
+      lastSeen: String(row.last_seen),
+      detectionCount: Number(row.detection_count),
+      snapshotPath: row.snapshot_path === null || row.snapshot_path === undefined ? null : String(row.snapshot_path),
+      status: String(row.status),
+      detector: row.detector === null || row.detector === undefined ? null : String(row.detector),
+      model: row.model === null || row.model === undefined ? null : String(row.model),
+      existingEventId: row.existing_event_id === null || row.existing_event_id === undefined ? null : String(row.existing_event_id),
+      existingEnd: row.existing_end === null || row.existing_end === undefined ? null : String(row.existing_end),
+    }));
+  }
+
+  /**
+   * Update a detected event's end time while its object is still visible.
+   * Never touches notification state: the decision was recorded once at start.
+   */
+  updateEventProgress(eventId: string, endTimestamp: string, metadata: Record<string, unknown>): void {
+    const existing = this.db.prepare("SELECT metadata FROM events WHERE id = ?").get(eventId) as
+      | { metadata: string | null }
+      | undefined;
+    if (!existing) return;
+    let merged: Record<string, unknown> = {};
+    if (existing.metadata) {
+      try {
+        const parsed = JSON.parse(existing.metadata) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) merged = parsed as Record<string, unknown>;
+      } catch {
+        merged = {};
+      }
+    }
+    this.db
+      .prepare("UPDATE events SET end_timestamp = ?, recording_end = ?, metadata = ? WHERE id = ?")
+      .run(endTimestamp, endTimestamp, JSON.stringify({ ...merged, ...metadata }), eventId);
+  }
+
+  /** Parsed metadata for one event; used by the event detail page. */
+  eventMetadata(eventId: string): Record<string, unknown> | null {
+    const row = this.db.prepare("SELECT metadata FROM events WHERE id = ?").get(eventId) as
+      | { metadata: string | null }
+      | undefined;
+    if (!row?.metadata) return null;
+    try {
+      const parsed = JSON.parse(row.metadata) as unknown;
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+    } catch {
+      return null;
+    }
   }
 
   closeOpenEvent(cameraId: number, endTimestamp: string): void {
@@ -932,8 +1147,11 @@ export class EventStore {
   countSentSince(ruleId: string, sinceIso: string): number {
     const row = this.db
       .prepare(
+        // created_at is stored as a UTC ISO string while the cooldown window is
+        // formatted in IST (+05:30). Comparing those strings lexicographically
+        // is wrong across the offset boundary, so compare actual instants.
         `SELECT COUNT(*) AS count FROM notification_history
-         WHERE rule_id = ? AND status = 'sent' AND created_at >= ?`,
+         WHERE rule_id = ? AND status = 'sent' AND julianday(created_at) >= julianday(?)`,
       )
       .get(ruleId, sinceIso) as { count: number };
     return row.count;
@@ -1207,7 +1425,13 @@ export class EventStore {
     cameraName: string;
     faces: number;
     maxConfidence: number;
+    /** The event's real timestamp (captions use this, never the send time). */
     eventTimestamp: string;
+    /** DVR-clock-adjusted timestamp for the clip search; defaults to eventTimestamp. */
+    clipTimestamp?: string | null;
+    classification?: "person" | "vehicle" | null;
+    /** Detector confidence shown in the caption; null when unknown. */
+    confidence?: number | null;
     snapshotPath: string | null;
     /** Which Telegram channel queued the job. Older rows default to "face". */
     channel?: "face" | "event";
@@ -1230,8 +1454,9 @@ export class EventStore {
       .prepare(
         `INSERT OR IGNORE INTO telegram_media_jobs
            (event_id, camera_id, camera_name, faces, max_confidence, event_timestamp,
-            snapshot_path, channel, status, attempts, next_attempt_at, detail, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, '', NULL, ?, ?)`,
+            clip_timestamp, classification, confidence, snapshot_path, channel, status,
+            attempts, next_attempt_at, detail, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, '', NULL, ?, ?)`,
       )
       .run(
         input.eventId,
@@ -1240,6 +1465,9 @@ export class EventStore {
         input.faces,
         input.maxConfidence,
         input.eventTimestamp,
+        input.clipTimestamp ?? input.eventTimestamp,
+        input.classification ?? null,
+        input.confidence ?? null,
         input.snapshotPath,
         input.channel ?? "face",
         input.now,
@@ -1265,6 +1493,9 @@ export class EventStore {
     faces: number;
     maxConfidence: number;
     eventTimestamp: string;
+    clipTimestamp: string | null;
+    classification: "person" | "vehicle" | null;
+    confidence: number | null;
     snapshotPath: string | null;
     channel: "face" | "event";
     attempts: number;
@@ -1285,7 +1516,8 @@ export class EventStore {
     if (Number(claimed.changes) === 0) return null;
     const job = this.db
       .prepare(
-        `SELECT id, event_id, camera_id, camera_name, faces, max_confidence, event_timestamp, snapshot_path, channel, attempts
+        `SELECT id, event_id, camera_id, camera_name, faces, max_confidence, event_timestamp,
+                clip_timestamp, classification, confidence, snapshot_path, channel, attempts
          FROM telegram_media_jobs WHERE id = ?`,
       )
       .get(row.id) as {
@@ -1296,6 +1528,9 @@ export class EventStore {
       faces: number;
       max_confidence: number;
       event_timestamp: string;
+      clip_timestamp: string | null;
+      classification: string | null;
+      confidence: number | null;
       snapshot_path: string | null;
       channel: string | null;
       attempts: number;
@@ -1308,6 +1543,10 @@ export class EventStore {
       faces: job.faces,
       maxConfidence: job.max_confidence,
       eventTimestamp: job.event_timestamp,
+      clipTimestamp: job.clip_timestamp,
+      classification:
+        job.classification === "person" || job.classification === "vehicle" ? job.classification : null,
+      confidence: job.confidence === null || job.confidence === undefined ? null : Number(job.confidence),
       snapshotPath: job.snapshot_path,
       channel: job.channel === "event" ? "event" : "face",
       attempts: job.attempts,

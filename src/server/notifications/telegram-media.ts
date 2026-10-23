@@ -7,11 +7,13 @@ import { faceCropFile } from "@/lib/face-path";
 import { snapshotFile } from "@/lib/snapshot-path";
 import { openEventStore } from "@/server/events/event-store";
 import {
+  buildTelegramMediaCaption,
   sendTelegramMediaGroup,
   sendTelegramPhoto,
   sendTelegramVideo,
   telegramState,
   type TelegramFile,
+  type TelegramMediaKind,
   type TelegramResult,
 } from "@/server/notifications/telegram";
 import {
@@ -51,8 +53,14 @@ export type FaceMediaJob = {
   cameraName: string;
   faces: number;
   maxConfidence: number;
-  /** Stored event timestamp, ISO with the +05:30 offset. */
+  /** Stored event timestamp (the real event time, used in the caption). */
   eventTimestamp: string;
+  /** DVR-clock-adjusted timestamp for the clip search; defaults to eventTimestamp. */
+  clipTimestamp?: string | null;
+  /** What the media shows; drives the caption title. */
+  classification?: "person" | "vehicle" | null;
+  /** Detector confidence for the caption; null when the source has none. */
+  confidence?: number | null;
   /**
    * Full camera snapshot for the event, relative to DATA_DIR/events, exactly as
    * stored on `events.snapshot_path`. The face crop is never sent to Telegram.
@@ -197,6 +205,35 @@ export function logVideoDiagnostics(
 }
 
 /**
+ * Caption for this media notification, or undefined when the job has no
+ * displayable kind (for example a plain unclassified motion event).
+ *
+ * The caption uses the event's own timestamp and the detector confidence; the
+ * Telegram send time is never used and nothing is derived from DVR labels.
+ */
+function mediaCaption(job: FaceMediaJob): string | undefined {
+  // Jobs queued before the channel column existed are face jobs, matching the
+  // readiness rule above.
+  const kind: TelegramMediaKind | null =
+    job.channel === "event"
+      ? job.classification === "person"
+        ? "person"
+        : job.classification === "vehicle"
+          ? "vehicle"
+          : null
+      : "face";
+  if (!kind) return undefined;
+  const isFace = job.channel !== "event";
+  const confidence = job.confidence ?? (isFace && job.maxConfidence > 0 ? job.maxConfidence : null);
+  return buildTelegramMediaCaption({
+    kind,
+    cameraName: job.cameraName,
+    eventTimestamp: job.eventTimestamp,
+    confidence,
+  });
+}
+
+/**
  * Deliver the image(s) and the clip for one event.
  *
  * Each step is independent: a missing crop does not stop the clip, and a failed
@@ -215,6 +252,8 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
     return { eventId: job.eventId, image: "skipped", imageCount: 0, video: "skipped", videoReason: "disabled", detail: null };
   }
 
+  const caption = mediaCaption(job);
+
   /* ---- video first: a media-only notification prefers the clip ---------- */
   let video: MediaStep = "skipped";
   let videoReason: string | null = null;
@@ -227,7 +266,7 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
     const clip: ClipResult = await generate({
       eventId: job.eventId,
       cameraId: job.cameraId,
-      eventTimestamp: job.eventTimestamp,
+      eventTimestamp: job.clipTimestamp ?? job.eventTimestamp,
       config,
     });
 
@@ -241,9 +280,11 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
         const bytes = await readFileImpl(clip.path);
         const sendVideo = deps.sendVideo ?? sendTelegramVideo;
         log(`telegram-upload started event=${job.eventId} bytes=${bytes.length}`);
-        // Media only: no caption, so the chat receives just the clip.
+        // Media only: the caption travels with the video; no separate text
+        // message is ever sent.
         const result = await sendVideo({
           video: { bytes, filename: "cctv-event.mp4", contentType: "video/mp4" },
+          caption,
           config,
         });
         if (result.ok) {
@@ -293,8 +334,8 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
       imageCount = 1;
       log(`event=${job.eventId} image-upload started bytes=${photo.bytes.length} source=${cropFile ? "face-crop" : "snapshot"}`);
       const sendPhoto = deps.sendPhoto ?? sendTelegramPhoto;
-      // Media only: no caption.
-      const result: TelegramResult = await sendPhoto({ photo, config });
+      // Media only: the caption travels with the photo.
+      const result: TelegramResult = await sendPhoto({ photo, caption, config });
       image = result.ok ? "sent" : "failed";
       if (!result.ok) detail = detail ?? result.detail ?? result.status;
       log(`event=${job.eventId} image-upload completed image=${image}`);
@@ -356,6 +397,9 @@ async function mediaTick(): Promise<void> {
       faces: claimed.faces,
       maxConfidence: claimed.maxConfidence,
       eventTimestamp: claimed.eventTimestamp,
+      clipTimestamp: claimed.clipTimestamp,
+      classification: claimed.classification,
+      confidence: claimed.confidence,
       snapshotPath: claimed.snapshotPath,
       // Face detection can finish after the notification was queued, so the
       // crop is resolved here, when the job actually runs.

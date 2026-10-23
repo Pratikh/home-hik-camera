@@ -21,8 +21,22 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   if (!EVENT_ID.test(id)) notFound();
 
   const config = getConfig();
-  const event = openEventStore(config.dataDir).get(id);
+  const store = openEventStore(config.dataDir);
+  const event = store.get(id);
   if (!event) notFound();
+
+  // AI detections carry their detector metadata (raw class, confidence,
+  // threshold, bounding box). DVR events have none, so the box is simply absent.
+  const metadata = store.eventMetadata(event.id);
+  const detection =
+    metadata && typeof metadata.detection === "object" && metadata.detection !== null
+      ? (metadata.detection as Record<string, unknown>)
+      : null;
+  const boundingBox =
+    detection && typeof detection.boundingBox === "object" && detection.boundingBox !== null
+      ? (detection.boundingBox as Record<string, unknown>)
+      : null;
+  const numberOrNull = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 
   const names = await getCameraNameMap(config.dataDir);
   const cameraName = names[event.cameraId] ?? `Camera ${event.cameraId}`;
@@ -30,7 +44,14 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="min-w-0 max-w-3xl">
-      <PageIntro title={eventTitle(event.type, event.classification)} detail="Event detail from the DVR alarm log." />
+      <PageIntro
+        title={eventTitle(event.type, event.classification)}
+        detail={
+          event.source === "object-detection-worker"
+            ? "Event detail from the local object detector."
+            : "Event detail from the DVR alarm log."
+        }
+      />
       <MarkReadOnView eventId={event.id} />
       <article className="rounded-xl border border-line bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -41,7 +62,24 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <PriorityBadge priority={event.priority} />
         </div>
 
-        <SnapshotPanel eventId={event.id} hasSnapshot={event.hasSnapshot} title={eventTitle(event.type, event.classification)} />
+        <SnapshotPanel
+          eventId={event.id}
+          hasSnapshot={event.hasSnapshot}
+          title={eventTitle(event.type, event.classification)}
+          detection={
+            detection
+              ? {
+                  rawClass: typeof detection.rawClass === "string" ? detection.rawClass : null,
+                  classification: typeof detection.classification === "string" ? detection.classification : null,
+                  confidence: numberOrNull(detection.confidence),
+                  x: boundingBox ? numberOrNull(boundingBox.x) : null,
+                  y: boundingBox ? numberOrNull(boundingBox.y) : null,
+                  width: boundingBox ? numberOrNull(boundingBox.width) : null,
+                  height: boundingBox ? numberOrNull(boundingBox.height) : null,
+                }
+              : null
+          }
+        />
 
         {/*
           Face DETECTION only. It renders nothing when the feature is disabled,
@@ -58,6 +96,19 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
           <dt className="text-muted">Classification</dt><dd>{event.classification ? eventLabel(event.type, event.classification) : Messages.notAvailable}</dd>
           <dt className="text-muted">Priority</dt><dd>{event.priority}</dd>
           <dt className="text-muted">Confidence</dt><dd>{event.confidence === null ? Messages.notAvailable : `${Math.round(event.confidence * 100)}%`}</dd>
+          {detection ? (
+            <>
+              <dt className="text-muted">Detector</dt>
+              <dd>
+                {String(detection.detector ?? "object-detection")}
+                {typeof detection.model === "string" ? ` · ${detection.model}` : ""}
+              </dd>
+              <dt className="text-muted">Raw class</dt><dd>{String(detection.rawClass ?? Messages.notAvailable)}</dd>
+              <dt className="text-muted">Threshold</dt>
+              <dd>{numberOrNull(detection.threshold) === null ? Messages.notAvailable : `${Math.round((numberOrNull(detection.threshold) ?? 0) * 100)}%`}</dd>
+              <dt className="text-muted">Track</dt><dd className="font-mono text-xs">{String(detection.trackId ?? Messages.notAvailable)}</dd>
+            </>
+          ) : null}
           <dt className="text-muted">Notification</dt><dd>{event.notified ? "Sent" : "Not sent"}</dd>
           <dt className="text-muted">Source</dt><dd>{event.source}</dd>
         </dl>

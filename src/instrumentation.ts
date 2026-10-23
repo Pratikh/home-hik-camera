@@ -12,6 +12,11 @@ export async function register() {
   const { ensureTelegramMediaWorker } = await import("@/server/notifications/telegram-media");
   ensureTelegramMediaWorker();
 
+  // Live object detection: turn the worker's tracked objects into normal events
+  // and run the shared rule/notification pipeline. Idle when no tracks exist.
+  const { ensureObjectEventIngest } = await import("@/server/detection/object-ingest");
+  ensureObjectEventIngest();
+
   // Expired sessions are dead rows, not usable credentials. Prune once at
   // startup and then hourly; active sessions are never touched.
   const { getConfig } = await import("@/lib/config");

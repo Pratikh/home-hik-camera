@@ -215,6 +215,7 @@ export async function runFaceTestNotifications(input: FaceTestRunInput): Promise
         cameraName,
         faces: candidate.faces,
         maxConfidence: candidate.maxConfidence,
+        confidence: candidate.maxConfidence,
         eventTimestamp: candidate.eventTimestamp,
         snapshotPath: store.snapshotPath(candidate.eventId),
       });

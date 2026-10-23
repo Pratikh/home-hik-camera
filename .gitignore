@@ -29,5 +29,7 @@ tests/e2e/.auth/
 face-worker/models/*.onnx
 .venv-face/
 __pycache__/
+object-worker/models/*.onnx
+.venv-object/
 *.pyc
 .pytest_cache/

@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   TELEGRAM_API_BASE,
   TELEGRAM_MAX_VIDEO_BYTES,
+  buildTelegramMediaCaption,
+  escapeTelegramHtml,
+  formatTelegramTime,
   looksLikeInvalidChatId,
   sendTelegramMediaGroup,
   sendTelegramPhoto,
@@ -577,5 +580,122 @@ describe("TELEGRAM-MEDIA-012 / 013 — response validation", () => {
     const result = await sendTelegramVideo({ video: VIDEO, config: CONFIG, fetchImpl, log: () => undefined });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.detail).toContain("unreadable response");
+  });
+});
+
+describe("TELEGRAM-CAPTION-008 — media caption formatting", () => {
+  const TIME = "2026-10-23T18:34:00+05:30";
+
+  it("formats the person caption with camera, event time and confidence", () => {
+    expect(
+      buildTelegramMediaCaption({
+        kind: "person",
+        cameraName: "Parking",
+        eventTimestamp: TIME,
+        confidence: 0.87,
+      }),
+    ).toBe(
+      [
+        "🚨 <b>Person detected</b>",
+        "",
+        "📹 Camera: Parking",
+        "🕐 Time: 23 Oct 2026, 06:34 PM",
+        "🎯 Confidence: 87%",
+      ].join("\n"),
+    );
+  });
+
+  it("formats the vehicle and face captions", () => {
+    expect(
+      buildTelegramMediaCaption({ kind: "vehicle", cameraName: "Left Side Outside", eventTimestamp: TIME, confidence: 0.7 }),
+    ).toContain("🚗 <b>Vehicle detected</b>");
+    expect(
+      buildTelegramMediaCaption({ kind: "face", cameraName: "First Floor Passage", eventTimestamp: TIME, confidence: 0.82 }),
+    ).toContain("👤 <b>Face detected</b>");
+  });
+
+  it("rounds the detector confidence to whole percent", () => {
+    for (const [confidence, expected] of [
+      [0.87, "87%"],
+      [0.734, "73%"],
+      [0.999, "100%"],
+      [0.5, "50%"],
+    ] as const) {
+      expect(
+        buildTelegramMediaCaption({ kind: "person", cameraName: "Parking", eventTimestamp: TIME, confidence }),
+      ).toContain(`🎯 Confidence: ${expected}`);
+    }
+  });
+
+  it("omits the confidence line when the source has none", () => {
+    const caption = buildTelegramMediaCaption({
+      kind: "person",
+      cameraName: "Parking",
+      eventTimestamp: TIME,
+      confidence: null,
+    });
+    expect(caption).not.toContain("Confidence");
+    expect(caption).toContain("🚨 <b>Person detected</b>");
+  });
+
+  it("renders the event timestamp in India time, never the send time", () => {
+    expect(formatTelegramTime("2026-10-23T18:34:00+05:30")).toBe("23 Oct 2026, 06:34 PM");
+    expect(formatTelegramTime("2026-10-22T19:00:00Z")).toBe("23 Oct 2026, 12:30 AM");
+    expect(
+      buildTelegramMediaCaption({
+        kind: "face",
+        cameraName: "Parking",
+        eventTimestamp: "2021-03-04T09:05:00+05:30",
+        confidence: 0.9,
+      }),
+    ).toContain("🕐 Time: 04 Mar 2021, 09:05 AM");
+  });
+
+  it("escapes HTML-sensitive camera names and contains no path, id or secret", () => {
+    const caption = buildTelegramMediaCaption({
+      kind: "person",
+      cameraName: "Front <b>Gate</b> & Co",
+      eventTimestamp: TIME,
+      confidence: 0.8,
+    });
+    expect(caption).toContain("📹 Camera: Front &lt;b&gt;Gate&lt;/b&gt; &amp; Co");
+    expect(caption).not.toContain(FAKE_TOKEN);
+    expect(caption).not.toContain(FAKE_CHAT_ID);
+    expect(caption).not.toMatch(/\/data\//);
+    expect(caption).not.toContain(".jpg");
+    expect(caption).not.toContain("rtsp://");
+    expect(caption).not.toContain("evt_");
+  });
+
+  it("sends the caption in Telegram's caption field for photos", async () => {
+    const fetchImpl = okFetch();
+    const caption = buildTelegramMediaCaption({
+      kind: "person",
+      cameraName: "Parking",
+      eventTimestamp: TIME,
+      confidence: 0.87,
+    });
+    await sendTelegramPhoto({ photo: PHOTO, caption, config: CONFIG, fetchImpl, log: () => undefined });
+    const form = formOf(fetchImpl.mock.calls[0]!);
+    expect(form.get("caption")).toBe(caption);
+    expect(form.get("parse_mode")).toBe("HTML");
+  });
+
+  it("sends the caption in Telegram's caption field for videos", async () => {
+    const fetchImpl = okFetch();
+    const caption = buildTelegramMediaCaption({
+      kind: "vehicle",
+      cameraName: "Parking",
+      eventTimestamp: TIME,
+      confidence: 0.7,
+    });
+    await sendTelegramVideo({ video: VIDEO, caption, config: CONFIG, fetchImpl, log: () => undefined });
+    const form = formOf(fetchImpl.mock.calls[0]!);
+    expect(form.get("caption")).toBe(caption);
+    expect(form.get("parse_mode")).toBe("HTML");
+  });
+
+  it("keeps escaping reversible for plain text", () => {
+    expect(escapeTelegramHtml("a & b < c > d")).toBe("a &amp; b &lt; c &gt; d");
   });
 });

@@ -1,3 +1,9 @@
+import type {
+  CameraDetectionSettings,
+  DetectionSource,
+  ObjectDetectionSettings,
+  ObjectWorkerHeartbeat,
+} from "@/lib/object-detection";
 export type DvrState = "connected" | "disconnected" | "not_configured" | "auth_failed";
 export type GatewayState = "connected" | "disconnected";
 export type HealthDvrState = "connected" | "disconnected" | "not_configured";
@@ -246,4 +252,65 @@ export type TelegramMediaStatusResponse = {
   /** FFmpeg is required for the clip; the text and image work without it. */
   ffmpeg: "available" | "unavailable";
   queueDepth: number;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Live object detection                                                      */
+/* -------------------------------------------------------------------------- */
+
+export type DetectionModelInfo = {
+  name: string;
+  version: string;
+  license: string;
+  file: string;
+  inputSize: number;
+  sizeMb: number;
+  rawClasses: readonly string[];
+};
+
+export type DetectionSettingsResponse = {
+  settings: ObjectDetectionSettings;
+  cameras: CameraDetectionSettings[];
+  worker: ObjectWorkerHeartbeat | null;
+  /** True when the worker reported within the last 30 seconds. */
+  workerFresh: boolean;
+  model: DetectionModelInfo;
+  detectionSources: Array<{ value: DetectionSource; label: string; description: string }>;
+};
+
+export type DetectionStatusResponse = {
+  enabled: boolean;
+  monitoredCameras: number;
+  personConfidence: number;
+  vehicleConfidence: number;
+  worker: ObjectWorkerHeartbeat | null;
+  workerFresh: boolean;
+  model: string;
+};
+
+export type DetectionTestDetection = {
+  rawClass: string;
+  classification: "person" | "vehicle";
+  confidence: number;
+  boundingBox: { x: number; y: number; width: number; height: number };
+  accepted: boolean;
+};
+
+export type DetectionTestResult = {
+  model: string;
+  cameraId: number;
+  inferenceMs: number;
+  image: { width: number; height: number };
+  thresholds: { person: number; vehicle: number };
+  detections: DetectionTestDetection[];
+};
+
+export type DetectionTestResponse = {
+  id: string;
+  eventId: string;
+  cameraId: number;
+  status: "pending" | "running" | "done" | "error";
+  result: DetectionTestResult | { error: string } | null;
+  createdAt: string;
+  updatedAt: string;
 };

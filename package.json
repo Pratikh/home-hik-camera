@@ -17,13 +17,17 @@
     "face:worker": "python3 face-worker/worker.py",
     "face:worker:once": "python3 face-worker/worker.py --once",
     "test:face": "sh -c 'if [ -x .venv-face/bin/python ]; then .venv-face/bin/python -m pytest -q face-worker/tests; else python3 -m pytest -q face-worker/tests; fi'",
+    "test:object": "sh -c 'if [ -x .venv-object/bin/python ]; then .venv-object/bin/python -m pytest -q object-worker/tests; else python3 -m pytest -q object-worker/tests; fi'",
+    "object:model": "python3 object-worker/scripts/download_model.py",
+    "object:worker": "python3 object-worker/worker.py",
     "mediamtx:config": "node --env-file=.env scripts/render-mediamtx-config.mjs",
     "mediamtx:up": "podman compose -f compose.yml -f compose.dev.yml up -d mediamtx",
     "stack:up": "podman compose up -d",
     "stack:down": "podman compose down",
     "backup": "sh scripts/backup.sh",
     "verify:backup": "sh scripts/verify-backup.sh",
-    "cleanup:snapshots": "sh scripts/cleanup-orphan-snapshots.sh"
+    "cleanup:snapshots": "sh scripts/cleanup-orphan-snapshots.sh",
+    "object:worker:local": "sh -c 'set -a; . ./.env; set +a; DATA_DIR=./data MEDIAMTX_RTSP_URL=rtsp://127.0.0.1:8554 OBJECT_DETECTION_STREAM=rtsp .venv-object/bin/python object-worker/worker.py'"
   },
   "dependencies": {
     "fast-xml-parser": "^5.11.2",

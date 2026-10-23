@@ -45,7 +45,8 @@ services:
     environment:
       MEDIAMTX_API_URL: http://mediamtx:9997
       MEDIAMTX_WHEP_URL: http://mediamtx:8889
-      MEDIAMTX_HLS_URL: http://mediamtx:8888
+      MEDIAMTX_RTSP_URL: rtsp://mediamtx:8554
+      OBJECT_DETECTION_STREAM: rtsp
       DATA_DIR: /app/data
       PORT: "3000"
       HOSTNAME: 0.0.0.0
@@ -61,6 +62,42 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    restart: unless-stopped
+
+  # Live object DETECTION worker (optional, off by default).
+  #
+  # It reads the Admin's configuration from the shared database, samples the
+  # H.264 substreams through MediaMTX over the compose network and writes one
+  # object_detection_tracks row per tracked object. It publishes no ports and
+  # never touches the DVR directly.
+  #
+  #   1. python3 object-worker/scripts/download_model.py     # once, on the host
+  #   2. podman compose --profile objects up -d object-worker
+  #   3. enable detection and cameras on /settings/detection
+  object-worker:
+    build:
+      context: .
+      dockerfile: object-worker/Dockerfile
+    profiles: ["objects"]
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+      OBJECT_DETECTION_MODEL_PATH: /app/models/yolox_nano.onnx
+      MEDIAMTX_RTSP_URL: rtsp://mediamtx:8554
+      OBJECT_DETECTION_STREAM: rtsp
+    volumes:
+      - ./data:/app/data
+      - ./object-worker/models:/app/models:ro
+    depends_on:
+      mediamtx:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Idles (and reports "disabled") when the feature is off; restarts on a crash.
     restart: unless-stopped
 
   # Local face DETECTION worker (optional, off by default).

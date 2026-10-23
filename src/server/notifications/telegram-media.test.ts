@@ -28,6 +28,8 @@ const FAKE_TOKEN = "333333:CCCfake-media-token-value";
 const FAKE_CHAT = "-1001234567890";
 const EVENT_ID = "evt_aaaaaaaaaaaaaaaaaaaaaaaa";
 const SNAPSHOT = `2026/10/10/3-${EVENT_ID}.jpg`;
+/** Only the general rule-event Telegram channel is on for these tests. */
+const EVENT_ONLY = { TELEGRAM_FACE_NOTIFICATIONS: "false", TELEGRAM_EVENT_NOTIFICATIONS: "true" };
 
 function config(dataDir: string, overrides: Record<string, string> = {}) {
   return readConfig({
@@ -175,8 +177,8 @@ describe("TELEGRAM-MEDIA-002 / 003 / 004 — the full snapshot replaces the crop
     expect(Buffer.from(call.photo.bytes).equals(CROP_BYTES)).toBe(false);
     expect(call.photo.filename).toBe("camera-snapshot.jpg");
     expect(call.photo.contentType).toBe("image/jpeg");
-    // Media only: no verbose caption.
-    expect(call.caption).toBeUndefined();
+    // Media only: the image carries the face caption, never a separate text.
+    expect(call.caption).toBe(["👤 <b>Face detected</b>", "", "📹 Camera: First Floor Passage", "🕐 Time: 10 Oct 2026, 02:35 PM", "🎯 Confidence: 66%"].join("\n"));
   });
 
   it("TELEGRAM-MEDIA-035 sends no text and logs MEDIA_UNAVAILABLE when there is no media", async () => {
@@ -256,8 +258,8 @@ describe("TELEGRAM-MEDIA-011 / 013 / 014 / 015 / 030 — the clip upload", () =>
     expect(Buffer.from(call.video.bytes).equals(MP4)).toBe(true);
     expect(call.video.contentType).toBe("video/mp4");
     expect(call.video.filename).toBe("cctv-event.mp4");
-    // Media only: no caption at all.
-    expect(call.caption).toBeUndefined();
+    // Media only: the video carries the face caption.
+    expect(call.caption).toBe(["👤 <b>Face detected</b>", "", "📹 Camera: First Floor Passage", "🕐 Time: 10 Oct 2026, 02:35 PM", "🎯 Confidence: 66%"].join("\n"));
     // The clip used the event's camera and timestamp.
     expect(generateClip.mock.calls[0]![0]).toMatchObject({
       eventId: EVENT_ID,
@@ -752,4 +754,244 @@ describe("TELEGRAM-MEDIA-032 / 033 — rule events queue the snapshot and the cl
     expect(outcome).toMatchObject({ image: "skipped", video: "sent" });
   });
 
+});
+
+/* ---------------------------------------------------------------------------
+ * TELEGRAM-MEDIA-038/039 — frame association.
+ *
+ * The media worker never looks up "the latest snapshot": it reads the path
+ * stored on the job. These tests pin that so a delayed or concurrent job can
+ * never attach another event's frame.
+ * ------------------------------------------------------------------------- */
+
+describe("TELEGRAM-MEDIA-038/039 — each job attaches its own event frame", () => {
+  const OTHER_BYTES = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe1]), Buffer.alloc(300, 9)]);
+
+  it("TELEGRAM-MEDIA-038 keeps the event's frame even when a newer snapshot exists", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const otherEvent = "evt_fedcba9876543210fedcba98";
+    const otherDir = path.join(dataDir, "events", "2026", "10", "10");
+    await writeFile(path.join(otherDir, `3-${otherEvent}.jpg`), OTHER_BYTES);
+
+    const sendPhoto = vi.fn(async (input: { photo: TelegramFile }) => {
+      void input;
+      return ok();
+    });
+    const outcome = await processFaceMediaJob(JOB, {
+      config: config(dataDir),
+      dataDir,
+      sendPhoto,
+      sendMediaGroup: vi.fn(async () => ok()),
+      sendVideo: vi.fn(async () => ok()),
+      generateClip: vi.fn(async () => clipFailed("no_recording")),
+      log: () => undefined,
+    });
+
+    expect(outcome.image).toBe("sent");
+    // Exactly the event's own bytes, never the newer file on disk.
+    const photo = sendPhoto.mock.calls[0]![0].photo;
+    expect(Buffer.from(photo.bytes).equals(SNAPSHOT_BYTES)).toBe(true);
+    expect(Buffer.from(photo.bytes).equals(OTHER_BYTES)).toBe(false);
+  });
+
+  it("TELEGRAM-MEDIA-039 keeps concurrent jobs on different cameras apart", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const secondEvent = "evt_1234567890abcdef12345678";
+    const secondBytes = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe2]), Buffer.alloc(222, 3)]);
+    await writeFile(path.join(dataDir, "events", "2026", "10", "10", `2-${secondEvent}.jpg`), secondBytes);
+
+    const sent: Buffer[] = [];
+    const sendPhoto = vi.fn(async (input: { photo: TelegramFile }) => {
+      sent.push(Buffer.from(input.photo.bytes));
+      return ok();
+    });
+    const processOne = (job: FaceMediaJob) =>
+      processFaceMediaJob(job, {
+        config: config(dataDir),
+        dataDir,
+        sendPhoto,
+        sendMediaGroup: vi.fn(async () => ok()),
+        sendVideo: vi.fn(async () => ok()),
+        generateClip: vi.fn(async () => clipFailed("no_recording")),
+        log: () => undefined,
+      });
+
+    await processOne(JOB);
+    await processOne({
+      ...JOB,
+      eventId: secondEvent,
+      cameraId: 2,
+      cameraName: "Right Side Outside Camera",
+      snapshotPath: `2026/10/10/2-${secondEvent}.jpg`,
+    });
+
+    expect(sent).toHaveLength(2);
+    expect(sent[0]!.equals(SNAPSHOT_BYTES)).toBe(true);
+    expect(sent[1]!.equals(secondBytes)).toBe(true);
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * TELEGRAM-CAPTION — media-only notifications carry exactly safe metadata.
+ *
+ * The caption comes from the event (camera name, event time, detector
+ * confidence) and travels in Telegram's `caption` field. No text message is sent.
+ * ------------------------------------------------------------------------- */
+
+describe("TELEGRAM-CAPTION — media captions", () => {
+  const eventJob = (classification: "person" | "vehicle", confidence: number | null) => ({
+    ...JOB,
+    channel: "event" as const,
+    classification,
+    confidence,
+    maxConfidence: 0,
+  });
+
+  it("TELEGRAM-CAPTION-001 a person image uses sendPhoto with the caption", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const sendPhoto = vi.fn(async (input: { photo: TelegramFile; caption?: string }) => {
+      void input;
+      return ok();
+    });
+    const outcome = await processFaceMediaJob(eventJob("person", 0.87), {
+      config: config(dataDir, EVENT_ONLY),
+      dataDir,
+      sendPhoto,
+      sendMediaGroup: vi.fn(async () => ok()),
+      sendVideo: vi.fn(async () => ok()),
+      generateClip: vi.fn(async () => clipFailed("no_recording")),
+      log: () => undefined,
+    });
+    expect(outcome.image).toBe("sent");
+    expect(sendPhoto.mock.calls[0]![0].caption).toBe(
+      [
+        "🚨 <b>Person detected</b>",
+        "",
+        "📹 Camera: First Floor Passage",
+        "🕐 Time: 10 Oct 2026, 02:35 PM",
+        "🎯 Confidence: 87%",
+      ].join("\n"),
+    );
+  });
+
+  it("TELEGRAM-CAPTION-002 a person video uses sendVideo with the caption", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    await prepareClip(dataDir);
+    const sendVideo = vi.fn(async (input: { video: TelegramFile; caption?: string }) => {
+      void input;
+      return ok();
+    });
+    const outcome = await processFaceMediaJob(eventJob("person", 0.73), {
+      config: config(dataDir, EVENT_ONLY),
+      dataDir,
+      sendPhoto: vi.fn(async () => ok()),
+      sendMediaGroup: vi.fn(async () => ok()),
+      sendVideo,
+      generateClip: vi.fn(async () => clipOk(dataDir)),
+      unlinkImpl: vi.fn(async () => undefined),
+      log: () => undefined,
+    });
+    expect(outcome.video).toBe("sent");
+    expect(sendVideo.mock.calls[0]![0].caption).toBe(
+      [
+        "🚨 <b>Person detected</b>",
+        "",
+        "📹 Camera: First Floor Passage",
+        "🕐 Time: 10 Oct 2026, 02:35 PM",
+        "🎯 Confidence: 73%",
+      ].join("\n"),
+    );
+  });
+
+  it("TELEGRAM-CAPTION-003 a vehicle notification uses the vehicle caption", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const sendPhoto = vi.fn(async (input: { photo: TelegramFile; caption?: string }) => {
+      void input;
+      return ok();
+    });
+    await processFaceMediaJob(eventJob("vehicle", 0.7), {
+      config: config(dataDir, EVENT_ONLY),
+      dataDir,
+      sendPhoto,
+      sendMediaGroup: vi.fn(async () => ok()),
+      sendVideo: vi.fn(async () => ok()),
+      generateClip: vi.fn(async () => clipFailed("no_recording")),
+      log: () => undefined,
+    });
+    expect(sendPhoto.mock.calls[0]![0].caption).toContain("🚗 <b>Vehicle detected</b>");
+    expect(sendPhoto.mock.calls[0]![0].caption).toContain("🎯 Confidence: 70%");
+  });
+
+  it("TELEGRAM-CAPTION-004 a face notification uses the face caption and face confidence", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const sendPhoto = vi.fn(async (input: { photo: TelegramFile; caption?: string }) => {
+      void input;
+      return ok();
+    });
+    await processFaceMediaJob({ ...JOB, maxConfidence: 0.82 }, {
+      config: config(dataDir),
+      dataDir,
+      sendPhoto,
+      sendMediaGroup: vi.fn(async () => ok()),
+      sendVideo: vi.fn(async () => ok()),
+      generateClip: vi.fn(async () => clipFailed("no_recording")),
+      log: () => undefined,
+    });
+    expect(sendPhoto.mock.calls[0]![0].caption).toBe(
+      [
+        "👤 <b>Face detected</b>",
+        "",
+        "📹 Camera: First Floor Passage",
+        "🕐 Time: 10 Oct 2026, 02:35 PM",
+        "🎯 Confidence: 82%",
+      ].join("\n"),
+    );
+  });
+
+  it("TELEGRAM-CAPTION-005 uses the event timestamp, never the send time", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const sendPhoto = vi.fn(async (input: { photo: TelegramFile; caption?: string }) => {
+      void input;
+      return ok();
+    });
+    await processFaceMediaJob({ ...eventJob("person", 0.9), eventTimestamp: "2021-03-04T09:05:00+05:30" }, {
+      config: config(dataDir, EVENT_ONLY),
+      dataDir,
+      sendPhoto,
+      sendMediaGroup: vi.fn(async () => ok()),
+      sendVideo: vi.fn(async () => ok()),
+      generateClip: vi.fn(async () => clipFailed("no_recording")),
+      log: () => undefined,
+    });
+    const caption = sendPhoto.mock.calls[0]![0].caption ?? "";
+    expect(caption).toContain("🕐 Time: 04 Mar 2021, 09:05 AM");
+    expect(caption).not.toContain(String(new Date().getFullYear()) + " PM");
+  });
+
+  it("TELEGRAM-CAPTION-006 omits confidence when the source has none (no invented value)", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const sendPhoto = vi.fn(async (input: { photo: TelegramFile; caption?: string }) => {
+      void input;
+      return ok();
+    });
+    await processFaceMediaJob(eventJob("person", null), {
+      config: config(dataDir, EVENT_ONLY),
+      dataDir,
+      sendPhoto,
+      sendMediaGroup: vi.fn(async () => ok()),
+      sendVideo: vi.fn(async () => ok()),
+      generateClip: vi.fn(async () => clipFailed("no_recording")),
+      log: () => undefined,
+    });
+    const caption = sendPhoto.mock.calls[0]![0].caption ?? "";
+    expect(caption).toContain("🚨 <b>Person detected</b>");
+    expect(caption).not.toContain("Confidence");
+  });
+
+  it("TELEGRAM-CAPTION-007 the media worker never calls a text sender", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("./telegram-media.ts", import.meta.url), "utf8");
+    expect(source).not.toMatch(/sendTelegramMessage\s*\(/);
+    expect(source).not.toMatch(/notifyTelegram/);
+  });
 });

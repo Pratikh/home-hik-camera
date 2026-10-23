@@ -1,0 +1,8 @@
+# Live object-detection worker: local, CPU-only, offline at runtime.
+#
+# opencv-python-headless reads the MediaMTX HLS substreams and encodes the
+# analysed frame as JPEG; onnxruntime runs the YOLOX-Nano ONNX model. Neither
+# needs a GUI, a GPU or a cloud service.
+opencv-python-headless==4.12.0.88
+onnxruntime==1.23.2
+numpy>=1.26,<3

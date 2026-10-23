@@ -17,3 +17,7 @@ services:
       - "127.0.0.1:8888:8888"
       - "127.0.0.1:8889:8889"
       - "127.0.0.1:9997:9997"
+      # Internal RTSP is consumed by the local object-detection worker. It is
+      # loopback-only, exactly like the other development signalling ports, so
+      # nothing on the LAN can reach it.
+      - "127.0.0.1:8554:8554"

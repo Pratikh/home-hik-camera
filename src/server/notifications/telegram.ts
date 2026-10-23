@@ -67,6 +67,79 @@ export type TelegramState = {
  * The ampersand must be replaced first, or the escapes introduced for `<` and
  * `>` would themselves be escaped again.
  */
+/**
+ * Escape the three characters Telegram's HTML parse mode treats as markup.
+ *
+ * The ampersand must be replaced first, or the escapes introduced for `<` and
+ * `>` would themselves be escaped again.
+ */
+export function escapeTelegramHtml(value: string): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+/**
+ * "23 Oct 2026, 06:34 PM" in India time, the zone the whole application uses.
+ * Built from parts so the day/month order and the AM/PM casing are fixed.
+ */
+export function formatTelegramTime(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown time";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).formatToParts(date);
+  const bag: Record<string, string> = {};
+  for (const part of parts) if (part.type !== "literal") bag[part.type] = part.value;
+  const period = (bag.dayPeriod ?? "").toUpperCase();
+  return `${bag.day} ${bag.month} ${bag.year}, ${bag.hour}:${bag.minute}${period ? ` ${period}` : ""}`;
+}
+
+/** What the media notification is about; drives the caption title. */
+export type TelegramMediaKind = "person" | "vehicle" | "face";
+
+const MEDIA_TITLES: Record<TelegramMediaKind, { emoji: string; title: string }> = {
+  person: { emoji: "🚨", title: "Person detected" },
+  vehicle: { emoji: "🚗", title: "Vehicle detected" },
+  face: { emoji: "👤", title: "Face detected" },
+};
+
+/**
+ * Caption for a media-only notification.
+ *
+ * Only safe metadata is rendered: the camera's display name, the event's own
+ * timestamp (never the upload time) and the detector confidence. No path, id,
+ * token or URL can reach this function.
+ */
+export function buildTelegramMediaCaption(input: {
+  kind: TelegramMediaKind;
+  cameraName: string;
+  /** Stored event timestamp; rendered in India time. */
+  eventTimestamp: string;
+  /** 0–1, from the detector or the face detector; null when unknown. */
+  confidence: number | null;
+}): string {
+  const title = MEDIA_TITLES[input.kind];
+  const lines = [
+    `${title.emoji} <b>${title.title}</b>`,
+    "",
+    `📹 Camera: ${escapeTelegramHtml(input.cameraName.trim() || "Camera")}`,
+    `🕐 Time: ${escapeTelegramHtml(formatTelegramTime(input.eventTimestamp))}`,
+  ];
+  if (input.confidence !== null && Number.isFinite(input.confidence)) {
+    const percent = Math.round(Math.min(1, Math.max(0, input.confidence)) * 100);
+    lines.push(`🎯 Confidence: ${percent}%`);
+  }
+  return lines.join("\n");
+}
+
 /** The message the admin test endpoint sends. */
 export function buildTelegramTestMessage(): string {
   return ["🏠 <b>Home CCTV Hub</b>", "", "Telegram notification test successful."].join("\n");

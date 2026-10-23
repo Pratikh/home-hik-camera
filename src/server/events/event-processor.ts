@@ -6,13 +6,12 @@ import { defaultPriority } from "@/lib/priority";
 import { createAIProvider } from "@/server/ai/ai-provider";
 import { getCameraNameMap } from "@/server/cameras/names";
 import { attachStops, parseAlarmLogs, type MotionStart, type MotionStop } from "@/server/events/event-normalizer";
+import { processEventNotification } from "@/server/events/event-pipeline";
 import { publishLiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type NewEvent } from "@/server/events/event-store";
-import { recordNotificationDecisions } from "@/server/events/notification-decisions";
-import { enqueueEventMedia } from "@/server/notifications/telegram-media";
+import { objectDetectionConfig } from "@/server/detection/settings-store";
 import { runRetention } from "@/server/events/retention";
-import { captureEventSnapshot } from "@/server/events/snapshot";
-import { cooldownBlocks, cooldownWindowStart, evaluateRules } from "@/server/events/rule-engine";
+import { captureEventSnapshotForPoll } from "@/server/events/snapshot";
 import { HikvisionClient } from "@/server/hikvision/hikvision-client";
 import { HikvisionError } from "@/server/hikvision/hikvision-types";
 
@@ -90,6 +89,11 @@ async function poll(backfill: boolean): Promise<void> {
       return;
     }
     const now = new Date();
+    if (backfill && !backfilled) {
+      // Diagnostic for the historical-event path: this poll re-reads the day,
+      // so its events must not receive a "current" live still.
+      console.info("[events] Backfill poll started");
+    }
     const day = kolkataDayBounds(todayInKolkata(now));
     const start = backfill && !backfilled && day ? day.start : new Date(now.getTime() - Math.max(config.eventPollIntervalMs * 3, 120_000));
     const client = new HikvisionClient({
@@ -103,7 +107,9 @@ async function poll(backfill: boolean): Promise<void> {
     const paired = attachStops(logs.starts, logs.stops);
     const store = openEventStore(config.dataDir);
     const names = await getCameraNameMap(config.dataDir);
-    const rules = store.rules();
+    // The Admin's detection-source choice decides whether DVR person/vehicle
+    // events may notify. It is read once per poll (a single SQLite row).
+    const detectionSource = objectDetectionConfig(config.dataDir).settings.detectionSource;
     const ai = createAIProvider(config.aiEnabled);
     for (const event of paired.events) {
       const priority = defaultPriority(event.type, event.classification);
@@ -116,20 +122,6 @@ async function poll(backfill: boolean): Promise<void> {
       console.info("[events] New event detected");
 
       const at = new Date(event.timestamp);
-      const evaluation = evaluateRules(rules, { ...event, priority }, at, {
-        cooldownActive: (rule) =>
-          cooldownBlocks(rule, store.countSentSince(rule.id, formatKolkataIso(cooldownWindowStart(rule, at)))),
-      });
-
-      // Notification history is the durable duplicate guard: an event/rule pair
-      // recorded once is never notified again, even across restarts.
-      const { delivered } = recordNotificationDecisions({
-        store,
-        event,
-        evaluation,
-        priority,
-      });
-
       const cameraName = names[event.cameraId] ?? `Camera ${event.cameraId}`;
 
       if (config.aiEnabled) {
@@ -146,32 +138,48 @@ async function poll(backfill: boolean): Promise<void> {
         }
       }
 
-      // A still picture is optional. The event is already stored, so a DVR that
-      // cannot serve one just leaves the snapshot unavailable.
-      const snapshot = await captureEventSnapshot({ cameraId: event.cameraId, eventId: event.id, at, client });
-      if (snapshot) store.setSnapshotPath(event.id, snapshot);
+      /*
+       * A still picture is optional. The event is already stored, so a DVR that
+       * cannot serve one just leaves the snapshot unavailable.
+       *
+       * The DVR's alarm log carries no frame, and its picture endpoint only
+       * returns the live frame, so a still is only meaningful for an event that
+       * was just discovered. On the startup backfill the events are hours old:
+       * capturing "now" for them would attach an unrelated image to the event
+       * and to its Telegram media. Historical events therefore stay snapshot-less.
+       */
+      const snapshot = await captureEventSnapshotForPoll({
+        cameraId: event.cameraId,
+        eventId: event.id,
+        at,
+        client,
+        backfill,
+        eventTimestamp: event.timestamp,
+      });
+      if (snapshot) {
+        store.setSnapshotPath(event.id, snapshot);
+      } else if (backfill) {
+        console.info("[events] Backfilled event stored without a live snapshot");
+      } else {
+        // Too old for a live still to represent it: the clip (cut from the
+        // recording at the event time) is the only accurate media.
+        console.info("[events] Event too old for a live snapshot; stored without one");
+      }
 
       /*
-       * The accepted rule decision is delivered to Telegram as media only: the
-       * worker tries the clip first, then the face crop, then the snapshot, and
-       * never sends the old text message. Queueing is instant; the DVR search
-       * and FFmpeg run in the durable media worker, so event ingestion never
-       * waits for them.
+       * One shared decision point for DVR and AI events: rules, priority,
+       * schedule, quiet hours, cooldown, duplicate protection, history and the
+       * media-only Telegram queue. The DVR's own person/vehicle events are
+       * stored but do not notify while detection source is AI only.
        */
-      if (delivered) {
-        enqueueEventMedia(
-          {
-            eventId: event.id,
-            cameraId: event.cameraId,
-            cameraName,
-            faces: 0,
-            maxConfidence: 0,
-            eventTimestamp: event.timestamp,
-            snapshotPath: snapshot,
-          },
-          config,
-        );
-      }
+      const { delivered } = processEventNotification({
+        store,
+        event: { ...event, priority, source: "hikvision", confidence: null },
+        config,
+        detectionSource,
+        cameraName,
+        snapshotPath: snapshot,
+      });
 
       const stored = store.get(event.id);
       if (stored) {

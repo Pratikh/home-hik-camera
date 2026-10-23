@@ -20,6 +20,7 @@ export const ROUTES = {
   settings: "/settings",
   users: "/settings/users",
   notificationRules: "/settings/notifications",
+  detection: "/settings/detection",
   auditLog: "/settings/audit-log",
   system: "/settings/system",
 } as const;
@@ -46,6 +47,7 @@ export const PROTECTED_API: string[] = [
   "/api/audit",
   "/api/users",
   "/api/settings",
+  "/api/settings/detection",
   "/api/system/sessions",
   "/api/system/health",
   "/api/notification-rules",
@@ -58,6 +60,7 @@ export const ADMIN_ONLY_API: string[] = [
   "/api/audit",
   "/api/users",
   "/api/settings",
+  "/api/settings/detection",
   "/api/system/sessions",
   "/api/system/health",
   "/api/notification-rules",

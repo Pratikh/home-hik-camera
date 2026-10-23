@@ -716,10 +716,22 @@ order:
 ```
 
 There is **no text fallback**: the old verbose "Face detected" message is never
-sent. Media carries no caption. The face crop is read from
-`DATA_DIR/face-crops` through the same path guard used by `/api/faces/<id>/image`,
-so a filesystem path or a public URL never reaches Telegram. This is still
-detection only: no person name and no embedding is ever sent.
+sent. The media carries a short caption in Telegram's `caption` field:
+
+```
+👤 Face detected
+
+📹 Camera: First Floor Passage
+🕐 Time: 10 Oct 2026, 02:35 PM
+🎯 Confidence: 82%
+```
+
+The camera name and timestamp come from the event itself (never the upload
+time), and the confidence is the face detector's value. The face crop is read
+from `DATA_DIR/face-crops` through the same path guard used by
+`/api/faces/<id>/image`, so a filesystem path or a public URL never reaches
+Telegram. This is still detection only: no person name and no embedding is ever
+sent.
 
 **Failure isolation.** A Telegram outage is logged (`telegram media send failed`
 with the event id and a safe reason) and nothing else changes: the decision stays
@@ -746,11 +758,16 @@ A real detection carries the face crop or the snapshot, and a short clip:
 `TELEGRAM_FACE_IMAGE` name is still accepted. The image is only sent when no clip
 could be produced.
 
+- **Source frame.** The snapshot is a live still captured at ingestion, not the
+  DVR's detection frame (this DVR's alarm log carries no image). A person far
+  from the camera, or one who left before the poll, can therefore be tiny or
+  absent in the still. Backfilled events (discovered after a restart) are never
+  given a live still, because it would be unrelated to the event.
 - **Image.** The stored **face crop** for the event is preferred, because it
   shows the detected person; when there is none, the **full camera event
   snapshot** is used. Both are read through their path guards and uploaded with
-  `sendPhoto`, with no caption, so the bytes go to Telegram and a filesystem path
-  never does. An event with neither image and no clip sends nothing and logs
+  `sendPhoto` together with the caption, so the bytes go to Telegram and a
+  filesystem path never does. An event with neither image and no clip sends nothing and logs
   `MEDIA_UNAVAILABLE`.
 - **Clip.** The DVR's own recording track is used, through the same playback
   search and RTSP URL builders as browser playback: the recording that covers

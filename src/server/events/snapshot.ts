@@ -33,7 +33,16 @@ export async function captureEventSnapshot(input: {
   eventId: string;
   at: Date;
   client: HikvisionClient;
+  /**
+   * False for events discovered by the startup backfill. The ISAPI picture
+   * endpoint only ever returns the *current* live frame, so capturing one for an
+   * event that happened hours ago would attach an unrelated image. Historical
+   * events keep no snapshot; their clip (cut from the recording at the event
+   * timestamp) is still accurate.
+   */
+  liveAllowed?: boolean;
 }): Promise<string | null> {
+  if (input.liveAllowed === false) return null;
   const config = getConfig();
   const relative = snapshotRelativePath(input.cameraId, input.eventId, input.at);
   const root = path.resolve(config.dataDir, "events");
@@ -61,6 +70,46 @@ export async function captureEventSnapshot(input: {
     return null;
   }
   return relative;
+}
+
+/**
+ * The newest an event may be for its live still to still represent it.
+ *
+ * The DVR's picture endpoint returns the current frame, never the alarm frame.
+ * The hub has a poll interval and the DVR clock can run a little behind the
+ * host, so a genuinely live event arrives a few seconds "old" (measured: ~5 s
+ * poll + ~18 s DVR clock offset). Anything older than a minute is a different
+ * moment: the person may have walked away, or the frame belongs to another
+ * event entirely.
+ */
+export const LIVE_SNAPSHOT_MAX_AGE_MS = 60_000;
+
+/**
+ * Decide whether an ingested event may receive a still.
+ *
+ * Two cases are refused:
+ * - the startup backfill, which re-reads the whole day and would otherwise give
+ *   hours-old events a "now" picture;
+ * - any event already older than LIVE_SNAPSHOT_MAX_AGE_MS at ingestion (for
+ *   example an event found after the hub was down for several minutes).
+ *
+ * The rule lives here so it is testable without a running DVR.
+ */
+export async function captureEventSnapshotForPoll(
+  input: Parameters<typeof captureEventSnapshot>[0] & {
+    backfill: boolean;
+    /** The event's own timestamp; defaults to `at`. */
+    eventTimestamp?: string;
+    /** Injected in tests. */
+    now?: Date;
+  },
+): Promise<string | null> {
+  if (input.backfill) return null;
+  const eventAt = new Date(input.eventTimestamp ?? input.at);
+  if (Number.isNaN(eventAt.getTime())) return null;
+  const age = (input.now ?? new Date()).getTime() - eventAt.getTime();
+  if (age > LIVE_SNAPSHOT_MAX_AGE_MS) return null;
+  return captureEventSnapshot(input);
 }
 
 async function fetchPicture(client: HikvisionClient, channel: number): Promise<Buffer> {

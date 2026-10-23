@@ -148,6 +148,7 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `EVENT_DEV_MOCK` | Development-only event fixtures. Ignored when `NODE_ENV=production`. |
 | `DATA_DIR` | Camera display names, events database, and event snapshots. Default `./data` (gitignored). |
 | `FACE_DETECTION_ENABLED` | Local, offline face **detection** on event snapshots. Default `false`. Detection only — no recognition. |
+| Object detection | Configurable person/vehicle detection on the H.264 camera substreams by a separate CPU worker, off by default, edited at `/settings/detection`. The worker reads MediaMTX's internal RTSP listener and stores the exact analysed frame; the normal rules/history/Telegram pipeline runs unchanged. See [docs/Object-Detection.md](docs/Object-Detection.md). |
 | `FACE_DETECTION_CONFIDENCE` | Detections below this score are discarded. Default `0.60`. |
 | `FACE_DETECTION_MAX_FACES` | Highest-confidence faces kept per snapshot. Default `10`. |
 | `FACE_DETECTION_TEST_NOTIFICATIONS` | Temporary face-notification test mode. Default `false`. Additive; never identifies anyone. |
@@ -402,6 +403,16 @@ curl --digest -u USER:PASSWORD -o /tmp/snap.jpg -w "%{http_code} %{content_type}
 ```
 
 `200 image/jpeg` means the DVR is serving pictures. The hub validates the JPEG header and writes nothing if the response is not a JPEG, so a DVR that refuses the endpoint leaves the event without a snapshot rather than storing a broken file.
+
+**The snapshot does not show the person the notification mentions**
+
+The `person`/`vehicle` label is the DVR's own `additionInformation` on the motion event; this hub does not run a person classifier on the image. The still is a **live** picture requested when the event is ingested, because this DVR's alarm log carries no frame. Two consequences:
+
+- The still is taken a few seconds after the motion started (poll interval, plus any queueing). A fast-moving or distant person can be at the frame edge, very small, or already gone. The reliable record is the clip, which is cut from the recording at the event timestamp.
+- The DVR's clock can differ from the hub host. The overlay time inside the JPEG is DVR time, while `created_at` is server time; a difference of a few seconds is normal. The event timestamp itself is DVR time.
+
+Events discovered by the startup backfill are **not** given a still: a frame captured hours later would be unrelated to the event. They keep no snapshot (their clip, when one can be cut, is still accurate).
+
 
 **Rules do not fire**
 
@@ -838,7 +849,7 @@ Set `FACE_DETECTION_ENABLED`, `FACE_DETECTION_CONFIDENCE` (default `0.60`) and `
 
 Telegram receives the same accepted notification as **media only** (server-side only, with an ADMIN *Send Telegram Test* button on `/settings/notifications`). It shares the one decision, so the cooldown, duplicate protection and expiry are unchanged. For a person/face detection the chat gets one of: the ~10 second clip cut from the DVR's own recording (H.265 converted to H.264 MP4 by FFmpeg, which the container image includes), otherwise the stored face crop, otherwise the full camera snapshot. The old verbose text message is never sent for these notifications; if no media exists the hub logs `MEDIA_UNAVAILABLE` and sends nothing. Media is generated in the background and its temporary file is deleted after upload. The ADMIN *Send Telegram Test* button still sends a plain text test message.
 
-The same Telegram delivery is available for ordinary camera events, not only faces: with `TELEGRAM_EVENT_NOTIFICATIONS=true` an event that a Notification Rule accepts is also sent to Telegram. The rule decision is made and recorded first (camera, event type, priority, schedule, quiet hours, cooldown, duplicate protection), and only then is media queued, so a Telegram failure never suppresses the browser notification or changes the history. `TELEGRAM_FACE_NOTIFICATIONS` and `TELEGRAM_EVENT_NOTIFICATIONS` are independent channels behind the `TELEGRAM_NOTIFICATIONS_ENABLED` master switch. Each accepted event produces exactly one media notification: the clip when it can be cut, otherwise the face crop, otherwise the snapshot. The work runs in the durable background worker, so a slow DVR search or FFmpeg never delays event ingestion; if the DVR has no free playback slot the job is retried once after three minutes.
+The same Telegram delivery is available for ordinary camera events, not only faces: with `TELEGRAM_EVENT_NOTIFICATIONS=true` an event that a Notification Rule accepts is also sent to Telegram, as media with a short caption (title, camera, event time, detector confidence). The rule decision is made and recorded first (camera, event type, priority, schedule, quiet hours, cooldown, duplicate protection), and only then is media queued, so a Telegram failure never suppresses the browser notification or changes the history. `TELEGRAM_FACE_NOTIFICATIONS` and `TELEGRAM_EVENT_NOTIFICATIONS` are independent channels behind the `TELEGRAM_NOTIFICATIONS_ENABLED` master switch. Each accepted event produces exactly one media notification: the clip when it can be cut, otherwise the face crop, otherwise the snapshot. The work runs in the durable background worker, so a slow DVR search or FFmpeg never delays event ingestion; if the DVR has no free playback slot the job is retried once after three minutes.
 
 For a bounded real-world trial you can also raise a browser notification when a face is detected: set `FACE_DETECTION_TEST_NOTIFICATIONS=true` and `FACE_DETECTION_TEST_UNTIL` to the end of your window (ISO-8601 with an offset, for example `2026-10-12T10:00:00+05:30`). It is a temporary, additive test mode — motion notifications are unchanged, notifications are anonymous ("Face detected"), the per-camera cooldown defaults to 5 minutes, and the mode stops by itself at the expiry while face detection keeps running. See [docs/Face-Detection.md](docs/Face-Detection.md) for the model's provenance, security and privacy model, measured performance, retention and the future recognition plan.
 

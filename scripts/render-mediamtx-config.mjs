@@ -118,7 +118,13 @@ export function renderMediamtxConfig(env) {
     "logLevel: info",
     "api: true",
     "apiAddress: :9997",
-    "rtsp: false",
+    // The RTSP listener stays internal to the compose network. It is not
+    // published (only 8189/WebRTC is), but the local object-detection worker
+    // reads the H.264 substreams through it: MediaMTX's HLS authentication uses
+    // a browser cookie handshake that FFmpeg/OpenCV cannot complete, while RTSP
+    // credentials work directly and keep the worker off the DVR.
+    "rtsp: true",
+    "rtspAddress: :8554",
     "rtmp: false",
     "hls: true",
     "hlsAddress: :8888",
