@@ -44,6 +44,7 @@ function seedCompletedJob(
     eventTimestamp?: string;
     faces?: SeedFace[];
     status?: string;
+    source?: "hikvision" | "object-detection-worker";
   },
 ): void {
   const cameraId = input.cameraId ?? 1;
@@ -56,7 +57,7 @@ function seedCompletedJob(
     classification: "person",
     timestamp: eventTimestamp,
     endTimestamp: null,
-    source: "hikvision",
+    source: input.source ?? "hikvision",
     metaId: `meta-${input.id}`,
   });
   // Production stores the full camera snapshot on the event itself.
@@ -229,9 +230,10 @@ describe("FACE-NOTIFY-003 enabled and inside the window", () => {
     expect(payload.event.id).toBe("evt_222222222222222222222222");
     expect(payload.event.cameraName).toBe("Parking");
 
-    expect(log.mock.calls[0]![0]).toContain("result=SENT");
-    expect(log.mock.calls[0]![0]).toContain("camera_name=\"Parking\"");
-    expect(log.mock.calls[0]![0]).toContain("max_confidence=0.82");
+    const sentLine = log.mock.calls.map((call) => String(call[0])).find((line) => line.includes("result=SENT"));
+    expect(sentLine).toBeDefined();
+    expect(sentLine).toContain("camera_name=\"Parking\"");
+    expect(sentLine).toContain("max_confidence=0.82");
   });
 
   it("does not replay detections that completed before the mode was activated", async () => {
@@ -322,7 +324,9 @@ describe("FACE-NOTIFY-007 / 008 cooldown", () => {
     const rows = faceTestRows(store);
     expect(rows).toHaveLength(2);
     expect(rows[1]).toMatchObject({ status: "suppressed", reason: "Cooldown active for this camera" });
-    expect(log.mock.calls[1]![0]).toContain("result=SUPPRESSED reason=COOLDOWN");
+    expect(
+      log.mock.calls.map((call) => String(call[0])).some((line) => line.includes("result=SUPPRESSED reason=COOLDOWN")),
+    ).toBe(true);
   });
 
   it("sends again once the cooldown has passed", async () => {
@@ -708,5 +712,319 @@ describe("TELEGRAM-MEDIA — the media job shares the existing decision", () => 
     expect(result.sent).toBe(1);
     expect(publish).toHaveBeenCalledTimes(1);
     expect(result.decisions[0]!.media).toBe("skipped");
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * TELEGRAM-RULE-GATE — the face test mode must respect notification rules.
+ *
+ * The browser test notification remains its own documented decision, but the
+ * Telegram media job is only queued when the existing rule engine accepts the
+ * event (camera id, event type, priority, timestamp, schedule, days, quiet
+ * hours, enabled state and cooldown).
+ * ------------------------------------------------------------------------- */
+
+type RuleOverrides = Partial<{
+  cameraIds: number[];
+  eventTypes: Array<"person" | "vehicle" | "motion">;
+  enabled: boolean;
+  minimumPriority: "LOW" | "NORMAL" | "HIGH" | "CRITICAL" | null;
+  scheduleStart: string | null;
+  scheduleEnd: string | null;
+  daysOfWeek: Array<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun">;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  quietHoursBehavior: "notify" | "suppress" | "store_only";
+  cooldownSeconds: number;
+  id: string;
+  name: string;
+}>;
+
+/** Replace the seeded rules with one "Person anywhere"-style rule. */
+function setRule(store: EventStore, overrides: RuleOverrides = {}): void {
+  for (const existing of store.rules()) store.deleteRule(existing.id);
+  store.saveRule({
+    id: overrides.id ?? "rule-person",
+    name: overrides.name ?? "Person anywhere",
+    enabled: overrides.enabled ?? true,
+    cameraIds: overrides.cameraIds ?? [1, 3],
+    eventTypes: overrides.eventTypes ?? ["person", "motion"],
+    cameraId: null,
+    eventType: "motion",
+    classification: "person",
+    minimumPriority: overrides.minimumPriority ?? null,
+    scheduleStart: overrides.scheduleStart ?? null,
+    scheduleEnd: overrides.scheduleEnd ?? null,
+    daysOfWeek: overrides.daysOfWeek ?? [],
+    quietHoursStart: overrides.quietHoursStart ?? null,
+    quietHoursEnd: overrides.quietHoursEnd ?? null,
+    quietHoursBehavior: overrides.quietHoursBehavior ?? "notify",
+    cooldownSeconds: overrides.cooldownSeconds ?? 0,
+  });
+}
+
+function mediaSpy() {
+  return vi.fn((_job: FaceMediaJob) => "queued" as const);
+}
+
+describe("TELEGRAM-RULE-GATE face Telegram media obeys notification rules", () => {
+  it("sends for Parking (selected camera)", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1, 3] });
+    seedCompletedJob(store, { id: "evt_rule_cam1_selected", cameraId: 1, faces: [{ confidence: 0.81 }] });
+    const enqueueMedia = mediaSpy();
+
+    const result = await run(store, { enqueueMedia });
+
+    expect(result.sent).toBe(1);
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+    expect(enqueueMedia.mock.calls[0]![0]).toMatchObject({ cameraId: 1, cameraName: "Parking", maxConfidence: 0.81 });
+  });
+
+  it("does not send for Left Side Outside (camera 4, not selected)", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1, 3] });
+    seedCompletedJob(store, { id: "evt_rule_cam4_unselected", cameraId: 4 });
+    const enqueueMedia = mediaSpy();
+    const publish = vi.fn();
+
+    const result = await run(store, { enqueueMedia, publish });
+
+    // The documented browser test decision still happens; Telegram must not.
+    expect(result.sent).toBe(1);
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(enqueueMedia).not.toHaveBeenCalled();
+    expect(result.decisions[0]!.media).toBe("skipped");
+  });
+
+  it("does not send for Right Side Outside Camera (camera 2, not selected)", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1, 3] });
+    seedCompletedJob(store, { id: "evt_rule_cam2_unselected", cameraId: 2 });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).not.toHaveBeenCalled();
+  });
+
+  it("sends for First Floor Passage (second selected camera)", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1, 3] });
+    seedCompletedJob(store, { id: "evt_rule_cam3_selected", cameraId: 3 });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+    expect(enqueueMedia.mock.calls[0]![0].cameraId).toBe(3);
+  });
+
+  it("applies the same camera filter to DVR person events", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1, 3] });
+    seedCompletedJob(store, { id: "evt_rule_dvr_person_1", cameraId: 1, source: "hikvision" });
+    seedCompletedJob(store, { id: "evt_rule_dvr_person_2", cameraId: 2, source: "hikvision" });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+    expect(enqueueMedia.mock.calls[0]![0].cameraId).toBe(1);
+  });
+
+  it("applies the same camera filter to AI person events", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1, 3] });
+    seedCompletedJob(store, { id: "evt_rule_ai_person_1", cameraId: 1, source: "object-detection-worker" });
+    seedCompletedJob(store, { id: "evt_rule_ai_person_2", cameraId: 2, source: "object-detection-worker" });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+    expect(enqueueMedia.mock.calls[0]![0].cameraId).toBe(1);
+  });
+
+  it("obeys runtime rule changes without a restart", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1] });
+    seedCompletedJob(store, { id: "evt_rule_toggle_1", cameraId: 2, finishedAt: "2026-10-10T04:29:10.000Z" });
+    const enqueueMedia = mediaSpy();
+
+    // Disable the test mode's own per-camera cooldown so this test isolates the
+    // rule-engine change; that cooldown remains covered elsewhere.
+    const noTestCooldown = { ...ENABLED, faceDetectionTestNotificationCooldownSeconds: 0 };
+    await run(store, { enqueueMedia, config: noTestCooldown });
+    expect(enqueueMedia).not.toHaveBeenCalled();
+
+    setRule(store, { cameraIds: [1, 2] });
+    seedCompletedJob(store, { id: "evt_rule_toggle_2", cameraId: 2, finishedAt: "2026-10-10T04:29:20.000Z" });
+    await run(store, { enqueueMedia, config: noTestCooldown });
+
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+    expect(enqueueMedia.mock.calls[0]![0].eventId).toBe("evt_rule_toggle_2");
+  });
+
+  it("stops sending after the matching rule is deleted", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1] });
+    for (const existing of store.rules()) store.deleteRule(existing.id);
+    seedCompletedJob(store, { id: "evt_rule_deleted", cameraId: 1 });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).not.toHaveBeenCalled();
+  });
+
+  it("preserves OR semantics with multiple rules", async () => {
+    const store = memoryEventStore();
+    for (const existing of store.rules()) store.deleteRule(existing.id);
+    setRule(store, { id: "rule-a", cameraIds: [1] });
+    store.saveRule({
+      id: "rule-b",
+      name: "Second selected camera",
+      enabled: true,
+      cameraIds: [2],
+      eventTypes: ["person"],
+      cameraId: null,
+      eventType: "motion",
+      classification: "person",
+      minimumPriority: null,
+      scheduleStart: null,
+      scheduleEnd: null,
+      daysOfWeek: [],
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      quietHoursBehavior: "notify",
+      cooldownSeconds: 0,
+    });
+    seedCompletedJob(store, { id: "evt_rule_multi", cameraId: 2 });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not send when the rule is disabled", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1], enabled: false });
+    seedCompletedJob(store, { id: "evt_rule_disabled", cameraId: 1 });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).not.toHaveBeenCalled();
+  });
+
+  it("does not bypass quiet hours", async () => {
+    const store = memoryEventStore();
+    setRule(store, {
+      cameraIds: [1],
+      quietHoursStart: "00:00",
+      quietHoursEnd: "23:59",
+      quietHoursBehavior: "store_only",
+    });
+    seedCompletedJob(store, { id: "evt_rule_quiet", cameraId: 1, eventTimestamp: "2026-10-10T09:59:00+05:30" });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).not.toHaveBeenCalled();
+  });
+
+  it("does not bypass schedules and days", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1], scheduleStart: "03:00", scheduleEnd: "04:00" });
+    seedCompletedJob(store, { id: "evt_rule_schedule", cameraId: 1, eventTimestamp: "2026-10-10T09:59:00+05:30" });
+    const enqueueMedia = mediaSpy();
+    await run(store, { enqueueMedia });
+    expect(enqueueMedia).not.toHaveBeenCalled();
+
+    const store2 = memoryEventStore();
+    setRule(store2, { cameraIds: [1], daysOfWeek: ["mon"] });
+    seedCompletedJob(store2, { id: "evt_rule_days", cameraId: 1, eventTimestamp: "2026-10-10T09:59:00+05:30" });
+    const enqueueMedia2 = mediaSpy();
+    await run(store2, { enqueueMedia: enqueueMedia2 });
+    expect(enqueueMedia2).not.toHaveBeenCalled();
+  });
+
+  it("does not bypass the priority floor", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1], minimumPriority: "CRITICAL" });
+    seedCompletedJob(store, { id: "evt_rule_priority", cameraId: 1 });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, { enqueueMedia });
+
+    expect(enqueueMedia).not.toHaveBeenCalled();
+  });
+
+  it("logs the rule decision without secrets", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [4] });
+    seedCompletedJob(store, { id: "evt_rule_log_unselected", cameraId: 4 });
+    const lines: string[] = [];
+
+    await run(store, { enqueueMedia: mediaSpy(), log: (line) => lines.push(line) });
+
+    const ruleLine = lines.find((line) => line.includes("[telegram-rule]"));
+    expect(ruleLine).toContain("eventId=evt_rule_log_unselected");
+    expect(ruleLine).toContain("cameraId=4");
+    expect(ruleLine).toContain("eligible=true");
+    expect(ruleLine).not.toMatch(/token|secret|password/i);
+  });
+});
+
+describe("TELEGRAM-RULE-GATE cooldown semantics", () => {
+  it("respects the rule cooldown for earlier notifications", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1], cooldownSeconds: 300 });
+    seedCompletedJob(store, { id: "evt_rule_cooldown", cameraId: 1 });
+    // A previous event already produced a "sent" decision for the same rule.
+    store.recordNotification({
+      eventId: "evt_rule_cooldown_prev",
+      ruleId: "rule-person",
+      ruleName: "Person anywhere",
+      cameraId: 1,
+      priority: "HIGH",
+      status: "sent",
+      reason: null,
+      eventTimestamp: "2026-10-10T09:50:00+05:30",
+    });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, {
+      enqueueMedia,
+      config: { ...ENABLED, faceDetectionTestNotificationCooldownSeconds: 0 },
+    });
+
+    expect(enqueueMedia).not.toHaveBeenCalled();
+  });
+
+  it("does not let the event's own prior decision suppress itself", async () => {
+    const store = memoryEventStore();
+    setRule(store, { cameraIds: [1], cooldownSeconds: 300 });
+    seedCompletedJob(store, { id: "evt_rule_self_cooldown", cameraId: 1 });
+    store.recordNotification({
+      eventId: "evt_rule_self_cooldown",
+      ruleId: "rule-person",
+      ruleName: "Person anywhere",
+      cameraId: 1,
+      priority: "HIGH",
+      status: "sent",
+      reason: null,
+      eventTimestamp: "2026-10-10T09:59:00+05:30",
+    });
+    const enqueueMedia = mediaSpy();
+
+    await run(store, {
+      enqueueMedia,
+      config: { ...ENABLED, faceDetectionTestNotificationCooldownSeconds: 0 },
+    });
+
+    expect(enqueueMedia).toHaveBeenCalledTimes(1);
   });
 });

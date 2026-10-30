@@ -1144,16 +1144,30 @@ export class EventStore {
   }
 
   /** Counts notifications actually delivered by a rule within a cooldown window. */
-  countSentSince(ruleId: string, sinceIso: string): number {
-    const row = this.db
-      .prepare(
-        // created_at is stored as a UTC ISO string while the cooldown window is
-        // formatted in IST (+05:30). Comparing those strings lexicographically
-        // is wrong across the offset boundary, so compare actual instants.
-        `SELECT COUNT(*) AS count FROM notification_history
-         WHERE rule_id = ? AND status = 'sent' AND julianday(created_at) >= julianday(?)`,
-      )
-      .get(ruleId, sinceIso) as { count: number };
+  countSentSince(ruleId: string, sinceIso: string, excludeEventId?: string): number {
+    // created_at is stored as a UTC ISO string while the cooldown window is
+    // formatted in IST (+05:30). Comparing those strings lexicographically is
+    // wrong across the offset boundary, so compare actual instants.
+    //
+    // excludeEventId is used by the face-notification path: the event may
+    // already have its own "sent" decision from event ingestion, and that row
+    // must not count as an earlier notification when checking its cooldown.
+    const row = (
+      excludeEventId === undefined
+        ? this.db
+            .prepare(
+              `SELECT COUNT(*) AS count FROM notification_history
+               WHERE rule_id = ? AND status = 'sent' AND julianday(created_at) >= julianday(?)`,
+            )
+            .get(ruleId, sinceIso)
+        : this.db
+            .prepare(
+              `SELECT COUNT(*) AS count FROM notification_history
+               WHERE rule_id = ? AND status = 'sent' AND julianday(created_at) >= julianday(?)
+                 AND event_id <> ?`,
+            )
+            .get(ruleId, sinceIso, excludeEventId)
+    ) as { count: number };
     return row.count;
   }
 

@@ -48,6 +48,51 @@ export function notificationSourceAllowed(
   return true;
 }
 
+/**
+ * Would the notification rules allow this event to generate a Telegram
+ * notification, using exactly the same rule engine as event ingestion?
+ *
+ * This is used by the face-detection notification path, which previously
+ * bypassed rules entirely. It evaluates the current rules for the event's own
+ * camera id, type/classification, priority and timestamp, including schedule,
+ * days, quiet hours, enabled state and cooldown. The event's own earlier
+ * decision (if any) is excluded from the cooldown count so re-checking an
+ * already-processed event cannot suppress itself.
+ */
+export type RuleEligibility = {
+  eligible: boolean;
+  matchingRules: string[];
+  reason: string;
+};
+
+export function notificationRuleEligibility(input: {
+  store: EventStore;
+  event: PipelineEvent;
+  at?: Date;
+}): RuleEligibility {
+  const { store, event } = input;
+  const at = input.at ?? new Date(event.timestamp);
+  const evaluation = evaluateRules(store.rules(), event, at, {
+    cooldownActive: (rule) =>
+      cooldownBlocks(
+        rule,
+        store.countSentSince(
+          rule.id,
+          formatKolkataIso(cooldownWindowStart(rule, at)),
+          event.id,
+        ),
+      ),
+  });
+  const eligible = evaluation.decisions.some((decision) => decision.notify);
+  const matchingRules = evaluation.decisions.map((decision) => decision.ruleName);
+  const reason = eligible
+    ? "rule_matched"
+    : matchingRules.length === 0
+      ? "no_matching_rule"
+      : evaluation.decisions.find((decision) => !decision.notify)?.reason ?? "rule_suppressed";
+  return { eligible, matchingRules, reason };
+}
+
 export type PipelineInput = {
   store: EventStore;
   event: PipelineEvent;

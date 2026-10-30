@@ -492,6 +492,17 @@ event snapshot ─► face worker ─► event_faces + face_processing (COMPLETE
                         existing browser Notification
 ```
 
+**Telegram is rule-gated.** The browser test notification above is its own
+documented decision, but a Telegram media job for a face detection is queued
+only when the **existing notification rules** accept the underlying event. The
+event's camera id, type/classification, priority, timestamp, schedule, days,
+quiet-hours behaviour, enabled state and cooldown are evaluated by the same rule
+engine used for DVR/AI events (`notificationRuleEligibility`). A face on a camera
+that the rule does not select therefore produces **no Telegram message**, while
+the selected cameras can still send media. Rule changes and deletions apply to
+the next face job without restarting the hub. No second camera filter exists in
+the Telegram path.
+
 - The **worker stays detection-only**; the hub makes the notification decision,
   because the notification history and the browser delivery channel live there.
 - The decision is recorded in the existing `notification_history` table with the
@@ -727,7 +738,9 @@ sent. The media carries a short caption in Telegram's `caption` field:
 ```
 
 The camera name and timestamp come from the event itself (never the upload
-time), and the confidence is the face detector's value. The face crop is read
+time), and the confidence is the face detector's value. Face-test Telegram media
+is only queued when an enabled notification rule accepts the event; rules remain
+the single source of truth for Telegram eligibility. The face crop is read
 from `DATA_DIR/face-crops` through the same path guard used by
 `/api/faces/<id>/image`, so a filesystem path or a public URL never reaches
 Telegram. This is still detection only: no person name and no embedding is ever

@@ -10,6 +10,7 @@ import {
 import { getCameraNameMap } from "@/server/cameras/names";
 import { publishLiveEvent, type LiveEvent } from "@/server/events/event-hub";
 import { openEventStore, type EventStore, type FaceTestCandidate } from "@/server/events/event-store";
+import { notificationRuleEligibility } from "@/server/events/event-pipeline";
 import { enqueueFaceMedia, type FaceMediaJob } from "@/server/notifications/telegram-media";
 
 /**
@@ -189,6 +190,20 @@ export async function runFaceTestNotifications(input: FaceTestRunInput): Promise
     const event = store.get(candidate.eventId);
     if (!event) continue;
 
+    /*
+     * The notification rules are the single source of truth for Telegram. This
+     * test mode must not bypass them: an event whose camera/type/priority/time
+     * is not accepted by an enabled rule gets the browser test notification (its
+     * documented separate decision) but never a Telegram media job.
+     */
+    const eligibility = notificationRuleEligibility({ store, event });
+    const eventType = `${event.type}/${event.classification ?? "none"}`;
+    logger(
+      `[telegram-rule] eventId=${candidate.eventId} cameraId=${cameraId} eventType=${eventType} ` +
+        `matchingRules=${eligibility.matchingRules.join(",") || "-"} eligible=${eligibility.eligible} ` +
+        `reason=${eligibility.reason}`,
+    );
+
     publish({
       notify: true,
       event: { ...event, cameraName },
@@ -208,6 +223,17 @@ export async function runFaceTestNotifications(input: FaceTestRunInput): Promise
      * FFmpeg run in the media worker, so nothing here waits for them.
      */
     let media: FaceTestDecision["media"] = "skipped";
+    if (!eligibility.eligible) {
+      logger(
+        `event=${candidate.eventId} camera=${cameraId} media=skipped reason=NO_RULE_ELIGIBLE rule_reason=${eligibility.reason}`,
+      );
+      decisions.push(decision(candidate, cameraName, "sent", "SENT", media));
+      logger(
+        `event=${candidate.eventId} camera=${cameraId} camera_name="${cameraName}" faces=${candidate.faces} ` +
+          `max_confidence=${candidate.maxConfidence.toFixed(2)} result=SENT media=skipped`,
+      );
+      continue;
+    }
     try {
       media = enqueueMedia({
         eventId: candidate.eventId,
