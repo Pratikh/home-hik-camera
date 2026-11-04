@@ -11,6 +11,8 @@ RequiresMountsFor=/opt/home-cctv
 
 [Service]
 Type=oneshot
+# Anything systemd/podman creates for this unit is owner-only.
+UMask=0077
 RemainAfterExit=yes
 WorkingDirectory=/opt/home-cctv
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

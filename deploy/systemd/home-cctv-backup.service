@@ -15,6 +15,8 @@ Type=oneshot
 # not read; it would also copy CCTV data back to root ownership.
 User=10001
 Group=10001
+# Host-created backup files (manifest, status file) must stay owner-only.
+UMask=0077
 WorkingDirectory=/opt/home-cctv
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # The script defaults to <project>/data and <project>/backups with seven

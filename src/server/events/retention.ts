@@ -18,6 +18,14 @@ export type RetentionResult = {
   crops: number;
   /** Crop files that no face row referenced any more, removed defensively. */
   orphanedCrops: number;
+  /** Object-detection track metadata rows removed with the event window. */
+  detectionTracks: number;
+  /** Audit-log rows removed by the audit retention window (0 when disabled). */
+  auditLogs: number;
+  /** Old object-detection test-request rows removed. */
+  testRequests: number;
+  /** Stale viewer-presence rows removed. */
+  presence: number;
 };
 
 /** Only files this project wrote are ever swept. */
@@ -80,15 +88,27 @@ export async function sweepOrphanFaceCrops(dataDir: string, known: Set<string>):
 export async function runRetention(input: {
   store: EventStore;
   dataDir: string;
-  cutoffIso: string;
+  /** Event/media cutoff, or null when event retention is disabled (0 days). */
+  cutoffIso: string | null;
+  /** Audit-log cutoff, or null when audit retention is disabled. */
+  auditCutoffIso?: string | null;
+  /** Cutoff for completed detection-test requests (defaults to the event cutoff). */
+  testRequestCutoffIso?: string;
+  /** Epoch-ms cutoff for stale viewer-presence rows. */
+  presenceBeforeMs?: number;
 }): Promise<RetentionResult> {
   const { store, dataDir, cutoffIso } = input;
 
-  const snapshotPaths = store.snapshotPathsBefore(cutoffIso);
-  const cropPaths = store.faceCropPathsBefore(cutoffIso);
+  const snapshotPaths = cutoffIso ? store.snapshotPathsBefore(cutoffIso) : [];
+  const cropPaths = cutoffIso ? store.faceCropPathsBefore(cutoffIso) : [];
 
-  const events = store.deleteOlderThan(cutoffIso);
-  const notifications = store.deleteNotificationsOlderThan(cutoffIso);
+  const events = cutoffIso ? store.deleteOlderThan(cutoffIso) : 0;
+  const notifications = cutoffIso ? store.deleteNotificationsOlderThan(cutoffIso) : 0;
+  const detectionTracks = cutoffIso ? store.pruneObjectDetectionTracks(cutoffIso) : 0;
+  const auditLogs = input.auditCutoffIso ? store.pruneAuditLogs(input.auditCutoffIso) : 0;
+  const testRequestCutoff = input.testRequestCutoffIso ?? cutoffIso;
+  const testRequests = testRequestCutoff ? store.pruneObjectDetectionTestRequests(testRequestCutoff) : 0;
+  const presence = typeof input.presenceBeforeMs === "number" ? store.pruneViewerPresence(input.presenceBeforeMs) : 0;
 
   let snapshots = 0;
   for (const relative of snapshotPaths) {
@@ -130,5 +150,9 @@ export async function runRetention(input: {
     orphanedSnapshots: snapshotSweep.deleted,
     crops,
     orphanedCrops,
+    detectionTracks,
+    auditLogs,
+    testRequests,
+    presence,
   };
 }

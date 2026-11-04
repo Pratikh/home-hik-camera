@@ -217,23 +217,40 @@ function cleanup(): void {
     const store = openEventStore(config.dataDir);
     const override = store.setting("retention_days");
     const days = override && /^\d+$/.test(override) ? Number(override) : config.eventRetentionDays;
-    if (days <= 0) return;
     // Stored timestamps carry the Asia/Kolkata offset, so a Kolkata-formatted
-    // cutoff compares correctly and cannot delete "today" early.
-    const cutoff = formatKolkataIso(new Date(Date.now() - days * 24 * 60 * 60 * 1000));
+    // cutoff compares correctly and cannot delete "today" early. Event retention
+    // may be disabled (0), but privacy retention below still runs.
+    const cutoff = days > 0 ? formatKolkataIso(new Date(Date.now() - days * 24 * 60 * 60 * 1000)) : null;
+    const auditCutoff =
+      config.auditLogRetentionDays > 0
+        ? formatKolkataIso(new Date(Date.now() - config.auditLogRetentionDays * 24 * 60 * 60 * 1000))
+        : null;
+    const testRequestCutoff = formatKolkataIso(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+    const presenceBeforeMs = Date.now() - 24 * 60 * 60 * 1000;
     /*
      * Snapshots and face crops belong to the event rows just deleted. This
      * removes files this hub wrote; it never touches DVR or MediaMTX
      * recordings. Face crops are cleaned in the same pass so detection cannot
      * leave orphaned files behind.
      */
-    void runRetention({ store, dataDir: config.dataDir, cutoffIso: cutoff })
+    void runRetention({
+      store,
+      dataDir: config.dataDir,
+      cutoffIso: cutoff,
+      auditCutoffIso: auditCutoff,
+      testRequestCutoffIso: testRequestCutoff,
+      presenceBeforeMs,
+    })
       .then((result) => {
         if (result.events > 0) console.info("[events] retention removed", result.events);
         if (result.notifications > 0) console.info("[events] retention removed notifications", result.notifications);
         if (result.orphanedSnapshots > 0) console.info("[events] retention removed orphan snapshots", result.orphanedSnapshots);
         if (result.crops > 0) console.info("[events] retention removed face crops", result.crops);
         if (result.orphanedCrops > 0) console.info("[events] retention removed orphan face crops", result.orphanedCrops);
+        if (result.detectionTracks > 0) console.info("[events] retention removed detection tracks", result.detectionTracks);
+        if (result.auditLogs > 0) console.info("[events] retention removed audit rows", result.auditLogs);
+        if (result.testRequests > 0) console.info("[events] retention removed test requests", result.testRequests);
+        if (result.presence > 0) console.info("[events] retention removed presence rows", result.presence);
         const record = (key: string, value: number | string): void => {
           try {
             store.setSetting(key, String(value));
@@ -249,6 +266,10 @@ function cleanup(): void {
         record("retention_last_orphaned_snapshots", result.orphanedSnapshots);
         record("retention_last_crops", result.crops);
         record("retention_last_orphaned_crops", result.orphanedCrops);
+        record("retention_last_detection_tracks", result.detectionTracks);
+        record("retention_last_audit_logs", result.auditLogs);
+        record("retention_last_test_requests", result.testRequests);
+        record("retention_last_presence", result.presence);
       })
       .catch((error) => {
         console.error("[events] retention", error instanceof Error ? error.name : "error");

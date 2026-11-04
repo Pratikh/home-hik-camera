@@ -34,6 +34,8 @@ export type AppConfig = {
   dataDir: string;
   eventPollIntervalMs: number;
   eventRetentionDays: number;
+  /** Days to keep audit_logs rows. 0 keeps them forever (not recommended). */
+  auditLogRetentionDays: number;
   aiEnabled: boolean;
   eventDevMock: boolean;
   mediamtxAuthUser: string;
@@ -162,6 +164,7 @@ export function readConfig(env: Env): AppConfig {
     dataDir: (env.DATA_DIR ?? "").trim() || "data",
     eventPollIntervalMs: readBoundedInt(env.EVENT_POLL_INTERVAL_MS, 5000, 1000, 300000),
     eventRetentionDays: readBoundedInt(env.EVENT_RETENTION_DAYS, 30, 0, 3650),
+    auditLogRetentionDays: readBoundedInt(env.AUDIT_LOG_RETENTION_DAYS, 365, 0, 3650),
     aiEnabled: (env.AI_ENABLED ?? "").trim().toLowerCase() === "true",
     eventDevMock: (env.NODE_ENV ?? "") !== "production" && (env.EVENT_DEV_MOCK ?? "").trim().toLowerCase() === "true",
     mediamtxAuthUser: (env.MEDIAMTX_AUTH_USER ?? "hub").trim() || "hub",

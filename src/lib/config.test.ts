@@ -160,6 +160,16 @@ describe("telegram media flags", () => {
   });
 });
 
+describe("data retention configuration", () => {
+  it("defaults audit retention to one year and bounds it", () => {
+    expect(readConfig({}).auditLogRetentionDays).toBe(365);
+    expect(readConfig({ AUDIT_LOG_RETENTION_DAYS: "30" }).auditLogRetentionDays).toBe(30);
+    expect(readConfig({ AUDIT_LOG_RETENTION_DAYS: "0" }).auditLogRetentionDays).toBe(0);
+    expect(readConfig({ AUDIT_LOG_RETENTION_DAYS: "-1" }).auditLogRetentionDays).toBe(365);
+    expect(readConfig({ AUDIT_LOG_RETENTION_DAYS: "lots" }).auditLogRetentionDays).toBe(365);
+  });
+});
+
 describe("trusted proxy configuration", () => {
   it("defaults to trusting no forwarding headers", () => {
     expect(readConfig({}).trustedProxies).toEqual([]);

@@ -454,3 +454,9 @@ three static addresses in both `compose.yml` and `MEDIAMTX_NETWORK` in
 match). Rootless Podman needs the same subuid ownership migration as Phase 2;
 rootful Podman remains the documented default.
 
+
+> Note: the application also enforces `0700` on `DATA_DIR` and `0600` on
+> `events.sqlite` plus its WAL/SHM sidecars on every start, so an existing
+> `0755`/`0644` tree is repaired on the next restart. The systemd units set
+> `UMask=0077` for host-created files. The manual `chmod` above remains useful
+> for immediate hardening before that restart.

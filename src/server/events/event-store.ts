@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type {
@@ -1732,15 +1732,84 @@ export class EventStore {
       .get(ruleId, cameraId) as { finished_at: string } | undefined;
     return row?.finished_at ?? null;
   }
+
+  /**
+   * Delete detection track metadata older than the event-retention cutoff.
+   *
+   * Tracks have no foreign key to events (they are written by the object worker
+   * before the hub creates an event), so they are pruned on their own timestamp.
+   * Without this they would outlive the event retention window forever and keep
+   * camera/class/bbox/time metadata on disk indefinitely.
+   */
+  pruneObjectDetectionTracks(cutoffIso: string): number {
+    const result = this.db.prepare("DELETE FROM object_detection_tracks WHERE last_seen < ?").run(cutoffIso);
+    return Number(result.changes);
+  }
+
+  /** Delete audit rows older than the audit-retention cutoff (ISO timestamp). */
+  pruneAuditLogs(cutoffIso: string): number {
+    const result = this.db.prepare("DELETE FROM audit_logs WHERE created_at < ?").run(cutoffIso);
+    return Number(result.changes);
+  }
+
+  /** Delete completed/expired detection-test requests older than the cutoff. */
+  pruneObjectDetectionTestRequests(cutoffIso: string): number {
+    const result = this.db.prepare("DELETE FROM object_detection_test_requests WHERE created_at < ?").run(cutoffIso);
+    return Number(result.changes);
+  }
+
+  /** Delete stale viewer-presence rows (a presence is meaningful for seconds). */
+  pruneViewerPresence(beforeMs: number): number {
+    const result = this.db.prepare("DELETE FROM viewer_presence WHERE seen_at < ?").run(beforeMs);
+    return Number(result.changes);
+  }
 }
 
 const stores = new Map<string, EventStore>();
 
+/**
+ * Restrict the data directory and the SQLite files to the service user.
+ *
+ * `node:sqlite` creates the database with the process umask (022 in the image),
+ * so without this the database and its WAL/SHM sidecars are world-readable.
+ * SQLite keeps the mode of an existing file, so the chmod is idempotent and
+ * repairs older installs on the next start.
+ */
+function hardenDataPermissions(dataDir: string, dbPath: string): void {
+  const restrict = (target: string, mode: number): void => {
+    try {
+      chmodSync(target, mode);
+    } catch {
+      // Not the owner (root-owned legacy file), read-only mount, or a race with
+      // SQLite creating the WAL. The startup health check will surface a real
+      // write problem; permissions are best-effort here.
+    }
+  };
+  restrict(dataDir, 0o700);
+  restrict(dbPath, 0o600);
+  // SQLite may not have created the sidecars yet; chmod is idempotent and a
+  // missing file is ignored inside restrict(). The turbopackIgnore annotations
+  // stop the bundler from treating these computed paths as a dynamic
+  // filesystem-tree dependency (which would trace the whole project into the
+  // standalone build).
+  restrict(/* turbopackIgnore: true */ `${dbPath}-wal`, 0o600);
+  restrict(/* turbopackIgnore: true */ `${dbPath}-shm`, 0o600);
+}
+
 export function openEventStore(dataDir: string): EventStore {
   const existing = stores.get(dataDir);
   if (existing) return existing;
-  mkdirSync(dataDir, { recursive: true });
-  const db = new DatabaseSync(path.join(dataDir, "events.sqlite"));
+  /*
+   * The data directory holds the camera database (password hashes, sessions,
+   * audit rows, event metadata), face crops and snapshots. It must not be
+   * world-readable on the host. The mode is applied on every open so an
+   * existing install is fixed on the next restart without a manual chmod.
+   * Failures are ignored rather than fatal (a read-only or root-owned tree must
+   * still let the process start and report the error where it matters).
+   */
+  mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+  const dbPath = path.join(dataDir, "events.sqlite");
+  const db = new DatabaseSync(dbPath);
   /*
    * The local face worker reads and writes this same database from a separate
    * process. WAL lets the two read concurrently, busy_timeout makes a brief
@@ -1759,6 +1828,7 @@ export function openEventStore(dataDir: string): EventStore {
    */
   db.exec("PRAGMA journal_size_limit = 67108864");
   db.exec("PRAGMA wal_autocheckpoint = 1000");
+  hardenDataPermissions(dataDir, dbPath);
   const store = new EventStore(db);
   stores.set(dataDir, store);
   return store;

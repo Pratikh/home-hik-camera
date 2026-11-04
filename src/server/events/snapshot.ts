@@ -63,7 +63,8 @@ export async function captureEventSnapshot(input: {
   if (!bytes.subarray(0, 3).equals(JPEG_MAGIC)) return null;
 
   try {
-    await mkdir(path.dirname(target), { recursive: true });
+    // Snapshot directories live inside DATA_DIR; keep them owner-only.
+    await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
     await writeFile(target, bytes, { mode: 0o600 });
   } catch (error) {
     console.error("[events] snapshot write", error instanceof Error ? error.name : "error");
