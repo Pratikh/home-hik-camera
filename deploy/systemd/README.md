@@ -10,6 +10,12 @@ not change the architecture, add Docker, or start anything from application code
   `FACE_DETECTION_ENABLED=true` and the model is present.
 - `home-cctv-backup.service` + `.timer` — daily `scripts/backup.sh` at 03:30
   with `Persistent=true`.
+- `home-cctv-reboot-dvr.service` + `.timer` — optional daily Hikvision DVR
+  reboot at **00:00 IST** via the existing `scripts/reboot-dvr.sh` (ISAPI,
+  digest auth, credentials from `/opt/home-cctv/.env`). It has **no**
+  `Persistent=true`: if the host was off at midnight the DVR must not be
+  rebooted unexpectedly when the host boots later. Prefer 03:30–04:30 over
+  midnight if recording continuity matters; change `OnCalendar` in the timer.
 
 ## Assumptions
 
@@ -29,6 +35,9 @@ cd /opt/home-cctv
 sudo install -m 644 deploy/systemd/home-cctv.service /etc/systemd/system/
 sudo install -m 644 deploy/systemd/home-cctv-backup.service /etc/systemd/system/
 sudo install -m 644 deploy/systemd/home-cctv-backup.timer /etc/systemd/system/
+# Optional: daily DVR reboot (skip if the DVR handles its own schedule):
+sudo install -m 644 deploy/systemd/home-cctv-reboot-dvr.service /etc/systemd/system/
+sudo install -m 644 deploy/systemd/home-cctv-reboot-dvr.timer /etc/systemd/system/
 # Optional, only when face detection is enabled:
 sudo install -m 644 deploy/systemd/home-cctv-face-worker.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -42,6 +51,7 @@ sudo systemctl enable --now home-cctv.service
 sudo systemctl enable --now home-cctv-backup.timer
 # Optional:
 sudo systemctl enable --now home-cctv-face-worker.service
+sudo systemctl enable --now home-cctv-reboot-dvr.timer
 ```
 
 ## Verify
@@ -49,7 +59,7 @@ sudo systemctl enable --now home-cctv-face-worker.service
 ```bash
 systemctl is-enabled home-cctv.service
 systemctl status home-cctv.service --no-pager
-systemctl list-timers home-cctv-backup.timer --no-pager
+systemctl list-timers home-cctv-backup.timer home-cctv-reboot-dvr.timer --no-pager
 podman compose -f /opt/home-cctv/compose.yml ps
 curl -fsS http://127.0.0.1:3000/api/health
 ```
@@ -63,6 +73,11 @@ A manual backup and restore rehearsal:
 sudo systemctl start home-cctv-backup.service
 journalctl -u home-cctv-backup.service -n 50 --no-pager
 sudo -u root /opt/home-cctv/scripts/verify-backup.sh /opt/home-cctv/backups/<timestamp>
+
+# DVR reboot: read-only check / dry run / manual reboot with verification
+sudo /opt/home-cctv/scripts/reboot-dvr.sh --check
+sudo /opt/home-cctv/scripts/reboot-dvr.sh --dry-run
+sudo /opt/home-cctv/scripts/reboot-dvr.sh --verify
 ```
 
 The same backup status appears on `/settings/system` (last successful backup,

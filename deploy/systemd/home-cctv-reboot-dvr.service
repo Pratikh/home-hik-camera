@@ -1,0 +1,18 @@
+[Unit]
+# Daily maintenance reboot of the Hikvision DVR through its ISAPI endpoint.
+# This is deliberately NOT Persistent: a missed midnight run must not reboot
+# the DVR in the middle of the day when the server boots later.
+Description=Daily Hikvision DVR maintenance reboot
+Documentation=file:/opt/home-cctv/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/home-cctv
+# /opt/home-cctv/.env is root:root 0600 and contains the DVR credentials.
+User=root
+EnvironmentFile=-/etc/default/home-cctv
+ExecStart=/opt/home-cctv/scripts/reboot-dvr.sh
+# The ISAPI PUT itself is quick; the DVR boots on its own afterwards.
+TimeoutStartSec=120

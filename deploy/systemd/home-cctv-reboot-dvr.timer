@@ -1,0 +1,12 @@
+[Unit]
+# Midnight IST. systemd resolves the zone suffix directly (systemd >= 240,
+# Ubuntu 24.04/26.04). No Persistent= on purpose: see the service comment.
+Description=Daily midnight Hikvision DVR maintenance reboot
+
+[Timer]
+OnCalendar=*-*-* 00:00:00 Asia/Kolkata
+RandomizedDelaySec=0
+Unit=home-cctv-reboot-dvr.service
+
+[Install]
+WantedBy=timers.target
