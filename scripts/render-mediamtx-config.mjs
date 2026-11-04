@@ -20,6 +20,16 @@ export const MEDIAMTX_NETWORK = {
 /** Dedicated read-only RTSP user for the object-detection worker. */
 export const MEDIAMTX_WORKER_USER = "worker";
 
+/**
+ * Source address used by the in-container healthcheck.
+ *
+ * The healthcheck runs inside the MediaMTX container and probes the Control API
+ * over loopback, so the hub account must also be allowed from 127.0.0.1. That
+ * address is reachable only from within the container; no other container can
+ * present it.
+ */
+export const MEDIAMTX_HEALTHCHECK_IP = "127.0.0.1";
+
 export function cameraStreamPlan() {
   const plan = [];
   for (let id = 1; id <= 4; id += 1) {
@@ -145,7 +155,7 @@ export function mediamtxUsers(env) {
   return [
     `  - user: ${auth.user}`,
     `    pass: ${yamlString(auth.password)}`,
-    `    ips: [${yamlString(`${MEDIAMTX_NETWORK.hub}/32`)}]`,
+    `    ips: [${yamlString(`${MEDIAMTX_NETWORK.hub}/32`)}, ${yamlString(`${MEDIAMTX_HEALTHCHECK_IP}/32`)}]`,
     "    permissions:",
     "      - action: read",
     "      - action: playback",

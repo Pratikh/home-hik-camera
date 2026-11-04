@@ -409,9 +409,10 @@ Phase 3 (STR-01/STR-02) adds, on top of the hardening above:
 
 - **No anonymous Control API.** The rendered MediaMTX config now contains no
   `user: any` in production. The hub account owns `read`/`playback`/`api` and is
-  bound by source address to the web container; the object worker gets a separate
-  read-only `worker` account bound to its address. The hub sends HTTP Basic auth
-  on every `/v3/...` call.
+  bound by source address to the web container and to its own loopback address
+  (the authenticated healthcheck runs inside the MediaMTX container); the object
+  worker gets a separate read-only `worker` account bound to its address. The hub
+  sends HTTP Basic auth on every `/v3/...` call.
 - **Static addresses on an internal media network.** `compose.yml` defines:
   - `media` — `internal: true`, subnet `172.28.0.0/24`, static addresses:
     web `172.28.0.10`, MediaMTX `172.28.0.11`, object-worker `172.28.0.12`;

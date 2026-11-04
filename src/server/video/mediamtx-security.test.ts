@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  MEDIAMTX_HEALTHCHECK_IP,
   MEDIAMTX_NETWORK,
   MEDIAMTX_WORKER_USER,
   mediamtxUsers,
@@ -26,7 +27,7 @@ describe("MediaMTX control-plane authentication", () => {
 
     const hub = blockFor(yaml, "  - user: hub");
     expect(hub).toContain(`    pass: "${AUTH}"`);
-    expect(hub).toContain(`    ips: ["${MEDIAMTX_NETWORK.hub}/32"]`);
+    expect(hub).toContain(`    ips: ["${MEDIAMTX_NETWORK.hub}/32", "${MEDIAMTX_HEALTHCHECK_IP}/32"]`);
     expect(hub).toContain("      - action: read");
     expect(hub).toContain("      - action: playback");
     expect(hub).toContain("      - action: api");
