@@ -4,6 +4,7 @@ import { requestUsesHttps, sessionCookieOptions } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { COOKIE_NAME, verifySession } from "@/lib/session";
 import { accountStore } from "@/server/auth/accounts";
+import { requestClientIp } from "@/server/http/client-ip";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
         userId: session?.userId ?? null,
         action: "LOGOUT",
         resource: session?.username ?? verified.username,
-        ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+        ip: requestClientIp(request),
         userAgent: request.headers.get("user-agent"),
       });
     }

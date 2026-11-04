@@ -3,6 +3,7 @@ import { getConfig } from "@/lib/config";
 import { validateNewPassword } from "@/lib/passwords";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { accountStore, type Role } from "@/server/auth/accounts";
+import { requestClientIp } from "@/server/http/client-ip";
 import { requireAdmin } from "@/server/http/require-user";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     action: "USER_CREATED",
     resource: username,
     metadata: { role },
-    ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    ip: requestClientIp(request),
     userAgent: request.headers.get("user-agent"),
   });
   return NextResponse.json({ user: { id: created.id, username: created.username, role: created.role, enabled: created.enabled } }, { status: 201 });

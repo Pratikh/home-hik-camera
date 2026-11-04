@@ -1,5 +1,11 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "edge") return;
+  // Node-only: capture the real TCP peer address before Next starts accepting
+  // connections, so route handlers can ignore spoofed forwarding headers from
+  // untrusted peers. Imported dynamically inside the runtime check so the edge
+  // instrumentation bundle never pulls in node:http.
+  const { installPeerIpCapture } = await import("@/lib/peer-ip");
+  installPeerIpCapture();
   const { ensureEventProcessor } = await import("@/server/events/event-processor");
   ensureEventProcessor();
   // Temporary face-notification test mode. It only starts a timer when
@@ -21,12 +27,17 @@ export async function register() {
   // startup and then hourly; active sessions are never touched.
   const { getConfig } = await import("@/lib/config");
   const { accountStore } = await import("@/server/auth/accounts");
+  const { pruneLoginThrottle } = await import("@/server/auth/login-throttle");
   const { ensureThumbnailWorker } = await import("@/server/playback/thumbnail-worker");
   const { pruneExpired } = await import("@/server/playback/thumbnail-store");
   ensureThumbnailWorker();
   const prune = (): void => {
     try {
-      accountStore(getConfig().dataDir).pruneExpiredSessions();
+      const accounts = accountStore(getConfig().dataDir);
+      accounts.pruneExpiredSessions();
+      // Login throttling rows are bounded on their own, but random-username
+      // attempts must not accumulate a row per guess forever.
+      pruneLoginThrottle(accounts.db);
     } catch (error) {
       console.error("[auth] session prune", error instanceof Error ? error.name : "error");
     }

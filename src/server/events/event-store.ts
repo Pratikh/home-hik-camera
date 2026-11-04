@@ -318,6 +318,19 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 CREATE INDEX IF NOT EXISTS audit_logs_created_at ON audit_logs(created_at);
 CREATE INDEX IF NOT EXISTS audit_logs_action ON audit_logs(action);
+-- Persistent, auto-expiring login throttling (account + client address).
+-- Kept in SQLite so a process restart does not reset an attack in progress.
+CREATE TABLE IF NOT EXISTS login_throttle (
+  key_type TEXT NOT NULL,
+  key TEXT NOT NULL,
+  failures INTEGER NOT NULL DEFAULT 0,
+  window_started_at INTEGER NOT NULL,
+  locked_until INTEGER NOT NULL DEFAULT 0,
+  lock_level INTEGER NOT NULL DEFAULT 0,
+  last_failure_at INTEGER NOT NULL,
+  PRIMARY KEY (key_type, key)
+);
+CREATE INDEX IF NOT EXISTS login_throttle_last_failure ON login_throttle(last_failure_at);
 CREATE TABLE IF NOT EXISTS viewer_presence (
   user_id TEXT NOT NULL,
   path TEXT NOT NULL,

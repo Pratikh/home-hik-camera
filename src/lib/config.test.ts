@@ -159,3 +159,18 @@ describe("telegram media flags", () => {
     expect(readConfig({ ...base, TELEGRAM_VIDEO_TIMEOUT_SECONDS: "1" }).telegramVideoTimeoutSeconds).toBe(30);
   });
 });
+
+describe("trusted proxy configuration", () => {
+  it("defaults to trusting no forwarding headers", () => {
+    expect(readConfig({}).trustedProxies).toEqual([]);
+    expect(readConfig({ TRUSTED_PROXY_CIDRS: "   " }).trustedProxies).toEqual([]);
+  });
+
+  it("parses a comma-separated proxy list without inventing entries", () => {
+    expect(readConfig({ TRUSTED_PROXY_CIDRS: "127.0.0.1, ::1 ,10.0.0.0/8" }).trustedProxies).toEqual([
+      "127.0.0.1",
+      "::1",
+      "10.0.0.0/8",
+    ]);
+  });
+});

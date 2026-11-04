@@ -1,5 +1,6 @@
 import "server-only";
 
+import { parseTrustedProxies } from "@/lib/client-ip";
 import { DEFAULT_FACE_TEST_COOLDOWN_SECONDS } from "@/lib/faces";
 import { DEFAULT_THUMBNAIL_INTERVAL_SECONDS } from "@/lib/playback-thumbnail";
 
@@ -12,6 +13,12 @@ export type AppConfig = {
   appPassword: string;
   sessionSecret: string;
   cookieSecure: boolean;
+  /**
+   * IPs/CIDRs whose forwarding headers may be trusted (the tunnel/proxy
+   * process). Empty means "never trust forwarding headers": the TCP peer
+   * address is used as-is.
+   */
+  trustedProxies: string[];
   dvrHost: string;
   dvrHttpPort: number;
   dvrRtspPort: number;
@@ -139,6 +146,7 @@ export function readConfig(env: Env): AppConfig {
     appPassword,
     sessionSecret,
     cookieSecure: (env.COOKIE_SECURE ?? "").trim().toLowerCase() === "true",
+    trustedProxies: parseTrustedProxies(env.TRUSTED_PROXY_CIDRS),
     dvrHost,
     dvrHttpPort,
     dvrRtspPort,

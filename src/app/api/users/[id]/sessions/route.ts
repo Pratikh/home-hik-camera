@@ -3,6 +3,7 @@ import { requestUsesHttps, sessionCookieOptions } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { COOKIE_NAME } from "@/lib/session";
 import { accountStore } from "@/server/auth/accounts";
+import { requestClientIp } from "@/server/http/client-ip";
 import { requireAdmin } from "@/server/http/require-user";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     action: "USER_SESSIONS_REVOKED",
     resource: target.username,
     metadata: { revoked },
-    ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    ip: requestClientIp(request),
     userAgent: request.headers.get("user-agent"),
   });
 

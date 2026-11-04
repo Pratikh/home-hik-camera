@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { DetectionSettingsResponse } from "@/lib/api-types";
 import { getConfig } from "@/lib/config";
+import { requestClientIp } from "@/server/http/client-ip";
 import {
   DETECTION_SOURCES,
   DETECTION_SOURCE_DESCRIPTIONS,
@@ -100,7 +101,7 @@ export async function PUT(request: Request) {
       detectionSource: settings.value.detectionSource,
       cameras: cameras.value.filter((camera) => camera.enabled).length,
     },
-    ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
+    ip: requestClientIp(request),
     userAgent: request.headers.get("user-agent"),
   });
 

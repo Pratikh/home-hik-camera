@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getConfig } from "@/lib/config";
 import { validateNewPassword } from "@/lib/passwords";
 import { accountStore, type Role } from "@/server/auth/accounts";
+import { requestClientIp } from "@/server/http/client-ip";
 import { requireAdmin } from "@/server/http/require-user";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     action,
     resource: id,
     metadata: { role: patch.role ?? null, enabled: patch.enabled ?? null },
-    ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    ip: requestClientIp(request),
     userAgent: request.headers.get("user-agent"),
   });
   return NextResponse.json({ ok: true });
@@ -54,7 +55,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
     userId: auth.userId,
     action: "USER_DELETED",
     resource: id,
-    ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+    ip: requestClientIp(request),
     userAgent: request.headers.get("user-agent"),
   });
   return new NextResponse(null, { status: 204 });
