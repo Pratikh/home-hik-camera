@@ -173,14 +173,18 @@ podman compose ps                  # object-worker should be healthy
 podman compose logs -f object-worker
 ```
 
-No profile flag and no manual model step are needed. On the first start the
-container provisions the YOLOX-Nano model once into `./object-worker/models`
-(checksum verified, ~3.6 MB). If the file is already present it is verified and
-reused, so later starts are offline-safe; to pre-fetch it on an air-gapped host:
+The model is provisioned **on the host once, before the worker starts**
+(checksum verified, ~3.6 MB); the container mount is read-only and nothing
+downloads at runtime:
 
 ```bash
 npm run object:model               # python3 object-worker/scripts/download_model.py
 ```
+
+If the model is missing, `object-worker` exits at start with an actionable
+message instead of downloading it. A fresh install therefore provisions the
+model first, then runs `podman compose up -d`; see
+[docs/Container-Hardening.md](Container-Hardening.md).
 
 Then enable detection and at least one camera in `/settings/detection`. That is
 the only switch: Compose controls whether the worker process exists, SQLite

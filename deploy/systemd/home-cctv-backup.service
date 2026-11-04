@@ -9,6 +9,12 @@ RequiresMountsFor=/opt/home-cctv
 
 [Service]
 Type=oneshot
+# Run as the same uid that owns ./data and ./backups (see
+# docs/Container-Hardening.md). Running the backup as root would recreate
+# data/backup-status.json as root:0600, which the non-root web container could
+# not read; it would also copy CCTV data back to root ownership.
+User=10001
+Group=10001
 WorkingDirectory=/opt/home-cctv
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # The script defaults to <project>/data and <project>/backups with seven
