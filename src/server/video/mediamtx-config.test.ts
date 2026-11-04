@@ -34,6 +34,21 @@ describe("MediaMTX config", () => {
     expect(empty).not.toContain("rtsp://");
   });
 
+  it("falls back to the HIKVISION_* aliases when the primary values are empty", () => {
+    const yaml = renderMediamtxConfig({
+      DVR_HOST: "",
+      HIKVISION_IP: "10.0.0.8",
+      DVR_USERNAME: "",
+      HIKVISION_USERNAME: "admin",
+      DVR_PASSWORD: "",
+      HIKVISION_PASSWORD: "p@ss/word",
+      MEDIAMTX_AUTH_PASSWORD: AUTH,
+    });
+    expect(yaml).toContain("rtsp://admin:");
+    expect(yaml).toContain(encodeURIComponent("p@ss/word"));
+    expect(yaml).toContain("Streaming/Channels/102");
+  });
+
   it("requires a MediaMTX read credential unless anonymous mode is explicit", () => {
     expect(() => renderMediamtxConfig({})).toThrow(/MEDIAMTX_AUTH_PASSWORD is required/);
     expect(() => renderMediamtxConfig({ MEDIAMTX_AUTH_PASSWORD: "short" })).toThrow(/at least 16/);

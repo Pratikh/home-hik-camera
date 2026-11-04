@@ -55,7 +55,11 @@ function yamlString(value) {
 function rtspSource(env, channel) {
   const host = String(env.DVR_HOST || env.HIKVISION_IP || "").trim();
   const username = String(env.DVR_USERNAME || env.HIKVISION_USERNAME || "");
-  const password = String(env.DVR_PASSWORD ?? env.HIKVISION_PASSWORD ?? "");
+  // Compose passes every alias explicitly, so an unset DVR_PASSWORD arrives as
+  // an empty string. Treat empty as absent (like the host/username aliases) or
+  // the empty primary shadows HIKVISION_PASSWORD and every path renders
+  // publisher-only, leaving live view without a source.
+  const password = String(env.DVR_PASSWORD || env.HIKVISION_PASSWORD || "");
   const port = String(env.DVR_RTSP_PORT || "554").trim();
   if (!host || !username || !password) return null;
   if (!isSafeHost(host)) {
