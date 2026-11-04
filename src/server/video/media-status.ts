@@ -1,5 +1,6 @@
 import "server-only";
 import { getConfig } from "@/lib/config";
+import { mediamtxAuthHeaders } from "@/server/video/mediamtx-auth";
 import { describeStreamPath } from "@/server/cameras/channels";
 
 /**
@@ -71,7 +72,11 @@ export async function getMediaStatus(deps: MediaStatusDeps = {}): Promise<MediaS
 
   const get = async (path: string): Promise<unknown | null> => {
     try {
-      const response = await fetchImpl(`${apiUrl}${path}`, { cache: "no-store", signal: AbortSignal.timeout(timeoutMs) });
+      const response = await fetchImpl(`${apiUrl}${path}`, {
+        cache: "no-store",
+        headers: mediamtxAuthHeaders(),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
       if (!response.ok) return null;
       return (await response.json()) as unknown;
     } catch {

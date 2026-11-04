@@ -7,13 +7,16 @@ FROM node:24-alpine3.21
 RUN apk add --no-cache ca-certificates wget
 COPY --from=mediamtx /mediamtx /usr/local/bin/mediamtx
 COPY scripts/render-mediamtx-config.mjs /opt/cctv/render-mediamtx-config.mjs
+COPY scripts/run-mediamtx.mjs /opt/cctv/run-mediamtx.mjs
+COPY scripts/mediamtx-log-redact.mjs /opt/cctv/mediamtx-log-redact.mjs
 COPY mediamtx/entrypoint.sh /entrypoint.sh
+COPY mediamtx/healthcheck.mjs /usr/local/bin/healthcheck.mjs
 # uid/gid 10001 (name `cctv`) is shared by every image. MediaMTX only needs to
 # bind high ports (8554/8888/8889/8189/9997), read its rendered config and keep
 # its state in memory; it never needs root. compose.yml makes the image
 # filesystem read-only and mounts /tmp as a tmpfs, because entrypoint.sh renders
 # the config there.
-RUN chmod +x /entrypoint.sh \
+RUN chmod +x /entrypoint.sh /usr/local/bin/healthcheck.mjs \
   && addgroup -g 10001 -S cctv \
   && adduser -u 10001 -S -D -H -G cctv -h /tmp -s /sbin/nologin cctv
 # Any accidental per-user cache write (Node tooling) goes to the writable tmpfs.

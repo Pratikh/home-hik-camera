@@ -402,3 +402,55 @@ systemd units become per-user units and the backup timer runs as that user
 (`deploy/systemd/README.md` has the per-user unit commands). Verify with
 `podman unshare ls -ln data` — the files must show as `10001:10001` inside the
 namespace.
+
+## 8. Phase 3: MediaMTX control plane and network separation
+
+Phase 3 (STR-01/STR-02) adds, on top of the hardening above:
+
+- **No anonymous Control API.** The rendered MediaMTX config now contains no
+  `user: any` in production. The hub account owns `read`/`playback`/`api` and is
+  bound by source address to the web container; the object worker gets a separate
+  read-only `worker` account bound to its address. The hub sends HTTP Basic auth
+  on every `/v3/...` call.
+- **Static addresses on an internal media network.** `compose.yml` defines:
+  - `media` — `internal: true`, subnet `172.28.0.0/24`, static addresses:
+    web `172.28.0.10`, MediaMTX `172.28.0.11`, object-worker `172.28.0.12`;
+  - `egress` — the outbound-only network used by web (DVR ISAPI + Telegram) and
+    MediaMTX (DVR RTSP). Workers are not attached to it.
+  - `face-worker` uses `network_mode: "none"` (it only touches the database).
+  The static addresses are duplicated in `scripts/render-mediamtx-config.mjs`
+  (`MEDIAMTX_NETWORK`); a regression test asserts the two stay in sync.
+- **Credential-redacted MediaMTX logs.** `mediamtx/entrypoint.sh` runs the binary
+  through `scripts/run-mediamtx.mjs`, which pipes stdout/stderr line by line
+  through `scripts/mediamtx-log-redact.mjs`. RTSP URLs with userinfo,
+  `Authorization:` headers and rendered `pass:` values are replaced with
+  `[redacted]` before they reach the container log.
+- **Authenticated healthcheck.** The Control API rejects anonymous clients, so
+  `mediamtx/healthcheck.sh` authenticates with the container's own
+  `MEDIAMTX_AUTH_USER`/`MEDIAMTX_AUTH_PASSWORD` environment (never on a command
+  line).
+
+### Migration for Phase 3
+
+`docker`/Podman networks are created at container-create time, so this needs a
+recreate, not a restart:
+
+```bash
+# 1. Check the subnet does not collide with the host LAN/VPN.
+ip route | grep 172.28.0.0 || true
+# 2. Recreate the stack (brief downtime, same as Phase 2).
+sudo podman compose -f compose.yml down
+sudo podman compose -f compose.yml up -d
+# 3. Verify the control plane rejects anonymous clients:
+curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:9997/v3/paths/list   # expect 401 (or connection refused from the host)
+# 4. Verify the hub is connected and streams still open.
+podman compose ps
+podman logs home-cctv-mediamtx-1 | tail
+```
+
+If `172.28.0.0/24` is already used on the host, change the subnet **and** the
+three static addresses in both `compose.yml` and `MEDIAMTX_NETWORK` in
+`scripts/render-mediamtx-config.mjs` (the regression test will fail until they
+match). Rootless Podman needs the same subuid ownership migration as Phase 2;
+rootful Podman remains the documented default.
+

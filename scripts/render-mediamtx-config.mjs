@@ -2,6 +2,24 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 
+/**
+ * Compose network constants for the isolated media network (Phase 3).
+ *
+ * The MediaMTX control API is bound by source address to the hub, and the
+ * object worker gets a separate read-only account. compose.yml assigns the same
+ * static addresses; `src/server/video/mediamtx-security.test.ts` asserts that
+ * the two definitions stay in sync.
+ */
+export const MEDIAMTX_NETWORK = {
+  subnet: "172.28.0.0/24",
+  hub: "172.28.0.10",
+  mediamtx: "172.28.0.11",
+  objectWorker: "172.28.0.12",
+};
+
+/** Dedicated read-only RTSP user for the object-detection worker. */
+export const MEDIAMTX_WORKER_USER = "worker";
+
 export function cameraStreamPlan() {
   const plan = [];
   for (let id = 1; id <= 4; id += 1) {
@@ -75,6 +93,11 @@ export function mediamtxAuth(env) {
   if (!/^[A-Za-z0-9._-]{1,64}$/.test(user)) {
     throw new Error("MEDIAMTX_AUTH_USER must be 1-64 characters of A-Z a-z 0-9 . _ -");
   }
+  if (user === MEDIAMTX_WORKER_USER) {
+    throw new Error(
+      `MEDIAMTX_AUTH_USER must not be "${MEDIAMTX_WORKER_USER}": that name is reserved for the read-only object-worker account.`,
+    );
+  }
   return { user, password, allowAnonymous };
 }
 
@@ -92,27 +115,52 @@ function pathBlock(name, source) {
   ].join("\n");
 }
 
+/**
+ * Internal MediaMTX users.
+ *
+ * Production:
+ * - the hub account can read/play back and use the Control API, and is bound by
+ *   source address to the web container, so the API cannot be used from a
+ *   worker or any stray container on the media network;
+ * - the object worker gets a separate read-only account bound to its address.
+ *
+ * The explicit `MEDIAMTX_ALLOW_ANONYMOUS=true` development escape hatch keeps
+ * the old anonymous read/playback/api behaviour for local `npm run dev`; it must
+ * never be enabled in production.
+ */
+export function mediamtxUsers(env) {
+  const auth = mediamtxAuth(env);
+  if (!auth.password) {
+    return [
+      "# DEVELOPMENT ONLY: MEDIAMTX_ALLOW_ANONYMOUS=true. Never use in production.",
+      "  - user: any",
+      "    pass: ''",
+      "    ips: []",
+      "    permissions:",
+      "      - action: read",
+      "      - action: playback",
+      "      - action: api",
+    ];
+  }
+  return [
+    `  - user: ${auth.user}`,
+    `    pass: ${yamlString(auth.password)}`,
+    `    ips: [${yamlString(`${MEDIAMTX_NETWORK.hub}/32`)}]`,
+    "    permissions:",
+    "      - action: read",
+    "      - action: playback",
+    "      - action: api",
+    `  - user: ${MEDIAMTX_WORKER_USER}`,
+    `    pass: ${yamlString(auth.password)}`,
+    `    ips: [${yamlString(`${MEDIAMTX_NETWORK.objectWorker}/32`)}]`,
+    "    permissions:",
+    "      - action: read",
+  ];
+}
+
 export function renderMediamtxConfig(env) {
   const hosts = additionalHosts(env);
-  const auth = mediamtxAuth(env);
-  const readUser = auth.password
-    ? [
-        `  - user: ${auth.user}`,
-        `    pass: ${yamlString(auth.password)}`,
-        "    ips: []",
-        "    permissions:",
-        "      - action: read",
-        "      - action: playback",
-      ]
-    : [
-        "# DEVELOPMENT ONLY: MEDIAMTX_ALLOW_ANONYMOUS=true. Never use in production.",
-        "  - user: any",
-        "    pass: ''",
-        "    ips: []",
-        "    permissions:",
-        "      - action: read",
-        "      - action: playback",
-      ];
+  const users = mediamtxUsers(env);
   const lines = [
     "# Generated at startup from environment variables.",
     "logLevel: info",
@@ -147,14 +195,7 @@ export function renderMediamtxConfig(env) {
     "pprof: false",
     "authMethod: internal",
     "authInternalUsers:",
-    ...readUser,
-    "  # The MediaMTX API is reachable only on the internal compose network. It",
-    "  # is used by the hub to publish the playback source.",
-    "  - user: any",
-    "    pass: ''",
-    "    ips: []",
-    "    permissions:",
-    "      - action: api",
+    ...users,
     "paths:",
   ];
 

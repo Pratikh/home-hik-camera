@@ -73,6 +73,13 @@ services:
     mem_limit: 384m
     pids_limit: 256
     stop_grace_period: 15s
+    # The Control API is bound by source address to the hub, so MediaMTX must be
+    # on the media network with the hub. It also needs the egress network to pull
+    # RTSP from the DVR. Workers are on the media network only.
+    networks:
+      media:
+        ipv4_address: 172.28.0.11
+      egress: {}
     logging:
       driver: json-file
       options:
@@ -80,7 +87,8 @@ services:
         max-file: "3"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9997/v3/paths/list"]
+      # Authenticated probe (the Control API rejects anonymous clients).
+      test: ["CMD", "node", "/usr/local/bin/healthcheck.mjs"]
       interval: 10s
       timeout: 3s
       retries: 8
@@ -112,6 +120,10 @@ services:
       # The only persistent application data. The host directory must be owned
       # by uid/gid 10001 (see docs/Container-Hardening.md).
       - ./data:/app/data
+    networks:
+      media:
+        ipv4_address: 172.28.0.10
+      egress: {}
     # FFmpeg clip conversion and thumbnail extraction use the OS temp dir, and
     # Next.js may write cache files under .next/cache. Both are tmpfs so the
     # image itself can stay read-only. Sizes are upper bounds, not reservations.
@@ -166,8 +178,9 @@ services:
       OBJECT_DETECTION_MODEL_PATH: /app/models/yolox_nano.onnx
       MEDIAMTX_RTSP_URL: rtsp://mediamtx:8554
       OBJECT_DETECTION_STREAM: rtsp
-      # Credential for MediaMTX's internal RTSP listener (never the DVR's).
-      MEDIAMTX_AUTH_USER: "${MEDIAMTX_AUTH_USER:-}"
+      # Dedicated read-only MediaMTX account for this worker (never the hub's
+      # credential, so the worker cannot use the Control API).
+      MEDIAMTX_AUTH_USER: "${MEDIAMTX_WORKER_USER:-worker}"
       MEDIAMTX_AUTH_PASSWORD: "${MEDIAMTX_AUTH_PASSWORD:-}"
       # Worker tuning from .env; empty means "use the code default".
       OBJECT_DETECTION_SETTINGS_POLL_MS: "${OBJECT_DETECTION_SETTINGS_POLL_MS:-}"
@@ -195,6 +208,11 @@ services:
     mem_limit: 1g
     pids_limit: 256
     stop_grace_period: 30s
+    # Media network only: the worker reaches MediaMTX RTSP but has no route to
+    # the DVR, Telegram or the internet.
+    networks:
+      media:
+        ipv4_address: 172.28.0.12
     depends_on:
       mediamtx:
         condition: service_healthy
@@ -267,6 +285,9 @@ services:
     mem_limit: 1g
     pids_limit: 256
     stop_grace_period: 30s
+    # The face worker only reads snapshots from the shared database and writes
+    # crops; it needs no network interface at all.
+    network_mode: "none"
     depends_on:
       web:
         condition: service_started
@@ -278,3 +299,18 @@ services:
     # It exits 0 immediately when detection is disabled, so a stray start is
     # harmless. A crash retries and then stops rather than looping forever.
     restart: on-failure
+
+networks:
+  # Outbound-only: the hub (DVR ISAPI + Telegram) and MediaMTX (DVR RTSP).
+  # Workers are deliberately not attached to it.
+  egress:
+    driver: bridge
+  # Static, internal media network. Static addresses are required because the
+  # MediaMTX Control API user is bound to the hub's address. `internal: true`
+  # keeps media traffic off the host and the internet.
+  media:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

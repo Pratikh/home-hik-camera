@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getConfig } from "@/lib/config";
 import { cameraChannels } from "@/server/cameras/channels";
 import { accountStore } from "@/server/auth/accounts";
+import { mediamtxAuthHeaders } from "@/server/video/mediamtx-auth";
 import { requireAdmin } from "@/server/http/require-user";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,11 @@ export async function GET() {
   const presence = accounts.presence();
   let mediamtx: Record<string, number> | null = null;
   try {
-    const response = await fetch(`${config.mediamtxApiUrl}/v3/paths/list`, { cache: "no-store", signal: AbortSignal.timeout(2000) });
+    const response = await fetch(`${config.mediamtxApiUrl}/v3/paths/list`, {
+      cache: "no-store",
+      headers: mediamtxAuthHeaders(),
+      signal: AbortSignal.timeout(2000),
+    });
     if (response.ok) {
       const body = (await response.json()) as { items?: Array<{ name?: string; readers?: unknown[] }> };
       mediamtx = {};
