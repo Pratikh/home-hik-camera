@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera setup · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+</head>
+<body data-nav="cameras" data-crumb="Configure">
+
+<main class="page" style="max-width:1240px">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Configure</div>
+      <h1>Camera setup</h1>
+      <p class="page-head__sub">Names come from the DVR channel configuration. Saving a name here overrides it on this hub only; the DVR keeps its own name.</p>
+    </div>
+    <div class="page-head__actions">
+      <a class="btn" href="dashboard.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-camera"/></svg>Open live view</a>
+    </div>
+  </div>
+
+  <section class="card" aria-label="DVR and video gateway status">
+    <div class="card__body" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px 24px;padding:10px 16px">
+      <span class="status"><span class="dot dot--online"></span><span>DVR connected</span><span class="badge badge--mono">192.168.1.200</span></span>
+      <span class="status"><span class="dot dot--online"></span><span>Video gateway connected</span><span class="badge badge--mono">WebRTC + HLS</span></span>
+      <span class="status"><span class="dot dot--online"></span><span>4 sub streams ready</span></span>
+      <span class="section__hint" style="margin-left:auto">Last checked <span style="font-family:var(--font-mono);color:var(--ink-2)">13:54:12</span></span>
+    </div>
+  </section>
+
+  <section class="section" style="margin-top:10px">
+    <div class="section__head" style="margin-bottom:6px">
+      <h2 class="section__title">Channels</h2>
+      <span class="section__hint">4 channels · renaming affects this hub only</span>
+    </div>
+
+    <div class="split">
+      <div style="display:grid;gap:16px;min-width:0">
+        <div class="live-wall" style="gap:12px">
+
+          <article class="card cam-card">
+            <div class="cam-card__preview" style="aspect-ratio:16/9">
+              <img src="assets/frames/cam1.jpg" alt="Parking camera live preview" style="width:100%;height:100%;object-fit:contain;display:block">
+              <div class="camera__overlay" aria-hidden="true"></div>
+              <span class="cam-card__preview-tag camera__live"><span class="dot dot--live"></span>Live</span>
+              <div class="cam-card__preview-meta"><span>CHANNEL 01</span><span>SUB 102</span><span>704×576</span><span>H.264</span></div>
+            </div>
+            <div class="cam-card__body" style="padding:11px 12px;gap:8px">
+              <div class="cam-card__top">
+                <div style="min-width:0">
+                  <h2 class="cam-card__title">Parking</h2>
+                </div>
+                <span class="status"><span class="dot dot--online"></span><span>Ready to view</span></span>
+              </div>
+              <div class="cam-card__form" style="flex-wrap:wrap;align-items:flex-end">
+                <label class="field" style="flex:1 1 170px" for="cam-name-1">
+                  <span class="field__label">Camera name</span>
+                  <input class="input" id="cam-name-1" value="Parking" title="Parking" autocomplete="off">
+                </label>
+                <div style="display:flex;gap:8px;margin-left:auto">
+                  <button class="btn btn--primary" type="button" style="height:38px;padding:0 8px">Save</button>
+                  <button class="btn" type="button" style="height:38px;padding:0 8px" title="Discard the local override and show the name configured on the DVR">Use DVR name</button>
+                </div>
+              </div>
+              <dl class="cam-card__props" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+                <div class="cam-card__prop"><dt>Channel</dt><dd>01</dd></div>
+                <div class="cam-card__prop"><dt>Main stream</dt><dd>101</dd></div>
+                <div class="cam-card__prop"><dt>Sub stream</dt><dd>102</dd></div>
+              </dl>
+            </div>
+          </article>
+
+          <article class="card cam-card">
+            <div class="cam-card__preview" style="aspect-ratio:16/9">
+              <img src="assets/frames/cam2.jpg" alt="Right Side Outside Camera live preview" style="width:100%;height:100%;object-fit:contain;display:block">
+              <div class="camera__overlay" aria-hidden="true"></div>
+              <span class="cam-card__preview-tag camera__live"><span class="dot dot--live"></span>Live</span>
+              <div class="cam-card__preview-meta"><span>CHANNEL 02</span><span>SUB 202</span><span>704×576</span><span>H.264</span></div>
+            </div>
+            <div class="cam-card__body" style="padding:11px 12px;gap:8px">
+              <div class="cam-card__top">
+                <div style="min-width:0">
+                  <h2 class="cam-card__title">Right Side Outside Camera</h2>
+                </div>
+                <span class="status"><span class="dot dot--online"></span><span>Ready to view</span></span>
+              </div>
+              <div class="cam-card__form" style="flex-wrap:wrap;align-items:flex-end">
+                <label class="field" style="flex:1 1 170px" for="cam-name-2">
+                  <span class="field__label">Camera name</span>
+                  <input class="input" id="cam-name-2" value="Right Side Outside Camera" title="Right Side Outside Camera" autocomplete="off">
+                </label>
+                <div style="display:flex;gap:8px;margin-left:auto">
+                  <button class="btn btn--primary" type="button" style="height:38px;padding:0 8px">Save</button>
+                  <button class="btn" type="button" style="height:38px;padding:0 8px" title="Discard the local override and show the name configured on the DVR">Use DVR name</button>
+                </div>
+              </div>
+              <dl class="cam-card__props" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+                <div class="cam-card__prop"><dt>Channel</dt><dd>02</dd></div>
+                <div class="cam-card__prop"><dt>Main stream</dt><dd>201</dd></div>
+                <div class="cam-card__prop"><dt>Sub stream</dt><dd>202</dd></div>
+              </dl>
+            </div>
+          </article>
+
+          <article class="card cam-card">
+            <div class="cam-card__preview" style="aspect-ratio:16/9">
+              <img src="assets/frames/cam3.jpg" alt="First Floor Passage camera live preview" style="width:100%;height:100%;object-fit:contain;display:block">
+              <div class="camera__overlay" aria-hidden="true"></div>
+              <span class="cam-card__preview-tag camera__live"><span class="dot dot--live"></span>Live</span>
+              <div class="cam-card__preview-meta"><span>CHANNEL 03</span><span>SUB 302</span><span>704×576</span><span>H.264</span></div>
+            </div>
+            <div class="cam-card__body" style="padding:11px 12px;gap:8px">
+              <div class="cam-card__top">
+                <div style="min-width:0">
+                  <h2 class="cam-card__title">First Floor Passage</h2>
+                </div>
+                <span class="status"><span class="dot dot--online"></span><span>Ready to view</span></span>
+              </div>
+              <div class="cam-card__form" style="flex-wrap:wrap;align-items:flex-end">
+                <label class="field" style="flex:1 1 170px" for="cam-name-3">
+                  <span class="field__label">Camera name</span>
+                  <input class="input" id="cam-name-3" value="First Floor Passage" title="First Floor Passage" autocomplete="off">
+                </label>
+                <div style="display:flex;gap:8px;margin-left:auto">
+                  <button class="btn btn--primary" type="button" style="height:38px;padding:0 8px">Save</button>
+                  <button class="btn" type="button" style="height:38px;padding:0 8px" title="Discard the local override and show the name configured on the DVR">Use DVR name</button>
+                </div>
+              </div>
+              <dl class="cam-card__props" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+                <div class="cam-card__prop"><dt>Channel</dt><dd>03</dd></div>
+                <div class="cam-card__prop"><dt>Main stream</dt><dd>301</dd></div>
+                <div class="cam-card__prop"><dt>Sub stream</dt><dd>302</dd></div>
+              </dl>
+            </div>
+          </article>
+
+          <article class="card cam-card">
+            <div class="cam-card__preview" style="aspect-ratio:16/9">
+              <img src="assets/frames/cam4.jpg" alt="Left Side Outside camera live preview" style="width:100%;height:100%;object-fit:contain;display:block">
+              <div class="camera__overlay" aria-hidden="true"></div>
+              <span class="cam-card__preview-tag camera__live"><span class="dot dot--live"></span>Live</span>
+              <div class="cam-card__preview-meta"><span>CHANNEL 04</span><span>SUB 402</span><span>704×576</span><span>H.264</span></div>
+            </div>
+            <div class="cam-card__body" style="padding:11px 12px;gap:8px">
+              <div class="cam-card__top">
+                <div style="min-width:0">
+                  <h2 class="cam-card__title">Left Side Outside</h2>
+                </div>
+                <span class="status"><span class="dot dot--online"></span><span>Ready to view</span></span>
+              </div>
+              <div class="cam-card__form" style="flex-wrap:wrap;align-items:flex-end">
+                <label class="field" style="flex:1 1 170px" for="cam-name-4">
+                  <span class="field__label">Camera name</span>
+                  <input class="input" id="cam-name-4" value="Left Side Outside" title="Left Side Outside" autocomplete="off">
+                </label>
+                <div style="display:flex;gap:8px;margin-left:auto">
+                  <button class="btn btn--primary" type="button" style="height:38px;padding:0 8px">Save</button>
+                  <button class="btn" type="button" style="height:38px;padding:0 8px" title="Discard the local override and show the name configured on the DVR">Use DVR name</button>
+                </div>
+              </div>
+              <dl class="cam-card__props" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+                <div class="cam-card__prop"><dt>Channel</dt><dd>04</dd></div>
+                <div class="cam-card__prop"><dt>Main stream</dt><dd>401</dd></div>
+                <div class="cam-card__prop"><dt>Sub stream</dt><dd>402</dd></div>
+              </dl>
+            </div>
+          </article>
+
+        </div>
+      </div>
+
+      <aside style="display:grid;gap:16px;min-width:0">
+        <section class="card">
+          <div class="card__head">
+            <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-shield"/></svg>How the streams are used</div>
+          </div>
+          <div class="card__body" style="display:grid;gap:14px">
+            <div>
+              <div class="setting-row__title" style="display:flex;align-items:center;gap:7px"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-camera"/></svg>Live grid &amp; focus</div>
+              <p class="setting-row__desc">H.264 sub stream, 704×576. WebRTC first, same-origin HLS as the fallback.</p>
+            </div>
+            <div>
+              <div class="setting-row__title" style="display:flex;align-items:center;gap:7px"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-playback"/></svg>Playback</div>
+              <p class="setting-row__desc">Recorded H.264 sub track, time-accurate to the DVR clock. One playback session at a time.</p>
+            </div>
+            <div>
+              <div class="setting-row__title" style="display:flex;align-items:center;gap:7px"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-lock"/></svg>Main stream</div>
+              <p class="setting-row__desc">H.265 main stream (101–401) stays on the LAN and is never played in the browser.</p>
+            </div>
+          </div>
+          <div class="card__foot" style="display:grid;gap:9px">
+            <p class="section__hint">The browser never receives a DVR address, port or credential — only same-origin WHEP/HLS through this hub.</p>
+            <a class="btn btn--sm btn--ghost" href="settings-system.html" style="justify-self:start">System health<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__head">
+            <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"/></svg>Where the name comes from</div>
+          </div>
+          <div class="card__body" style="display:grid;gap:10px">
+            <div class="status" style="justify-content:space-between"><span>1 · saved on this hub</span><span class="badge badge--accent">override</span></div>
+            <div class="status" style="justify-content:space-between"><span>2 · DVR channel name</span><span class="badge">ISAPI</span></div>
+            <div class="status" style="justify-content:space-between"><span>3 · generic fallback</span><span class="badge badge--mono">Camera N</span></div>
+            <p class="section__hint">“Use DVR name” clears the override, so a channel renamed on the DVR follows through here.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card__head">
+            <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-device"/></svg>DVR &amp; encoders</div>
+            <span class="badge badge--online">Connected</span>
+          </div>
+          <div class="card__body" style="display:grid;gap:10px">
+            <div class="status" style="justify-content:space-between"><span>Model</span><span class="badge badge--mono">DS-7104HGHI-K1</span></div>
+            <div class="status" style="justify-content:space-between"><span>Channels</span><span class="badge">4</span></div>
+            <div class="status" style="justify-content:space-between"><span>Main stream</span><span class="badge badge--mono">H.265 · 101–401</span></div>
+            <div class="status" style="justify-content:space-between"><span>Sub stream</span><span class="badge badge--mono">H.264 · 102–402</span></div>
+            <div class="status" style="justify-content:space-between"><span>Gateway</span><span class="badge">MediaMTX</span></div>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

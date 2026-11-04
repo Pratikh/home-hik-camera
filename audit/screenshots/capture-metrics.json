@@ -1,0 +1,6712 @@
+{
+  "capturedAt": "2026-11-04T12:17:51.642Z",
+  "base": "http://localhost:3000",
+  "viewports": [
+    {
+      "name": "desktop",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "name": "laptop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "name": "tablet",
+      "width": 834,
+      "height": 1112
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "routes": [
+    {
+      "viewport": "desktop",
+      "route": "dashboard",
+      "path": "/",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Dashboard",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 33,
+      "targetsUnder24": 0,
+      "targetsUnder44": 24,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 256,
+        "11": 456,
+        "12": 294,
+        "13": 302,
+        "20": 8,
+        "24": 9
+      },
+      "totalChars": 1325,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Dashboard",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Parking",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Right Side Outside Camera",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "First Floor Passage",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Left Side Outside",
+          "size": 13,
+          "weight": "600"
+        }
+      ],
+      "cards": 7,
+      "tables": 0,
+      "articles": 4,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:40:32 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1025,
+      "skipLink": true,
+      "srOnly": 4,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Unmute Parking",
+        "Open Parking full screen",
+        "Unmute Right Side Outside Camera",
+        "Open Right Side Outside Camera full scre",
+        "Unmute First Floor Passage",
+        "Open First Floor Passage full screen",
+        "Unmute Left Side Outside",
+        "Open Left Side Outside full screen",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "cameras",
+      "path": "/cameras",
+      "status": 200,
+      "title": "Camera setup · Home CCTV",
+      "h1": "Camera setup",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 26,
+      "targetsUnder24": 0,
+      "targetsUnder44": 26,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 136,
+        "10": 233,
+        "11": 96,
+        "12": 1028,
+        "13": 318,
+        "16": 68,
+        "24": 12
+      },
+      "totalChars": 1891,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Camera setup",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Channels",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Parking",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Right Side Outside Camera",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "First Floor Passage",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Left Side Outside",
+          "size": 16,
+          "weight": "650"
+        }
+      ],
+      "cards": 7,
+      "tables": 0,
+      "articles": 4,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:40:35 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1102,
+      "skipLink": true,
+      "srOnly": 6,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "playback",
+      "path": "/playback",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "CCTV Playback",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 38,
+      "targetsUnder24": 1,
+      "targetsUnder44": 27,
+      "targetSamples": [
+        {
+          "tag": "input",
+          "name": "Volume",
+          "w": 1259,
+          "h": 16
+        }
+      ],
+      "fontHistogram": {
+        "9": 13,
+        "10": 118,
+        "11": 31,
+        "12": 154,
+        "13": 122,
+        "14": 141,
+        "16": 21
+      },
+      "totalChars": 600,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "CCTV Playback",
+          "size": 16,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Timeline",
+          "size": 12,
+          "weight": "600"
+        }
+      ],
+      "cards": 0,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:41:08 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1024,
+      "skipLink": true,
+      "srOnly": 1,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "2026-11-04",
+        "Search recordings",
+        "Seek backward 15 seconds",
+        "Pause",
+        "Seek forward 15 seconds",
+        "Unmute",
+        "Full screen",
+        "24h",
+        "6h",
+        "1h",
+        "Person detected, 08:22:26, High priority",
+        "Person detected, 08:37:02, High priority",
+        "Person detected, 09:11:56, High priority",
+        "Person detected, 09:31:33, High priority",
+        "Person detected, 09:48:02, High priority",
+        "Person detected, 14:14:22, High priority",
+        "Person detected, 14:28:59, High priority",
+        "Person detected, 14:46:55, High priority",
+        "Person detected, 16:46:17, High priority",
+        "Person detected, 17:35:50, High priority",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "events",
+      "path": "/events",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Events",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 56,
+      "targetsUnder24": 0,
+      "targetsUnder44": 36,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 98,
+        "11": 929,
+        "12": 355,
+        "13": 765,
+        "16": 15,
+        "24": 6
+      },
+      "totalChars": 2168,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Events",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Event list",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Person detected",
+          "size": 16,
+          "weight": "650"
+        }
+      ],
+      "cards": 1,
+      "tables": 0,
+      "articles": 1,
+      "images": 21,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 20,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:41:10 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 2012,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Previous day",
+        "Next day",
+        "Today",
+        "All",
+        "Person",
+        "Vehicle",
+        "Motion",
+        "Important",
+        "Filters",
+        "Search",
+        "17:39Person detectedHighNewFirst Floor P",
+        "17:39Person detectedHighNewLeft Side Out",
+        "17:38Person detectedHighNewLeft Side Out",
+        "17:37Person detectedHighNewRight Side Ou",
+        "17:36Person detectedHighNewRight Side Ou",
+        "17:36Person detectedHighNewLeft Side Out",
+        "17:36Person detectedHighNewRight Side Ou",
+        "17:36Vehicle detectedNormalNewParking·No",
+        "17:35Person detectedHighNewParking·Notif",
+        "17:34Person detectedHighNewLeft Side Out",
+        "17:33Person detectedHighNewLeft Side Out",
+        "17:32Person detectedHighNewFirst Floor P",
+        "17:26Person detectedHighNewRight Side Ou",
+        "17:25Person detectedHighNewLeft Side Out",
+        "17:24Person detectedHighNewFirst Floor P",
+        "17:23Person detectedHighRight Side Outsi",
+        "17:23Person detectedHighNewLeft Side Out",
+        "17:19Person detectedHighRight Side Outsi",
+        "17:18Person detectedHighNewLeft Side Out",
+        "17:15Person detectedHighNewRight Side Ou",
+        "Previous",
+        "Next",
+        "Close event details",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "event-detail",
+      "path": "/events/evt_a63ce96a99c47462f2fc3a8a",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Person detected",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 17,
+      "targetsUnder24": 1,
+      "targetsUnder44": 17,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "Events",
+          "w": 38,
+          "h": 18
+        }
+      ],
+      "fontHistogram": {
+        "9": 14,
+        "10": 91,
+        "11": 80,
+        "12": 397,
+        "13": 268,
+        "24": 15
+      },
+      "totalChars": 865,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Person detected",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Face Detection",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 6,
+      "tables": 0,
+      "articles": 0,
+      "images": 1,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:49:33 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1290,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "events-stats",
+      "path": "/events/stats",
+      "status": 200,
+      "title": "Event statistics · Home CCTV",
+      "h1": "Event statistics",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 17,
+      "targetsUnder24": 0,
+      "targetsUnder44": 17,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 122,
+        "11": 145,
+        "12": 310,
+        "13": 262,
+        "20": 9,
+        "24": 16
+      },
+      "totalChars": 864,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Event statistics",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 6,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:41:15 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1024,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Today",
+        "Yesterday",
+        "Last 7 days",
+        "Last 30 days",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "faces",
+      "path": "/faces",
+      "status": 200,
+      "title": "Detected Faces · Home CCTV",
+      "h1": "Detected Faces",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 47,
+      "targetsUnder24": 24,
+      "targetsUnder44": 47,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 239,
+          "h": 17
+        }
+      ],
+      "fontHistogram": {
+        "10": 976,
+        "11": 724,
+        "12": 423,
+        "13": 386,
+        "20": 8,
+        "24": 14
+      },
+      "totalChars": 2531,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Detected Faces",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "All detections",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 28,
+      "tables": 0,
+      "articles": 24,
+      "images": 24,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:41:17 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1977,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Apply filters",
+        "Clear filters",
+        "Previous page",
+        "Next page",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "notifications",
+      "path": "/notifications",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Notification history",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 46,
+      "targetsUnder24": 25,
+      "targetsUnder44": 46,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        }
+      ],
+      "fontHistogram": {
+        "10": 120,
+        "11": 464,
+        "12": 1331,
+        "13": 735,
+        "20": 9,
+        "24": 20
+      },
+      "totalChars": 2679,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Notification history",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Decisions",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 29,
+      "tables": 0,
+      "articles": 25,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:41:50 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 3268,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Apply filters",
+        "Clear filters",
+        "Previous page",
+        "Next page",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "device",
+      "path": "/device",
+      "status": 200,
+      "title": "Device · Home CCTV",
+      "h1": "Device",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 13,
+      "targetsUnder24": 0,
+      "targetsUnder44": 13,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 110,
+        "10": 86,
+        "11": 31,
+        "12": 281,
+        "13": 199,
+        "24": 6
+      },
+      "totalChars": 713,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Device",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 13,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:41:52 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1024,
+      "skipLink": true,
+      "srOnly": 1,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "account",
+      "path": "/account",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Account",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 19,
+      "targetsUnder24": 0,
+      "targetsUnder44": 19,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 87,
+        "11": 4219,
+        "12": 36008,
+        "13": 212,
+        "24": 7
+      },
+      "totalChars": 40533,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Account",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Change password",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Signed-in sessions (247)",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 2,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:41:55 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 26817,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Change password",
+        "Sign out other sessions",
+        "Sign out everywhere",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "settings",
+      "path": "/settings",
+      "status": 200,
+      "title": "Settings · Home CCTV",
+      "h1": "Settings",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 28,
+      "targetsUnder24": 0,
+      "targetsUnder44": 22,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 78,
+        "10": 94,
+        "11": 290,
+        "12": 279,
+        "13": 298,
+        "24": 8
+      },
+      "totalChars": 1047,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Settings",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Environment",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 17,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:41:59 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1024,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "settings-users",
+      "path": "/settings/users",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Users",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 35,
+      "targetsUnder24": 0,
+      "targetsUnder44": 35,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 8,
+        "10": 94,
+        "11": 98,
+        "12": 640,
+        "13": 223,
+        "24": 5
+      },
+      "totalChars": 1068,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Users",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Users",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Create user",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Roles",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 3,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:42:01 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1024,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Disable",
+        "Switch role",
+        "Reset password",
+        "Sign out sessions",
+        "Delete",
+        "Disable",
+        "Switch role",
+        "Reset password",
+        "Sign out sessions",
+        "Delete",
+        "Create user",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "settings-notifications",
+      "path": "/settings/notifications",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Notification rules",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 32,
+      "targetsUnder24": 1,
+      "targetsUnder44": 32,
+      "targetSamples": [
+        {
+          "tag": "button",
+          "name": "Disable rule all",
+          "w": 34,
+          "h": 20
+        }
+      ],
+      "fontHistogram": {
+        "9": 8,
+        "10": 94,
+        "11": 132,
+        "12": 422,
+        "13": 350,
+        "14": 3,
+        "24": 18
+      },
+      "totalChars": 1027,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Notification rules",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Rules",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 4,
+      "tables": 0,
+      "articles": 1,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:42:04 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1024,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Enable notifications",
+        "New rule",
+        "Disable rule all",
+        "Disable",
+        "Edit",
+        "Delete",
+        "Test",
+        "Send Telegram Test",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "settings-detection",
+      "path": "/settings/detection",
+      "status": 200,
+      "title": "Object detection · Home CCTV",
+      "h1": "Object detection",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 61,
+      "targetsUnder24": 26,
+      "targetsUnder44": 61,
+      "targetSamples": [
+        {
+          "tag": "input",
+          "name": "Enable object detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Global person confidence threshold",
+          "w": 116,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "name": "Enable person detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Global vehicle confidence threshold",
+          "w": 116,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "name": "Enable vehicle detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Person detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Vehicle detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global person threshold for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global vehicle threshold for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Person detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Vehicle detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global person threshold for Right Side Outside Camer",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global vehicle threshold for Right Side Outside Came",
+          "w": 15,
+          "h": 15
+        }
+      ],
+      "fontHistogram": {
+        "9": 8,
+        "10": 243,
+        "11": 318,
+        "12": 1902,
+        "13": 599,
+        "24": 16
+      },
+      "totalChars": 3086,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Object detection",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Detection",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Camera monitoring",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Performance and behaviour",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Detection behaviour",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Worker status",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Diagnostics",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "About this model",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 8,
+      "tables": 1,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:42:06 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1727,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Run detection test",
+        "Save settings",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "settings-audit",
+      "path": "/settings/audit-log",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Audit log",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 26,
+      "targetsUnder24": 0,
+      "targetsUnder44": 26,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 8,
+        "10": 94,
+        "11": 427,
+        "12": 1040,
+        "13": 214,
+        "24": 9
+      },
+      "totalChars": 1792,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Audit log",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Audit log",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 1,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:42:08 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1446,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Filter",
+        "Previous",
+        "Next",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "settings-system",
+      "path": "/settings/system",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "System",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 21,
+      "targetsUnder24": 0,
+      "targetsUnder44": 21,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 8,
+        "10": 149,
+        "11": 109,
+        "12": 766,
+        "13": 509,
+        "24": 6
+      },
+      "totalChars": 1547,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "System",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "MediaMTX paths",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Event ingestion",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Active sessions",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Face detection",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Thumbnails",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Storage and retention",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 14,
+      "tables": 2,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:42:11 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1024,
+      "mainScrollHeight": 1633,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Refresh",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "dashboard",
+      "path": "/",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Dashboard",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 32,
+      "targetsUnder24": 0,
+      "targetsUnder44": 23,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 256,
+        "11": 466,
+        "12": 294,
+        "13": 302,
+        "20": 8,
+        "24": 9
+      },
+      "totalChars": 1335,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Dashboard",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Parking",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Right Side Outside Camera",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "First Floor Passage",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Left Side Outside",
+          "size": 13,
+          "weight": "600"
+        }
+      ],
+      "cards": 7,
+      "tables": 0,
+      "articles": 4,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:42:13 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 11,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 892,
+      "skipLink": true,
+      "srOnly": 4,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Unmute Parking",
+        "Open Parking full screen",
+        "Unmute Right Side Outside Camera",
+        "Open Right Side Outside Camera full scre",
+        "Unmute First Floor Passage",
+        "Open First Floor Passage full screen",
+        "Unmute Left Side Outside",
+        "Open Left Side Outside full screen",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "cameras",
+      "path": "/cameras",
+      "status": 200,
+      "title": "Camera setup · Home CCTV",
+      "h1": "Camera setup",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 947,
+      "horizontalOverflow": false,
+      "interactiveCount": 26,
+      "targetsUnder24": 0,
+      "targetsUnder44": 26,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 136,
+        "10": 233,
+        "11": 96,
+        "12": 1028,
+        "13": 318,
+        "16": 68,
+        "24": 12
+      },
+      "totalChars": 1891,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Camera setup",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Channels",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Parking",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Right Side Outside Camera",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "First Floor Passage",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Left Side Outside",
+          "size": 16,
+          "weight": "650"
+        }
+      ],
+      "cards": 7,
+      "tables": 0,
+      "articles": 4,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:42:16 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 1194,
+      "skipLink": true,
+      "srOnly": 6,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "playback",
+      "path": "/playback",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "CCTV Playback",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 35,
+      "targetsUnder24": 1,
+      "targetsUnder44": 24,
+      "targetSamples": [
+        {
+          "tag": "input",
+          "name": "Volume",
+          "w": 779,
+          "h": 16
+        }
+      ],
+      "fontHistogram": {
+        "9": 11,
+        "10": 118,
+        "11": 31,
+        "12": 154,
+        "13": 122,
+        "14": 141,
+        "16": 21
+      },
+      "totalChars": 598,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "CCTV Playback",
+          "size": 16,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Timeline",
+          "size": 12,
+          "weight": "600"
+        }
+      ],
+      "cards": 0,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:42:48 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 844,
+      "skipLink": true,
+      "srOnly": 1,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "2026-11-04",
+        "Search recordings",
+        "Seek backward 15 seconds",
+        "Pause",
+        "Seek forward 15 seconds",
+        "Unmute",
+        "Full screen",
+        "24h",
+        "6h",
+        "1h",
+        "Person detected, 08:22:26, High priority",
+        "Person detected, 09:11:56, High priority",
+        "Person detected, 09:32:47, High priority",
+        "Person detected, 14:14:22, High priority",
+        "Vehicle detected, 14:41:39, High priorit",
+        "Person detected, 16:46:17, High priority",
+        "Person detected, 17:35:50, High priority",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [
+        "http://localhost:3000/api/playback/thumbnail/index?camera=1&date=2026-11-04&focus=1793773800000 net::ERR_ABORTED"
+      ]
+    },
+    {
+      "viewport": "laptop",
+      "route": "events",
+      "path": "/events",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Events",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 56,
+      "targetsUnder24": 0,
+      "targetsUnder44": 36,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 98,
+        "11": 937,
+        "12": 365,
+        "13": 761,
+        "16": 15,
+        "24": 6
+      },
+      "totalChars": 2182,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Events",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Event list",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Person detected",
+          "size": 16,
+          "weight": "650"
+        }
+      ],
+      "cards": 1,
+      "tables": 0,
+      "articles": 1,
+      "images": 21,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 20,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:42:50 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 2012,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Previous day",
+        "Next day",
+        "Today",
+        "All",
+        "Person",
+        "Vehicle",
+        "Motion",
+        "Important",
+        "Filters",
+        "Search",
+        "17:39Person detectedHighNewFirst Floor P",
+        "17:39Person detectedHighNewLeft Side Out",
+        "17:38Person detectedHighNewLeft Side Out",
+        "17:37Person detectedHighNewRight Side Ou",
+        "17:36Person detectedHighNewRight Side Ou",
+        "17:36Person detectedHighNewLeft Side Out",
+        "17:36Person detectedHighNewRight Side Ou",
+        "17:36Vehicle detectedNormalNewParking·No",
+        "17:35Person detectedHighNewParking·Notif",
+        "17:34Person detectedHighNewLeft Side Out",
+        "17:33Person detectedHighNewLeft Side Out",
+        "17:32Person detectedHighNewFirst Floor P",
+        "17:26Person detectedHighNewRight Side Ou",
+        "17:25Person detectedHighNewLeft Side Out",
+        "17:24Person detectedHighNewFirst Floor P",
+        "17:23Person detectedHighRight Side Outsi",
+        "17:23Person detectedHighNewLeft Side Out",
+        "17:19Person detectedHighRight Side Outsi",
+        "17:18Person detectedHighNewLeft Side Out",
+        "17:15Person detectedHighNewRight Side Ou",
+        "Previous",
+        "Next",
+        "Close event details",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "event-detail",
+      "path": "/events/evt_a63ce96a99c47462f2fc3a8a",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Person detected",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 17,
+      "targetsUnder24": 1,
+      "targetsUnder44": 17,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "Events",
+          "w": 38,
+          "h": 18
+        }
+      ],
+      "fontHistogram": {
+        "9": 14,
+        "10": 91,
+        "11": 80,
+        "12": 397,
+        "13": 268,
+        "24": 15
+      },
+      "totalChars": 865,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Person detected",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Face Detection",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 6,
+      "tables": 0,
+      "articles": 0,
+      "images": 1,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:49:36 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 1052,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "events-stats",
+      "path": "/events/stats",
+      "status": 200,
+      "title": "Event statistics · Home CCTV",
+      "h1": "Event statistics",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 17,
+      "targetsUnder24": 0,
+      "targetsUnder44": 17,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 122,
+        "11": 145,
+        "12": 310,
+        "13": 262,
+        "20": 9,
+        "24": 16
+      },
+      "totalChars": 864,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Event statistics",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 6,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:42:55 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 844,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Today",
+        "Yesterday",
+        "Last 7 days",
+        "Last 30 days",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "faces",
+      "path": "/faces",
+      "status": 200,
+      "title": "Detected Faces · Home CCTV",
+      "h1": "Detected Faces",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 47,
+      "targetsUnder24": 24,
+      "targetsUnder44": 47,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 198,
+          "h": 17
+        }
+      ],
+      "fontHistogram": {
+        "10": 976,
+        "11": 724,
+        "12": 423,
+        "13": 386,
+        "20": 8,
+        "24": 14
+      },
+      "totalChars": 2531,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Detected Faces",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "All detections",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 28,
+      "tables": 0,
+      "articles": 24,
+      "images": 24,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:42:57 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 2147,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Apply filters",
+        "Clear filters",
+        "Previous page",
+        "Next page",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "notifications",
+      "path": "/notifications",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Notification history",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 46,
+      "targetsUnder24": 25,
+      "targetsUnder44": 46,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        }
+      ],
+      "fontHistogram": {
+        "10": 120,
+        "11": 464,
+        "12": 1331,
+        "13": 735,
+        "20": 9,
+        "24": 20
+      },
+      "totalChars": 2679,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Notification history",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Decisions",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 29,
+      "tables": 0,
+      "articles": 25,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:43:30 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 3268,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Apply filters",
+        "Clear filters",
+        "Previous page",
+        "Next page",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "device",
+      "path": "/device",
+      "status": 200,
+      "title": "Device · Home CCTV",
+      "h1": "Device",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 13,
+      "targetsUnder24": 0,
+      "targetsUnder44": 13,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 110,
+        "10": 86,
+        "11": 31,
+        "12": 281,
+        "13": 199,
+        "24": 6
+      },
+      "totalChars": 713,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Device",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 13,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:43:33 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 844,
+      "skipLink": true,
+      "srOnly": 1,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "account",
+      "path": "/account",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Account",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 19,
+      "targetsUnder24": 0,
+      "targetsUnder44": 19,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 87,
+        "11": 4219,
+        "12": 36008,
+        "13": 212,
+        "24": 7
+      },
+      "totalChars": 40533,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Account",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Change password",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Signed-in sessions (247)",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 2,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": "05:43:35 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 26817,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Change password",
+        "Sign out other sessions",
+        "Sign out everywhere",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "settings",
+      "path": "/settings",
+      "status": 200,
+      "title": "Settings · Home CCTV",
+      "h1": "Settings",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 28,
+      "targetsUnder24": 0,
+      "targetsUnder44": 22,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 78,
+        "10": 94,
+        "11": 290,
+        "12": 279,
+        "13": 298,
+        "24": 8
+      },
+      "totalChars": 1047,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Settings",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Environment",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 17,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:43:39 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 892,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "settings-users",
+      "path": "/settings/users",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Users",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 35,
+      "targetsUnder24": 0,
+      "targetsUnder44": 35,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 8,
+        "10": 94,
+        "11": 98,
+        "12": 640,
+        "13": 223,
+        "24": 5
+      },
+      "totalChars": 1068,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Users",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Users",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Create user",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Roles",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 3,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:43:41 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 844,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Disable",
+        "Switch role",
+        "Reset password",
+        "Sign out sessions",
+        "Delete",
+        "Disable",
+        "Switch role",
+        "Reset password",
+        "Sign out sessions",
+        "Delete",
+        "Create user",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "settings-notifications",
+      "path": "/settings/notifications",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Notification rules",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 32,
+      "targetsUnder24": 1,
+      "targetsUnder44": 32,
+      "targetSamples": [
+        {
+          "tag": "button",
+          "name": "Disable rule all",
+          "w": 34,
+          "h": 20
+        }
+      ],
+      "fontHistogram": {
+        "9": 8,
+        "10": 94,
+        "11": 132,
+        "12": 422,
+        "13": 350,
+        "14": 3,
+        "24": 18
+      },
+      "totalChars": 1027,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Notification rules",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Rules",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 4,
+      "tables": 0,
+      "articles": 1,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:43:43 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 844,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Enable notifications",
+        "New rule",
+        "Disable rule all",
+        "Disable",
+        "Edit",
+        "Delete",
+        "Test",
+        "Send Telegram Test",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "settings-detection",
+      "path": "/settings/detection",
+      "status": 200,
+      "title": "Object detection · Home CCTV",
+      "h1": "Object detection",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 61,
+      "targetsUnder24": 26,
+      "targetsUnder44": 61,
+      "targetSamples": [
+        {
+          "tag": "input",
+          "name": "Enable object detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Global person confidence threshold",
+          "w": 116,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "name": "Enable person detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Global vehicle confidence threshold",
+          "w": 116,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "name": "Enable vehicle detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Person detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Vehicle detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global person threshold for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global vehicle threshold for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Person detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Vehicle detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global person threshold for Right Side Outside Camer",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global vehicle threshold for Right Side Outside Came",
+          "w": 15,
+          "h": 15
+        }
+      ],
+      "fontHistogram": {
+        "9": 8,
+        "10": 243,
+        "11": 318,
+        "12": 1902,
+        "13": 599,
+        "24": 16
+      },
+      "totalChars": 3086,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Object detection",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Detection",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Camera monitoring",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Performance and behaviour",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Detection behaviour",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Worker status",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Diagnostics",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "About this model",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 8,
+      "tables": 1,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:43:45 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 1879,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Run detection test",
+        "Save settings",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "settings-audit",
+      "path": "/settings/audit-log",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Audit log",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 26,
+      "targetsUnder24": 0,
+      "targetsUnder44": 26,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 8,
+        "10": 94,
+        "11": 427,
+        "12": 1040,
+        "13": 214,
+        "24": 9
+      },
+      "totalChars": 1792,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Audit log",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Audit log",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 1,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:43:48 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 1446,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Filter",
+        "Previous",
+        "Next",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "settings-system",
+      "path": "/settings/system",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "System",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 21,
+      "targetsUnder24": 0,
+      "targetsUnder44": 21,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 8,
+        "10": 149,
+        "11": 109,
+        "12": 766,
+        "13": 509,
+        "24": 6
+      },
+      "totalChars": 1547,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "System",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "MediaMTX paths",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Event ingestion",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Active sessions",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Face detection",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Thumbnails",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Storage and retention",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 14,
+      "tables": 2,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": true,
+      "mobileNavVisible": false,
+      "settingsNavVisible": true,
+      "clockText": "05:43:50 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 1633,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Refresh",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "dashboard",
+      "path": "/",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Dashboard",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 28,
+      "targetsUnder24": 0,
+      "targetsUnder44": 14,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 256,
+        "11": 446,
+        "12": 294,
+        "13": 302,
+        "20": 8,
+        "24": 9
+      },
+      "totalChars": 1315,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Dashboard",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Parking",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Right Side Outside Camera",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "First Floor Passage",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Left Side Outside",
+          "size": 13,
+          "weight": "600"
+        }
+      ],
+      "cards": 7,
+      "tables": 0,
+      "articles": 4,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:43:53 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 1984,
+      "skipLink": true,
+      "srOnly": 4,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Unmute Parking",
+        "Open Parking full screen",
+        "Unmute Right Side Outside Camera",
+        "Open Right Side Outside Camera full scre",
+        "Unmute First Floor Passage",
+        "Open First Floor Passage full screen",
+        "Unmute Left Side Outside",
+        "Open Left Side Outside full screen",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "cameras",
+      "path": "/cameras",
+      "status": 200,
+      "title": "Camera setup · Home CCTV",
+      "h1": "Camera setup",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 21,
+      "targetsUnder24": 0,
+      "targetsUnder44": 16,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 136,
+        "10": 233,
+        "11": 96,
+        "12": 1028,
+        "13": 318,
+        "16": 68,
+        "24": 12
+      },
+      "totalChars": 1891,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Camera setup",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Channels",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Parking",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Right Side Outside Camera",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "First Floor Passage",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Left Side Outside",
+          "size": 16,
+          "weight": "650"
+        }
+      ],
+      "cards": 7,
+      "tables": 0,
+      "articles": 4,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:43:55 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 1664,
+      "skipLink": true,
+      "srOnly": 6,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "playback",
+      "path": "/playback",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "CCTV Playback",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 30,
+      "targetsUnder24": 1,
+      "targetsUnder44": 14,
+      "targetSamples": [
+        {
+          "tag": "input",
+          "name": "Volume",
+          "w": 405,
+          "h": 16
+        }
+      ],
+      "fontHistogram": {
+        "9": 10,
+        "10": 118,
+        "11": 31,
+        "12": 154,
+        "13": 122,
+        "14": 141,
+        "16": 21
+      },
+      "totalChars": 597,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "CCTV Playback",
+          "size": 16,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Timeline",
+          "size": 12,
+          "weight": "600"
+        }
+      ],
+      "cards": 0,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:44:28 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 964,
+      "skipLink": true,
+      "srOnly": 1,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "2026-11-04",
+        "Search recordings",
+        "Seek backward 15 seconds",
+        "Pause",
+        "Seek forward 15 seconds",
+        "Unmute",
+        "Full screen",
+        "24h",
+        "6h",
+        "1h",
+        "Person detected, 08:22:26, High priority",
+        "Person detected, 09:11:56, High priority",
+        "Person detected, 09:48:02, High priority",
+        "Person detected, 14:14:22, High priority",
+        "Person detected, 14:46:55, High priority",
+        "Person detected, 16:46:17, High priority",
+        "Person detected, 17:35:50, High priority",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [
+        "http://localhost:3000/api/playback/thumbnail/index?camera=1&date=2026-11-04&focus=1793773800000 net::ERR_ABORTED"
+      ]
+    },
+    {
+      "viewport": "tablet",
+      "route": "events",
+      "path": "/events",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Events",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 41,
+      "targetsUnder24": 0,
+      "targetsUnder44": 16,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 98,
+        "11": 909,
+        "12": 355,
+        "13": 765,
+        "16": 15,
+        "24": 6
+      },
+      "totalChars": 2148,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Events",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Event list",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Person detected",
+          "size": 16,
+          "weight": "650"
+        }
+      ],
+      "cards": 1,
+      "tables": 0,
+      "articles": 1,
+      "images": 21,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 20,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:44:30 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 1837,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Previous day",
+        "Next day",
+        "Today",
+        "All",
+        "Person",
+        "Vehicle",
+        "Motion",
+        "Important",
+        "Filters",
+        "Search",
+        "17:43Person detectedHighNewFirst Floor P",
+        "17:43Person detectedHighNewParking·Not s",
+        "17:43Person detectedHighNewRight Side Ou",
+        "17:43Person detectedHighNewLeft Side Out",
+        "17:43Person detectedHighNewRight Side Ou",
+        "17:43Person detectedHighNewLeft Side Out",
+        "17:39Person detectedHighNewFirst Floor P",
+        "17:39Person detectedHighNewLeft Side Out",
+        "17:38Person detectedHighNewLeft Side Out",
+        "17:37Person detectedHighNewRight Side Ou",
+        "17:36Person detectedHighNewRight Side Ou",
+        "17:36Person detectedHighNewLeft Side Out",
+        "17:36Person detectedHighNewRight Side Ou",
+        "17:36Vehicle detectedNormalNewParking·No",
+        "17:35Person detectedHighNewParking·Notif",
+        "17:34Person detectedHighNewLeft Side Out",
+        "17:33Person detectedHighNewLeft Side Out",
+        "17:32Person detectedHighNewFirst Floor P",
+        "17:26Person detectedHighNewRight Side Ou",
+        "17:25Person detectedHighNewLeft Side Out",
+        "Previous",
+        "Next",
+        "Close event details",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "event-detail",
+      "path": "/events/evt_a63ce96a99c47462f2fc3a8a",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Person detected",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 12,
+      "targetsUnder24": 1,
+      "targetsUnder44": 7,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "Events",
+          "w": 38,
+          "h": 18
+        }
+      ],
+      "fontHistogram": {
+        "9": 14,
+        "10": 91,
+        "11": 80,
+        "12": 397,
+        "13": 268,
+        "24": 15
+      },
+      "totalChars": 865,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Person detected",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Face Detection",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 6,
+      "tables": 0,
+      "articles": 0,
+      "images": 1,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:49:39 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 1809,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "events-stats",
+      "path": "/events/stats",
+      "status": 200,
+      "title": "Event statistics · Home CCTV",
+      "h1": "Event statistics",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 12,
+      "targetsUnder24": 0,
+      "targetsUnder44": 7,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 122,
+        "11": 145,
+        "12": 310,
+        "13": 262,
+        "20": 9,
+        "24": 16
+      },
+      "totalChars": 864,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Event statistics",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 6,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:44:35 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 964,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Today",
+        "Yesterday",
+        "Last 7 days",
+        "Last 30 days",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "faces",
+      "path": "/faces",
+      "status": 200,
+      "title": "Detected Faces · Home CCTV",
+      "h1": "Detected Faces",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 42,
+      "targetsUnder24": 24,
+      "targetsUnder44": 37,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 363,
+          "h": 17
+        }
+      ],
+      "fontHistogram": {
+        "10": 976,
+        "11": 724,
+        "12": 423,
+        "13": 386,
+        "20": 8,
+        "24": 14
+      },
+      "totalChars": 2531,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Detected Faces",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "All detections",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 28,
+      "tables": 0,
+      "articles": 24,
+      "images": 24,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:44:37 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 6681,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Apply filters",
+        "Clear filters",
+        "Previous page",
+        "Next page",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "notifications",
+      "path": "/notifications",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Notification history",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 41,
+      "targetsUnder24": 25,
+      "targetsUnder44": 36,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        }
+      ],
+      "fontHistogram": {
+        "10": 120,
+        "11": 464,
+        "12": 1355,
+        "13": 735,
+        "20": 9,
+        "24": 20
+      },
+      "totalChars": 2703,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Notification history",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Decisions",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 29,
+      "tables": 0,
+      "articles": 25,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:45:10 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 3434,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Apply filters",
+        "Clear filters",
+        "Previous page",
+        "Next page",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "device",
+      "path": "/device",
+      "status": 200,
+      "title": "Device · Home CCTV",
+      "h1": "Device",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 8,
+      "targetsUnder24": 0,
+      "targetsUnder44": 3,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 110,
+        "10": 86,
+        "11": 31,
+        "12": 281,
+        "13": 199,
+        "24": 6
+      },
+      "totalChars": 713,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Device",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 13,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:45:12 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 964,
+      "skipLink": true,
+      "srOnly": 1,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "account",
+      "path": "/account",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Account",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 14,
+      "targetsUnder24": 0,
+      "targetsUnder44": 9,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 87,
+        "11": 4219,
+        "12": 36008,
+        "13": 212,
+        "24": 7
+      },
+      "totalChars": 40533,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Account",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Change password",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Signed-in sessions (247)",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 2,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:45:15 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 26817,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Change password",
+        "Sign out other sessions",
+        "Sign out everywhere",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "settings",
+      "path": "/settings",
+      "status": 200,
+      "title": "Settings · Home CCTV",
+      "h1": "Settings",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 23,
+      "targetsUnder24": 0,
+      "targetsUnder44": 12,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 70,
+        "10": 94,
+        "11": 290,
+        "12": 279,
+        "13": 298,
+        "24": 8
+      },
+      "totalChars": 1039,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Settings",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Environment",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 17,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:45:19 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 1170,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "settings-users",
+      "path": "/settings/users",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Users",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 30,
+      "targetsUnder24": 0,
+      "targetsUnder44": 25,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 94,
+        "11": 98,
+        "12": 640,
+        "13": 223,
+        "24": 5
+      },
+      "totalChars": 1060,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Users",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Users",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Create user",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Roles",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 3,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:45:21 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 1149,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Disable",
+        "Switch role",
+        "Reset password",
+        "Sign out sessions",
+        "Delete",
+        "Disable",
+        "Switch role",
+        "Reset password",
+        "Sign out sessions",
+        "Delete",
+        "Create user",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "settings-notifications",
+      "path": "/settings/notifications",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Notification rules",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 27,
+      "targetsUnder24": 1,
+      "targetsUnder44": 22,
+      "targetSamples": [
+        {
+          "tag": "button",
+          "name": "Disable rule all",
+          "w": 34,
+          "h": 20
+        }
+      ],
+      "fontHistogram": {
+        "10": 94,
+        "11": 132,
+        "12": 422,
+        "13": 350,
+        "14": 3,
+        "24": 18
+      },
+      "totalChars": 1019,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Notification rules",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Rules",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 4,
+      "tables": 0,
+      "articles": 1,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:45:23 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 1186,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Enable notifications",
+        "New rule",
+        "Disable rule all",
+        "Disable",
+        "Edit",
+        "Delete",
+        "Test",
+        "Send Telegram Test",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "settings-detection",
+      "path": "/settings/detection",
+      "status": 200,
+      "title": "Object detection · Home CCTV",
+      "h1": "Object detection",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 56,
+      "targetsUnder24": 26,
+      "targetsUnder44": 51,
+      "targetSamples": [
+        {
+          "tag": "input",
+          "name": "Enable object detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Global person confidence threshold",
+          "w": 116,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "name": "Enable person detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Global vehicle confidence threshold",
+          "w": 116,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "name": "Enable vehicle detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Person detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Vehicle detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global person threshold for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global vehicle threshold for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Person detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Vehicle detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global person threshold for Right Side Outside Camer",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global vehicle threshold for Right Side Outside Came",
+          "w": 15,
+          "h": 15
+        }
+      ],
+      "fontHistogram": {
+        "10": 243,
+        "11": 318,
+        "12": 1902,
+        "13": 599,
+        "24": 16
+      },
+      "totalChars": 3078,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Object detection",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Detection",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Camera monitoring",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Performance and behaviour",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Detection behaviour",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Worker status",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Diagnostics",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "About this model",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 8,
+      "tables": 1,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:45:26 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 2600,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Run detection test",
+        "Save settings",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "settings-audit",
+      "path": "/settings/audit-log",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Audit log",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 21,
+      "targetsUnder24": 0,
+      "targetsUnder44": 16,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 94,
+        "11": 427,
+        "12": 1040,
+        "13": 214,
+        "24": 9
+      },
+      "totalChars": 1784,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Audit log",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Audit log",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 1,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:45:28 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 1594,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Filter",
+        "Previous",
+        "Next",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "settings-system",
+      "path": "/settings/system",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "System",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 16,
+      "targetsUnder24": 0,
+      "targetsUnder44": 11,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 149,
+        "11": 109,
+        "12": 784,
+        "13": 509,
+        "24": 6
+      },
+      "totalChars": 1557,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "System",
+          "size": 24,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "MediaMTX paths",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Event ingestion",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Active sessions",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Face detection",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Thumbnails",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Storage and retention",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 14,
+      "tables": 2,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:45:30 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 964,
+      "mainScrollHeight": 2446,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Refresh",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "dashboard",
+      "path": "/",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Dashboard",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 2865,
+      "horizontalOverflow": false,
+      "interactiveCount": 28,
+      "targetsUnder24": 0,
+      "targetsUnder44": 14,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 256,
+        "11": 441,
+        "12": 274,
+        "13": 302,
+        "20": 17
+      },
+      "totalChars": 1290,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Dashboard",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Parking",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Right Side Outside Camera",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "First Floor Passage",
+          "size": 13,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Left Side Outside",
+          "size": 13,
+          "weight": "600"
+        }
+      ],
+      "cards": 7,
+      "tables": 0,
+      "articles": 4,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:45:33 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 2717,
+      "mainScrollHeight": 2717,
+      "skipLink": true,
+      "srOnly": 4,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Unmute Parking",
+        "Open Parking full screen",
+        "Unmute Right Side Outside Camera",
+        "Open Right Side Outside Camera full scre",
+        "Unmute First Floor Passage",
+        "Open First Floor Passage full screen",
+        "Unmute Left Side Outside",
+        "Open Left Side Outside full screen",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "cameras",
+      "path": "/cameras",
+      "status": 200,
+      "title": "Camera setup · Home CCTV",
+      "h1": "Camera setup",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 3058,
+      "horizontalOverflow": false,
+      "interactiveCount": 21,
+      "targetsUnder24": 0,
+      "targetsUnder44": 16,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 136,
+        "10": 233,
+        "11": 96,
+        "12": 1008,
+        "13": 318,
+        "16": 68,
+        "20": 12
+      },
+      "totalChars": 1871,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Camera setup",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Channels",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Parking",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Right Side Outside Camera",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "First Floor Passage",
+          "size": 16,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Left Side Outside",
+          "size": 16,
+          "weight": "650"
+        }
+      ],
+      "cards": 7,
+      "tables": 0,
+      "articles": 4,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:45:36 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 2910,
+      "mainScrollHeight": 2910,
+      "skipLink": true,
+      "srOnly": 6,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "Save",
+        "Use DVR name",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "playback",
+      "path": "/playback",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "CCTV Playback",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 1273,
+      "horizontalOverflow": false,
+      "interactiveCount": 27,
+      "targetsUnder24": 1,
+      "targetsUnder44": 11,
+      "targetSamples": [
+        {
+          "tag": "input",
+          "name": "Volume",
+          "w": 264,
+          "h": 16
+        }
+      ],
+      "fontHistogram": {
+        "9": 8,
+        "10": 118,
+        "11": 31,
+        "12": 134,
+        "13": 122,
+        "14": 141,
+        "16": 21
+      },
+      "totalChars": 575,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "CCTV Playback",
+          "size": 16,
+          "weight": "600"
+        },
+        {
+          "tag": "h2",
+          "text": "Timeline",
+          "size": 12,
+          "weight": "600"
+        }
+      ],
+      "cards": 0,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:46:09 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1125,
+      "mainScrollHeight": 1125,
+      "skipLink": true,
+      "srOnly": 1,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "2026-11-04",
+        "Search recordings",
+        "Seek backward 15 seconds",
+        "Pause",
+        "Seek forward 15 seconds",
+        "Unmute",
+        "Full screen",
+        "24h",
+        "6h",
+        "1h",
+        "Person detected, 08:22:36, High priority",
+        "Person detected, 09:22:52, High priority",
+        "Person detected, 14:14:22, High priority",
+        "Person detected, 16:46:17, High priority",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": [
+        "http://localhost:3000/api/playback/thumbnail/index?camera=1&date=2026-11-04&focus=1793773800000 net::ERR_ABORTED"
+      ]
+    },
+    {
+      "viewport": "mobile",
+      "route": "events",
+      "path": "/events",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Events",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 1970,
+      "horizontalOverflow": false,
+      "interactiveCount": 40,
+      "targetsUnder24": 0,
+      "targetsUnder44": 15,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 98,
+        "11": 842,
+        "12": 333,
+        "13": 763,
+        "16": 15,
+        "20": 6
+      },
+      "totalChars": 2057,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Events",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Event list",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Person detected",
+          "size": 16,
+          "weight": "650"
+        }
+      ],
+      "cards": 1,
+      "tables": 0,
+      "articles": 1,
+      "images": 21,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 20,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:46:11 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1822,
+      "mainScrollHeight": 1822,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Previous day",
+        "Next day",
+        "Today",
+        "All",
+        "Person",
+        "Vehicle",
+        "Motion",
+        "Important",
+        "Filters",
+        "Search",
+        "17:44Person detectedHighNewLeft Side Out",
+        "17:43Person detectedHighNewFirst Floor P",
+        "17:43Person detectedHighNewParking·Not s",
+        "17:43Person detectedHighNewRight Side Ou",
+        "17:43Person detectedHighNewLeft Side Out",
+        "17:43Person detectedHighNewRight Side Ou",
+        "17:43Person detectedHighNewLeft Side Out",
+        "17:39Person detectedHighNewFirst Floor P",
+        "17:39Person detectedHighNewLeft Side Out",
+        "17:38Person detectedHighNewLeft Side Out",
+        "17:37Person detectedHighNewRight Side Ou",
+        "17:36Person detectedHighNewRight Side Ou",
+        "17:36Person detectedHighNewLeft Side Out",
+        "17:36Person detectedHighNewRight Side Ou",
+        "17:36Vehicle detectedNormalNewParking·No",
+        "17:35Person detectedHighNewParking·Notif",
+        "17:34Person detectedHighNewLeft Side Out",
+        "17:33Person detectedHighNewLeft Side Out",
+        "17:32Person detectedHighNewFirst Floor P",
+        "17:26Person detectedHighNewRight Side Ou",
+        "Previous",
+        "Next",
+        "Close event details",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "event-detail",
+      "path": "/events/evt_a63ce96a99c47462f2fc3a8a",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Person detected",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 1774,
+      "horizontalOverflow": false,
+      "interactiveCount": 12,
+      "targetsUnder24": 1,
+      "targetsUnder44": 7,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "Events",
+          "w": 38,
+          "h": 18
+        }
+      ],
+      "fontHistogram": {
+        "9": 14,
+        "10": 91,
+        "11": 80,
+        "12": 377,
+        "13": 268,
+        "20": 15
+      },
+      "totalChars": 845,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Person detected",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Face Detection",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 6,
+      "tables": 0,
+      "articles": 0,
+      "images": 1,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:49:42 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1626,
+      "mainScrollHeight": 1626,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "events-stats",
+      "path": "/events/stats",
+      "status": 200,
+      "title": "Event statistics · Home CCTV",
+      "h1": "Event statistics",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 1057,
+      "horizontalOverflow": false,
+      "interactiveCount": 12,
+      "targetsUnder24": 0,
+      "targetsUnder44": 7,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 122,
+        "11": 145,
+        "12": 290,
+        "13": 262,
+        "20": 25
+      },
+      "totalChars": 844,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Event statistics",
+          "size": 20,
+          "weight": "650"
+        }
+      ],
+      "cards": 6,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:46:16 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 909,
+      "mainScrollHeight": 909,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Today",
+        "Yesterday",
+        "Last 7 days",
+        "Last 30 days",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "faces",
+      "path": "/faces",
+      "status": 200,
+      "title": "Detected Faces · Home CCTV",
+      "h1": "Detected Faces",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 4748,
+      "horizontalOverflow": false,
+      "interactiveCount": 42,
+      "targetsUnder24": 24,
+      "targetsUnder44": 37,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        },
+        {
+          "tag": "a",
+          "name": "View event",
+          "w": 155,
+          "h": 17
+        }
+      ],
+      "fontHistogram": {
+        "10": 976,
+        "11": 724,
+        "12": 403,
+        "13": 386,
+        "20": 22
+      },
+      "totalChars": 2511,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Detected Faces",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "All detections",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 28,
+      "tables": 0,
+      "articles": 24,
+      "images": 24,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:46:18 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 4600,
+      "mainScrollHeight": 4600,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Apply filters",
+        "Clear filters",
+        "Previous page",
+        "Next page",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "notifications",
+      "path": "/notifications",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Notification history",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 4518,
+      "horizontalOverflow": false,
+      "interactiveCount": 41,
+      "targetsUnder24": 25,
+      "targetsUnder44": 36,
+      "targetSamples": [
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        },
+        {
+          "tag": "a",
+          "name": "Open event",
+          "w": 84,
+          "h": 18
+        }
+      ],
+      "fontHistogram": {
+        "10": 120,
+        "11": 464,
+        "12": 1367,
+        "13": 735,
+        "20": 29
+      },
+      "totalChars": 2715,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Notification history",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Decisions",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 29,
+      "tables": 0,
+      "articles": 25,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:46:51 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 4370,
+      "mainScrollHeight": 4370,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Apply filters",
+        "Clear filters",
+        "Previous page",
+        "Next page",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "device",
+      "path": "/device",
+      "status": 200,
+      "title": "Device · Home CCTV",
+      "h1": "Device",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 1115,
+      "horizontalOverflow": false,
+      "interactiveCount": 8,
+      "targetsUnder24": 0,
+      "targetsUnder44": 3,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 110,
+        "10": 86,
+        "11": 31,
+        "12": 261,
+        "13": 199,
+        "20": 6
+      },
+      "totalChars": 693,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Device",
+          "size": 20,
+          "weight": "650"
+        }
+      ],
+      "cards": 13,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:46:54 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 967,
+      "mainScrollHeight": 967,
+      "skipLink": true,
+      "srOnly": 1,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "account",
+      "path": "/account",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Account",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 35396,
+      "horizontalOverflow": false,
+      "interactiveCount": 14,
+      "targetsUnder24": 0,
+      "targetsUnder44": 9,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 87,
+        "11": 4237,
+        "12": 36140,
+        "13": 212,
+        "20": 7
+      },
+      "totalChars": 40683,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Account",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Change password",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Signed-in sessions (248)",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 2,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 2,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": false,
+      "clockText": "05:46:57 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 35248,
+      "mainScrollHeight": 35248,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Change password",
+        "Sign out other sessions",
+        "Sign out everywhere",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "settings",
+      "path": "/settings",
+      "status": 200,
+      "title": "Settings · Home CCTV",
+      "h1": "Settings",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 2062,
+      "horizontalOverflow": false,
+      "interactiveCount": 23,
+      "targetsUnder24": 0,
+      "targetsUnder44": 12,
+      "targetSamples": [],
+      "fontHistogram": {
+        "9": 70,
+        "10": 94,
+        "11": 290,
+        "12": 259,
+        "13": 298,
+        "20": 8
+      },
+      "totalChars": 1019,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Settings",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Environment",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 17,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:47:05 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1914,
+      "mainScrollHeight": 1914,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "settings-users",
+      "path": "/settings/users",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Users",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 1706,
+      "horizontalOverflow": false,
+      "interactiveCount": 30,
+      "targetsUnder24": 0,
+      "targetsUnder44": 25,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 94,
+        "11": 98,
+        "12": 620,
+        "13": 223,
+        "20": 5
+      },
+      "totalChars": 1040,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Users",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Users",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Create user",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Roles",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 3,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:47:07 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1558,
+      "mainScrollHeight": 1558,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Disable",
+        "Switch role",
+        "Reset password",
+        "Sign out sessions",
+        "Delete",
+        "Disable",
+        "Switch role",
+        "Reset password",
+        "Sign out sessions",
+        "Delete",
+        "Create user",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "settings-notifications",
+      "path": "/settings/notifications",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Notification rules",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 1717,
+      "horizontalOverflow": false,
+      "interactiveCount": 27,
+      "targetsUnder24": 1,
+      "targetsUnder44": 22,
+      "targetSamples": [
+        {
+          "tag": "button",
+          "name": "Disable rule all",
+          "w": 34,
+          "h": 20
+        }
+      ],
+      "fontHistogram": {
+        "10": 94,
+        "11": 132,
+        "12": 402,
+        "13": 350,
+        "14": 3,
+        "20": 18
+      },
+      "totalChars": 999,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Notification rules",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Rules",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 4,
+      "tables": 0,
+      "articles": 1,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:47:10 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1569,
+      "mainScrollHeight": 1569,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Enable notifications",
+        "New rule",
+        "Disable rule all",
+        "Disable",
+        "Edit",
+        "Delete",
+        "Test",
+        "Send Telegram Test",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "settings-detection",
+      "path": "/settings/detection",
+      "status": 200,
+      "title": "Object detection · Home CCTV",
+      "h1": "Object detection",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 4124,
+      "horizontalOverflow": false,
+      "interactiveCount": 56,
+      "targetsUnder24": 26,
+      "targetsUnder44": 51,
+      "targetSamples": [
+        {
+          "tag": "input",
+          "name": "Enable object detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Global person confidence threshold",
+          "w": 116,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "name": "Enable person detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Global vehicle confidence threshold",
+          "w": 116,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "name": "Enable vehicle detection",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Person detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Vehicle detection for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global person threshold for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global vehicle threshold for Parking",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Person detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Vehicle detection for Right Side Outside Camera",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global person threshold for Right Side Outside Camer",
+          "w": 15,
+          "h": 15
+        },
+        {
+          "tag": "input",
+          "name": "Use the global vehicle threshold for Right Side Outside Came",
+          "w": 15,
+          "h": 15
+        }
+      ],
+      "fontHistogram": {
+        "10": 243,
+        "11": 318,
+        "12": 1882,
+        "13": 599,
+        "20": 16
+      },
+      "totalChars": 3058,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Object detection",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Detection",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Camera monitoring",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Performance and behaviour",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Detection behaviour",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Worker status",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Diagnostics",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "About this model",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 8,
+      "tables": 1,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:47:12 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 3976,
+      "mainScrollHeight": 3976,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Run detection test",
+        "Save settings",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "settings-audit",
+      "path": "/settings/audit-log",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Audit log",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 2654,
+      "horizontalOverflow": false,
+      "interactiveCount": 21,
+      "targetsUnder24": 0,
+      "targetsUnder44": 16,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 94,
+        "11": 406,
+        "12": 1008,
+        "13": 214,
+        "20": 9
+      },
+      "totalChars": 1731,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Audit log",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Audit log",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 1,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:47:15 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 2506,
+      "mainScrollHeight": 2506,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Filter",
+        "Previous",
+        "Next",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "settings-system",
+      "path": "/settings/system",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "System",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 3914,
+      "horizontalOverflow": false,
+      "interactiveCount": 16,
+      "targetsUnder24": 0,
+      "targetsUnder44": 11,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 149,
+        "11": 109,
+        "12": 768,
+        "13": 529,
+        "20": 6
+      },
+      "totalChars": 1561,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "System",
+          "size": 20,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "MediaMTX paths",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Event ingestion",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Active sessions",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Face detection",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Thumbnails",
+          "size": 13,
+          "weight": "650"
+        },
+        {
+          "tag": "h2",
+          "text": "Storage and retention",
+          "size": 13,
+          "weight": "650"
+        }
+      ],
+      "cards": 14,
+      "tables": 2,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 0,
+      "navCount": 3,
+      "primaryNavs": 2,
+      "sidebarVisible": false,
+      "mobileNavVisible": true,
+      "settingsNavVisible": true,
+      "clockText": "05:47:17 pm",
+      "statusPill": "All systems nominal",
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 3766,
+      "mainScrollHeight": 3766,
+      "skipLink": true,
+      "srOnly": 0,
+      "buttons": [
+        "Log out",
+        "Enable notifications",
+        "Refresh",
+        "More",
+        "Log out"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "desktop",
+      "route": "login",
+      "path": "/login",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Sign in to the hub",
+      "h1Count": 1,
+      "scrollWidth": 1920,
+      "innerWidth": 1920,
+      "docHeight": 1080,
+      "horizontalOverflow": false,
+      "interactiveCount": 3,
+      "targetsUnder24": 0,
+      "targetsUnder44": 3,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 14,
+        "11": 100,
+        "12": 119,
+        "13": 274,
+        "14": 155,
+        "20": 11,
+        "24": 18,
+        "46": 37
+      },
+      "totalChars": 728,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Sign in to the hub",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 0,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 0,
+      "primaryNavs": 0,
+      "sidebarVisible": false,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": null,
+      "statusPill": null,
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1080,
+      "mainScrollHeight": 1080,
+      "skipLink": false,
+      "srOnly": 0,
+      "buttons": [
+        "Sign in"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "laptop",
+      "route": "login",
+      "path": "/login",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Sign in to the hub",
+      "h1Count": 1,
+      "scrollWidth": 1440,
+      "innerWidth": 1440,
+      "docHeight": 900,
+      "horizontalOverflow": false,
+      "interactiveCount": 3,
+      "targetsUnder24": 0,
+      "targetsUnder44": 3,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 14,
+        "11": 100,
+        "12": 119,
+        "13": 274,
+        "14": 155,
+        "20": 11,
+        "24": 18,
+        "46": 37
+      },
+      "totalChars": 728,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Sign in to the hub",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 0,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 0,
+      "primaryNavs": 0,
+      "sidebarVisible": false,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": null,
+      "statusPill": null,
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 900,
+      "mainScrollHeight": 900,
+      "skipLink": false,
+      "srOnly": 0,
+      "buttons": [
+        "Sign in"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "tablet",
+      "route": "login",
+      "path": "/login",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Sign in to the hub",
+      "h1Count": 1,
+      "scrollWidth": 834,
+      "innerWidth": 834,
+      "docHeight": 1112,
+      "horizontalOverflow": false,
+      "interactiveCount": 3,
+      "targetsUnder24": 0,
+      "targetsUnder44": 3,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 14,
+        "11": 100,
+        "12": 119,
+        "13": 274,
+        "14": 155,
+        "20": 11,
+        "24": 18,
+        "28": 37
+      },
+      "totalChars": 728,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Sign in to the hub",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 0,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 0,
+      "primaryNavs": 0,
+      "sidebarVisible": false,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": null,
+      "statusPill": null,
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 1112,
+      "mainScrollHeight": 1112,
+      "skipLink": false,
+      "srOnly": 0,
+      "buttons": [
+        "Sign in"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    },
+    {
+      "viewport": "mobile",
+      "route": "login",
+      "path": "/login",
+      "status": 200,
+      "title": "Home CCTV",
+      "h1": "Sign in to the hub",
+      "h1Count": 1,
+      "scrollWidth": 390,
+      "innerWidth": 390,
+      "docHeight": 844,
+      "horizontalOverflow": false,
+      "interactiveCount": 3,
+      "targetsUnder24": 0,
+      "targetsUnder44": 3,
+      "targetSamples": [],
+      "fontHistogram": {
+        "10": 14,
+        "11": 100,
+        "12": 119,
+        "13": 274,
+        "14": 155,
+        "20": 11,
+        "24": 18,
+        "28": 37
+      },
+      "totalChars": 728,
+      "headings": [
+        {
+          "tag": "h1",
+          "text": "Sign in to the hub",
+          "size": 24,
+          "weight": "650"
+        }
+      ],
+      "cards": 0,
+      "tables": 0,
+      "articles": 0,
+      "images": 0,
+      "imagesNoAlt": 0,
+      "imagesEmptyAlt": 0,
+      "forms": 1,
+      "navCount": 0,
+      "primaryNavs": 0,
+      "sidebarVisible": false,
+      "mobileNavVisible": false,
+      "settingsNavVisible": false,
+      "clockText": null,
+      "statusPill": null,
+      "horizontalScrollMain": 0,
+      "mainClientHeight": 844,
+      "mainScrollHeight": 844,
+      "skipLink": false,
+      "srOnly": 0,
+      "buttons": [
+        "Sign in"
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedRequests": []
+    }
+  ],
+  "states": [
+    "dashboard-focus-desktop",
+    "dashboard-focus-mobile",
+    "mobile-more-sheet",
+    "events-mobile-filters",
+    "events-mobile-inspector",
+    "settings-detection-mobile"
+  ]
+}

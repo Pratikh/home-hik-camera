@@ -1,0 +1,16 @@
+import { chromium } from "@playwright/test";
+import { readFileSync } from "node:fs";
+const env = Object.fromEntries(readFileSync(".env","utf8").split(/\n/).filter(l=>l.includes("=")&&!l.trim().startsWith("#")).map(l=>{const i=l.indexOf("=");return [l.slice(0,i).trim(), l.slice(i+1).trim()]}));
+const b = await chromium.launch();
+const ctx = await b.newContext({ baseURL: "http://localhost:3000", viewport:{width:1600,height:1000} });
+const r = await ctx.request.post("/api/auth/login",{data:{username:env.APP_USERNAME,password:env.APP_PASSWORD,next:"/"}});
+console.log("login", r.status(), r.headers()["set-cookie"]?.slice(0,80));
+const c = await ctx.cookies(); console.log("cookies", c.map(x=>x.name+"="+x.value.slice(0,10)+" path="+x.path+" domain="+x.domain+" sameSite="+x.sameSite));
+const p = await ctx.newPage();
+p.on("response", res => { const u=res.url(); if(u.includes("/api/")) console.log(res.status(), u.replace("http://localhost:3000","")); });
+p.on("console", m => { if(m.type()==="error") console.log("CONSOLE", m.text().slice(0,120)); });
+await p.goto("/");
+await p.waitForTimeout(6000);
+console.log("session api:", await (await ctx.request.get("/api/auth/session")).text());
+await p.screenshot({path:"design/audit/before/debug-dashboard.png"});
+await b.close();

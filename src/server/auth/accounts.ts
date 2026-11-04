@@ -1,10 +1,16 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
+import { normalizeIp } from "@/lib/client-ip";
 import { hashPassword } from "@/lib/password-hash";
 import { openEventStore } from "@/server/events/event-store";
 
 export type Role = "ADMIN" | "VIEWER";
+
+/** Bounds for attacker-influenced audit fields (see writeAudit). */
+const MAX_AUDIT_RESOURCE_LENGTH = 128;
+const MAX_AUDIT_USER_AGENT_LENGTH = 256;
+const MAX_AUDIT_METADATA_LENGTH = 4096;
 
 export type UserRecord = {
   id: string;
@@ -42,7 +48,11 @@ function mapUser(row: UserRow): UserRecord {
 }
 
 export class AccountStore {
-  constructor(private readonly db: DatabaseSync) {}
+  /**
+   * The shared SQLite handle. Exposed (readonly) so auth-adjacent stores such as
+   * the login throttle can use the same connection without opening a second one.
+   */
+  constructor(readonly db: DatabaseSync) {}
 
   countEnabledAdmins(): number {
     const row = this.db.prepare("SELECT COUNT(*) AS count FROM users WHERE role = 'ADMIN' AND enabled = 1").get() as { count: number };
@@ -248,6 +258,20 @@ export class AccountStore {
   }
 
   writeAudit(input: { userId: string | null; action: string; resource?: string | null; metadata?: Record<string, string | number | boolean | null>; ip?: string | null; userAgent?: string | null }): void {
+    // Audit rows can be written before authentication (failed logins), so every
+    // attacker-controlled field is bounded here as a last line of defence. A
+    // 16 KB User-Agent must not become a 16 KB row per request.
+    const resource = input.resource ? input.resource.slice(0, MAX_AUDIT_RESOURCE_LENGTH) : null;
+    const userAgent = input.userAgent ? input.userAgent.slice(0, MAX_AUDIT_USER_AGENT_LENGTH) : null;
+    const ipAddress = normalizeIp(input.ip);
+    let metadata: string | null = null;
+    if (input.metadata) {
+      const serialized = JSON.stringify(input.metadata);
+      metadata =
+        serialized.length <= MAX_AUDIT_METADATA_LENGTH
+          ? serialized
+          : JSON.stringify({ truncated: true, bytes: serialized.length });
+    }
     this.db
       .prepare(
         `INSERT INTO audit_logs (id, user_id, action, resource, metadata, ip_address, user_agent, created_at)
@@ -257,10 +281,10 @@ export class AccountStore {
         randomUUID(),
         input.userId,
         input.action,
-        input.resource ?? null,
-        input.metadata ? JSON.stringify(input.metadata) : null,
-        input.ip ?? null,
-        input.userAgent ?? null,
+        resource,
+        metadata,
+        ipAddress,
+        userAgent,
         new Date().toISOString(),
       );
   }

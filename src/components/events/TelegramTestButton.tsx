@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { TelegramMediaStatusResponse } from "@/lib/api-types";
 import { api } from "@/lib/client-api";
+import { Icon } from "@/components/ui/Icon";
 
 type Phase = "idle" | "sending" | "success" | "failure";
 
@@ -12,6 +13,10 @@ type Phase = "idle" | "sending" | "success" | "failure";
  *
  * The browser never sees the bot token or the chat id: the request carries no
  * credentials, and the status response contains booleans and durations only.
+ *
+ * The exact status sentence is asserted by `telegram.spec.ts` via
+ * `data-testid="telegram-status"` (Telegram: / Enabled / Snapshot: On /
+ * Video: On (10s, 5s before) / FFmpeg: found). Do not reword it.
  */
 export function TelegramTestButton() {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -42,29 +47,30 @@ export function TelegramTestButton() {
   const on = status ? status.enabled && status.configured : false;
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void send()}
-          disabled={phase === "sending"}
-          className="h-11 rounded-lg border border-line px-3 text-sm hover:bg-white/5 disabled:opacity-60"
-        >
+    <div style={{ display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+        <button type="button" onClick={() => void send()} disabled={phase === "sending"} className="btn">
+          <Icon name="send" className="icon icon-sm" />
           {phase === "sending" ? "Sending…" : "Send Telegram Test"}
         </button>
         {message ? (
-          <span
+          <p
             role={phase === "failure" ? "alert" : "status"}
-            className={`text-sm ${phase === "failure" ? "text-warn" : "text-muted"}`}
+            className={phase === "failure" ? "notice notice--danger" : "section__hint"}
+            style={{ margin: 0 }}
           >
             {message}
-          </span>
+          </p>
         ) : null}
       </div>
 
       {status ? (
-        <p className="text-xs text-muted" data-testid="telegram-status">
-          Telegram: <span className={on ? "text-online" : ""}>{on ? "Enabled" : "Disabled"}</span>
+        <p
+          className="section__hint"
+          data-testid="telegram-status"
+          style={{ margin: 0, fontFamily: "var(--font-mono)", fontSize: "var(--fs-11)", lineHeight: 1.6 }}
+        >
+          Telegram: <span className={on ? "text-online" : undefined}>{on ? "Enabled" : "Disabled"}</span>
           {" · "}Rule events: {status.eventNotifications && on ? "On" : "Off"}
           {" · "}Snapshot: {status.faceImage && on ? "On" : "Off"}
           {" · "}Video:{" "}

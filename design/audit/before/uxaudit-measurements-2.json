@@ -1,0 +1,390 @@
+{
+  "sidebar": {
+    "items": [
+      {
+        "text": "Dashboard",
+        "w": 195,
+        "h": 36,
+        "font": "14px"
+      },
+      {
+        "text": "Camera setup",
+        "w": 195,
+        "h": 36,
+        "font": "14px"
+      },
+      {
+        "text": "Playback",
+        "w": 195,
+        "h": 36,
+        "font": "14px"
+      },
+      {
+        "text": "Events",
+        "w": 195,
+        "h": 36,
+        "font": "14px"
+      },
+      {
+        "text": "Faces",
+        "w": 195,
+        "h": 36,
+        "font": "14px"
+      },
+      {
+        "text": "Notifications",
+        "w": 195,
+        "h": 36,
+        "font": "14px"
+      },
+      {
+        "text": "Device",
+        "w": 195,
+        "h": 36,
+        "font": "14px"
+      },
+      {
+        "text": "Settings",
+        "w": 195,
+        "h": 36,
+        "font": "14px"
+      }
+    ],
+    "headerHeight": 61,
+    "headerLinks": [
+      {
+        "text": "Enable notifications",
+        "w": 133,
+        "h": 36
+      },
+      {
+        "text": "Account",
+        "w": 0,
+        "h": 0
+      },
+      {
+        "text": "Log out",
+        "w": 0,
+        "h": 0
+      }
+    ],
+    "firstTile": {
+      "w": 658,
+      "h": 416
+    },
+    "tileCaption": "Parking",
+    "tileVideoLabel": "Live view Parking",
+    "visibleTileText": "Live Unmute Full screen Parking Sub 102 Online Online"
+  },
+  "eventsApi": {
+    "total": 301,
+    "first": "evt_417d9dd35c747de1567a8a95",
+    "pageSize": 20
+  },
+  "eventDetail": {
+    "h1": [
+      "Person detected"
+    ],
+    "h2": [
+      "First Floor Passage"
+    ],
+    "text": "Home CCTV Local hub Dashboard Camera setup Playback Events Faces Notifications Device Settings Account Log out Home CCTV Connected Connected 01:54:28 PM Enable notifications Person detected Event detail from the DVR alarm log. First Floor Passage 13:43:33 High Event snapshot Face detection pending Time 13:43:33 Date 2026-11-04 Duration 9 seconds Type Motion Classification Person Priority HIGH Confidence Not available Notification Not sent Source hikvision View recording Back to events Notification history"
+  },
+  "eventsPage": {
+    "filterForm": {
+      "top": 193,
+      "h": 204
+    },
+    "firstRow": {
+      "top": 441,
+      "h": 65
+    },
+    "detailPanel": {
+      "top": 413,
+      "h": 1522
+    },
+    "viewport": 1000,
+    "rowCount": 20,
+    "detailText": "Person detected High Camera Left Side Outside Time 13:54:06 Duration Not available Type Motion Classification Person Confidence Not available Notified Yes View recording Open details"
+  },
+  "mobileDetection": {
+    "save": {
+      "top": 788,
+      "bottom": 832,
+      "left": 285,
+      "right": 374,
+      "w": 89,
+      "h": 44
+    },
+    "mobileNav": {
+      "top": 805,
+      "bottom": 844,
+      "left": 0,
+      "right": 390,
+      "w": 390,
+      "h": 39
+    },
+    "mobileNavZ": "40",
+    "saveBarZ": "20",
+    "overlap": true,
+    "items": [
+      {
+        "text": "Home",
+        "top": 806,
+        "bottom": 844,
+        "left": 0,
+        "right": 49,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Cameras",
+        "top": 806,
+        "bottom": 844,
+        "left": 49,
+        "right": 98,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Playback",
+        "top": 806,
+        "bottom": 844,
+        "left": 98,
+        "right": 146,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Events",
+        "top": 806,
+        "bottom": 844,
+        "left": 146,
+        "right": 195,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Faces",
+        "top": 806,
+        "bottom": 844,
+        "left": 195,
+        "right": 244,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Alerts",
+        "top": 806,
+        "bottom": 844,
+        "left": 244,
+        "right": 293,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Device",
+        "top": 806,
+        "bottom": 844,
+        "left": 293,
+        "right": 341,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Settings",
+        "top": 806,
+        "bottom": 844,
+        "left": 341,
+        "right": 390,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      }
+    ]
+  },
+  "mobileDashboard": {
+    "header": {
+      "top": 0,
+      "bottom": 61,
+      "w": 390,
+      "h": 61
+    },
+    "headerChildren": [
+      {
+        "text": "ConnectedDVR okConnected",
+        "top": 20,
+        "bottom": 40,
+        "w": 65,
+        "h": 20
+      },
+      {
+        "text": "01:54:42 PM",
+        "top": 0,
+        "bottom": 0,
+        "w": 0,
+        "h": 0
+      },
+      {
+        "text": "Enable notifications",
+        "top": 12,
+        "bottom": 48,
+        "w": 133,
+        "h": 36
+      },
+      {
+        "text": "Account",
+        "top": 12,
+        "bottom": 48,
+        "w": 63,
+        "h": 36
+      },
+      {
+        "text": "Log out",
+        "top": 12,
+        "bottom": 48,
+        "w": 68,
+        "h": 36
+      }
+    ],
+    "mobileNav": {
+      "top": 805,
+      "bottom": 844,
+      "w": 390,
+      "h": 39
+    },
+    "navItems": [
+      {
+        "text": "Home",
+        "top": 806,
+        "bottom": 844,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Cameras",
+        "top": 806,
+        "bottom": 844,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Playback",
+        "top": 806,
+        "bottom": 844,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Events",
+        "top": 806,
+        "bottom": 844,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Faces",
+        "top": 806,
+        "bottom": 844,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Alerts",
+        "top": 806,
+        "bottom": 844,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Device",
+        "top": 806,
+        "bottom": 844,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      },
+      {
+        "text": "Settings",
+        "top": 806,
+        "bottom": 844,
+        "w": 49,
+        "h": 38,
+        "font": "11px"
+      }
+    ],
+    "tiles": [
+      {
+        "top": 165,
+        "bottom": 426,
+        "w": 366,
+        "h": 261,
+        "text": "Live Unmute Full screen Parking Sub 102 Online Online"
+      },
+      {
+        "top": 438,
+        "bottom": 699,
+        "w": 366,
+        "h": 261,
+        "text": "Live Unmute Full screen Right Side Outside Camera Sub 202 Online Online"
+      },
+      {
+        "top": 711,
+        "bottom": 971,
+        "w": 366,
+        "h": 261,
+        "text": "Live Unmute Full screen First Floor Passage Sub 302 Online Online"
+      },
+      {
+        "top": 983,
+        "bottom": 1244,
+        "w": 366,
+        "h": 261,
+        "text": "Live Unmute Full screen Left Side Outside Sub 402 Online Online"
+      }
+    ]
+  },
+  "mobileTileAffordance": {
+    "overlayButton": true,
+    "overlayButtonOpacity": "0",
+    "overlayButtonVisible": false
+  },
+  "tabletDetection": {
+    "save": {
+      "top": 1056,
+      "bottom": 1100,
+      "left": 684,
+      "right": 801
+    },
+    "bar": {
+      "top": 1043,
+      "bottom": 1112,
+      "left": 0,
+      "right": 834
+    },
+    "mobileNav": {
+      "top": 0,
+      "bottom": 0,
+      "left": 0,
+      "right": 0
+    },
+    "barZ": "20",
+    "navZ": "40"
+  },
+  "faces": {
+    "text": "Home CCTV Local hub Dashboard Camera setup Playback Events Faces Notifications Device Settings Account Log out Home CCTV Connected Connected 01:54:51 PM Enable notifications Detected Faces Faces found in event snapshots by the local detector. Every face stays Unassigned until a later phase adds people. Camera All cameras Parking Right Side Outside Camera First Floor Passage Left Side Outside Date (optional) Assignment All Unassigned Assigned Minimum confidence Any 50%+ 60%+ 70%+ 80%+ 90%+ Apply filters 348 detected faces Unassigned 66% confidence First Floor Passage 21 Oct 2026, 19:21:19 View event Unassigned 75% confidence First Floor Passage 21 Oct 2026, 18:20:17 View event Unassigned 84% confidence Left Side Outside 21 Oct 2026, 18:06:40 View event Unassigned 67% confidence Right Side Outside Camera 21 Oct 2026, 18:06:27 View event Unassigned 80% confidence Left Side Outside 21 Oct 20"
+  }
+}

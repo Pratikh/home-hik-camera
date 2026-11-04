@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/client-api";
 import { Messages } from "@/lib/messages";
 import { formatKolkataDateTimeFromIso } from "@/lib/time-kolkata";
-import { PageIntro } from "@/components/ui/States";
+import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState } from "@/components/ui/States";
 
 type Log = { id: string; username: string | null; action: string; resource: string | null; createdAt: string };
 type AuditResponse = { logs: Log[]; total: number; page: number; pageSize: number };
@@ -52,51 +54,179 @@ export default function AuditLogPage() {
     return () => clearTimeout(timer);
   }, [load]);
 
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+
   return (
-    <div className="min-w-0">
-      <PageIntro title="Audit log" detail="Sign-ins and account changes, in India time. Passwords and DVR credentials are not recorded." />
+    <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+      <PageHeader
+        eyebrow="Administration"
+        title="Audit log"
+        detail="Sign-ins and account changes, in India time. Passwords and DVR credentials are not recorded."
+        actions={
+          <>
+            <span className="pill">
+              <span className={`dot ${total > 0 ? "dot--online" : "dot--idle"}`} />
+              {total > 0 ? `${total} entr${total === 1 ? "y" : "ies"}` : "No entries yet"}
+            </span>
+          </>
+        }
+      />
+
       <form
-        className="mb-4 flex flex-wrap gap-2"
+        className="filter-panel"
         onSubmit={(event) => {
           event.preventDefault();
           void load(1);
         }}
       >
-        <input value={user} onChange={(event) => setUser(event.target.value)} aria-label="User" placeholder="User" className="h-11 rounded-lg border border-line bg-card px-3" />
-        <input value={action} onChange={(event) => setAction(event.target.value)} aria-label="Action" placeholder="Action" className="h-11 rounded-lg border border-line bg-card px-3" />
-        <input type="date" value={date} onChange={(event) => setDate(event.target.value)} aria-label="Date" className="h-11 rounded-lg border border-line bg-card px-3" />
-        <button type="submit" className="h-11 rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f]">Filter</button>
+        <div className="form-grid form-grid--3">
+          <div className="field">
+            <label className="field__label" htmlFor="audit-user">
+              User
+            </label>
+            <input
+              id="audit-user"
+              className="input"
+              value={user}
+              onChange={(event) => setUser(event.target.value)}
+              placeholder="home"
+              autoComplete="off"
+            />
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor="audit-action">
+              Action
+            </label>
+            <input
+              id="audit-action"
+              className="input input--mono"
+              value={action}
+              onChange={(event) => setAction(event.target.value)}
+              placeholder="LOGIN"
+              autoComplete="off"
+            />
+          </div>
+          <div className="field">
+            <label className="field__label" htmlFor="audit-date">
+              Date
+            </label>
+            <input
+              id="audit-date"
+              className="input input--mono"
+              type="date"
+              value={date}
+              onChange={(event) => setDate(event.target.value)}
+            />
+          </div>
+        </div>
+        <div className="filter-panel__foot">
+          <button type="submit" className="btn btn--primary">
+            <Icon name="filter" className="icon icon-sm" />
+            Filter
+          </button>
+          <span className="section__hint">
+            Filter by exact username, action code, or a single day in Asia/Kolkata.
+          </span>
+        </div>
       </form>
 
-      {loading && !loaded ? <p className="text-sm text-muted">Loading audit log...</p> : null}
+      {loading && !loaded ? <p className="section__hint">Loading audit log...</p> : null}
+
       {error ? (
-        <div className="mt-2 flex items-center gap-3 text-sm text-warn" role="alert">
+        <div className="notice notice--danger" role="alert" style={{ alignItems: "center" }}>
+          <Icon name="alert" />
           <span>Unable to load audit log.</span>
-          <button type="button" onClick={() => void load(page)} className="rounded-lg border border-line px-3 py-1">Retry</button>
+          <button type="button" onClick={() => void load(page)} className="btn btn--sm" style={{ marginLeft: "auto" }}>
+            Retry
+          </button>
         </div>
       ) : null}
-      {!loading && !error && logs.length === 0 ? <p className="text-sm text-muted">No audit entries yet.</p> : null}
 
-      <ul className="flex flex-col gap-2">
-        {logs.map((log) => (
-          <li key={log.id} className="rounded-xl border border-line bg-card px-3 py-3 text-sm">
-            <span className="font-medium">{log.action}</span>
-            <span className="text-muted"> {log.username ?? "unknown"} {log.resource ?? ""}</span>
-            {/* Rendered in India time, matching the rest of the app. */}
-            <time dateTime={log.createdAt} className="mt-1 block font-mono text-xs text-muted">
-              {formatKolkataDateTimeFromIso(log.createdAt)}
-            </time>
-          </li>
-        ))}
-      </ul>
-
-      {total > pageSize ? (
-        <div className="mt-3 flex items-center gap-2">
-          <button type="button" className="h-10 rounded-lg border border-line px-3 text-sm disabled:opacity-40" disabled={page <= 1} onClick={() => void load(page - 1)}>Previous</button>
-          <span className="text-xs text-muted">Page {page} of {Math.max(1, Math.ceil(total / pageSize))} · {total} entries</span>
-          <button type="button" className="h-10 rounded-lg border border-line px-3 text-sm disabled:opacity-40" disabled={page * pageSize >= total} onClick={() => void load(page + 1)}>Next</button>
+      <section className="card" style={{ minWidth: 0 }}>
+        <div className="card__head">
+          <h2 className="card__title">
+            <Icon name="file" className="icon icon-sm" />
+            Audit log
+          </h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="badge badge--mono">Asia/Kolkata</span>
+            <span className="status">
+              <span className={`dot ${loading ? "dot--warn" : "dot--online"}`} aria-hidden="true" />
+              <span className="status__text">{loading ? "Loading" : "Live"}</span>
+            </span>
+          </div>
         </div>
-      ) : null}
+
+        {!error && !loading && logs.length === 0 ? (
+          <div className="card__body">
+            <EmptyState
+              icon="file"
+              title="No audit entries yet."
+              detail="Sign-ins and account changes appear here as soon as they happen."
+            />
+          </div>
+        ) : (
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+            {logs.map((log) => (
+              <li
+                key={log.id}
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  padding: "10px 14px",
+                  borderTop: "1px solid var(--line)",
+                }}
+              >
+                <time
+                  dateTime={log.createdAt}
+                  className="num"
+                  style={{ flex: "none", minWidth: 168, fontSize: "var(--fs-12)", color: "var(--muted)" }}
+                >
+                  {formatKolkataDateTimeFromIso(log.createdAt)}
+                </time>
+                <span className="badge badge--mono">{log.action}</span>
+                <span style={{ fontSize: "var(--fs-12)", fontWeight: 600 }}>{log.username ?? "unknown"}</span>
+                <span className="section__hint" style={{ minWidth: 0 }}>
+                  {log.resource ?? "—"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="card__foot">
+          <div className="pagination" style={{ marginTop: 0, justifyContent: "space-between", flexWrap: "wrap" }}>
+            <span className="pagination__count">
+              {total > 0
+                ? `Showing ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total} entries`
+                : "No entries"}
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn--sm"
+                disabled={page <= 1 || loading}
+                onClick={() => void load(page - 1)}
+              >
+                Previous
+              </button>
+              <span className="badge badge--mono">
+                Page {page} of {pageCount}
+              </span>
+              <button
+                type="button"
+                className="btn btn--sm"
+                disabled={page * pageSize >= total || loading}
+                onClick={() => void load(page + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

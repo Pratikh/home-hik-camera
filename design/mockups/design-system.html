@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Design system · Home CCTV — Sentinel</title>
+<link rel="stylesheet" href="assets/ds.css">
+<style>
+  .ds-section { margin-top: 30px; }
+  .ds-h2 { display: flex; align-items: baseline; gap: 10px; font-size: var(--fs-16); font-weight: 650; letter-spacing: -0.01em; margin-bottom: 4px; }
+  .ds-h2 span { font-family: var(--font-mono); font-size: 11px; font-weight: 500; color: var(--faint); letter-spacing: 0; }
+  .ds-lede { font-size: var(--fs-13); color: var(--muted); max-width: 80ch; margin-bottom: 14px; }
+  .ds-grid { display: grid; gap: 12px; }
+  .ds-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ds-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ds-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .swatches { display: grid; gap: 10px; }
+  .swatch { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; background: var(--card); }
+  .swatch__chip { height: 44px; }
+  .swatch__meta { padding: 8px 10px; }
+  .swatch__name { font-size: var(--fs-12); font-weight: 600; }
+  .swatch__hex { margin-top: 1px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .swatch__use { margin-top: 3px; font-size: 10px; color: var(--faint); }
+  .type-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-row__name { flex: none; width: 150px; font-family: var(--font-mono); font-size: 10px; color: var(--faint); }
+  .type-row__sample { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .type-row__spec { flex: none; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .specimen { display: grid; gap: 10px; }
+  .specimen__row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px dashed var(--line); }
+  .specimen__row:last-child { border-bottom: 0; }
+  .specimen__label { flex: none; width: 132px; font-family: var(--font-mono); font-size: 10px; color: var(--faint); }
+  .contrast { width: 100%; border-collapse: collapse; font-size: var(--fs-12); }
+  .contrast th, .contrast td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .contrast th { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .contrast .ok { color: var(--online); font-weight: 600; }
+  .contrast .mono { font-family: var(--font-mono); }
+  .space-bar { height: 10px; border-radius: 2px; background: var(--accent); opacity: 0.55; }
+  .radius-box { height: 46px; border: 1px solid var(--line-2); background: var(--card-2); display: grid; place-items: center; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+  .principles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .principle { padding: 14px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--card); }
+  .principle__n { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.08em; }
+  .principle__title { margin-top: 6px; font-size: var(--fs-13); font-weight: 650; }
+  .principle__text { margin-top: 4px; font-size: 11px; color: var(--muted); line-height: 1.55; }
+  .token-table { width: 100%; border-collapse: collapse; font-size: var(--fs-12); }
+  .token-table th, .token-table td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  .token-table th { font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); font-weight: 600; }
+  .token-table code { font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); }
+  .token-table .new { color: var(--accent); }
+  .ds-do { padding: 12px; border: 1px solid rgba(61,220,151,0.28); border-radius: var(--r-md); background: var(--online-soft); }
+  .ds-dont { padding: 12px; border: 1px solid rgba(255,122,122,0.28); border-radius: var(--r-md); background: var(--danger-soft); }
+  .ds-do h4, .ds-dont h4 { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 7px; }
+  .ds-do h4 { color: var(--online); } .ds-dont h4 { color: var(--danger); }
+  .ds-do li, .ds-dont li { font-size: var(--fs-12); color: var(--ink-2); padding: 3px 0; }
+  .mini-nav { padding: 8px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+  .mini-nav .nav__item { height: 32px; }
+  @media (max-width: 1024px) {
+    .ds-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .principles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ds-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 640px) {
+    .ds-grid--2, .ds-grid--3, .ds-grid--4 { grid-template-columns: minmax(0, 1fr); }
+    .principles { grid-template-columns: minmax(0, 1fr); }
+    .type-row__name { width: 96px; }
+  }
+</style>
+</head>
+<body data-nav="settings" data-crumb="Design system">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Design system · v1</div>
+      <h1>Sentinel — surveillance console</h1>
+      <p class="page-head__sub">A single dark operator theme for Home CCTV Hub. Calm surfaces, one signal accent, status that never relies on colour alone, and a typography scale tuned for 5-second scanning of camera names, times and priorities.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="badge badge--accent">Dark only</span>
+      <span class="badge">System fonts</span>
+      <span class="badge">WCAG AA body text</span>
+    </div>
+  </div>
+
+  <section class="ds-section">
+    <div class="ds-h2">Principles <span>4 rules</span></div>
+    <div class="principles">
+      <div class="principle"><div class="principle__n">01</div><div class="principle__title">Operate, don’t decorate</div><div class="principle__text">Every pixel earns its place. Surveillance chrome should disappear behind the picture, the time and the state.</div></div>
+      <div class="principle"><div class="principle__n">02</div><div class="principle__title">Status is never colour-only</div><div class="principle__text">Every online/offline, sent/failed, enabled/disabled signal pairs its colour with a dot shape and a word.</div></div>
+      <div class="principle"><div class="principle__n">03</div><div class="principle__title">Dense, then calm</div><div class="principle__text">Compact 38 px controls and 13 px body text, separated by a strict 4 px spacing rhythm and generous card padding.</div></div>
+      <div class="principle"><div class="principle__n">04</div><div class="principle__title">One accent, few alarms</div><div class="principle__text">Krypton teal is action and live signal. Amber and red are reserved for warnings and failures — never decoration.</div></div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Colour <span>surfaces · ink · signal</span></div>
+    <p class="ds-lede">Four surface steps create depth without shadows. Two ink steps plus muted/faint carry all text. Teal is the only accent; status colours are semantic.</p>
+    <div class="ds-grid ds-grid--4">
+      <div class="swatches">
+        <div class="swatch"><div class="swatch__chip" style="background:var(--bg)"></div><div class="swatch__meta"><div class="swatch__name">Canvas</div><div class="swatch__hex">#070A0E · --bg</div><div class="swatch__use">Page background</div></div></div>
+        <div class="swatch"><div class="swatch__chip" style="background:var(--surface)"></div><div class="swatch__meta"><div class="swatch__name">Surface</div><div class="swatch__hex">#0B1017 · --surface</div><div class="swatch__use">Sidebar, appbar, inputs</div></div></div>
+      </div>
+      <div class="swatches">
+        <div class="swatch"><div class="swatch__chip" style="background:var(--card)"></div><div class="swatch__meta"><div class="swatch__name">Card</div><div class="swatch__hex">#0F1620 · --card</div><div class="swatch__use">Panels, tiles, rows</div></div></div>
+        <div class="swatch"><div class="swatch__chip" style="background:var(--raised)"></div><div class="swatch__meta"><div class="swatch__name">Raised</div><div class="swatch__hex">#16202D · --raised</div><div class="swatch__use">Popovers, hover, pressed</div></div></div>
+      </div>
+      <div class="swatches">
+        <div class="swatch"><div class="swatch__chip" style="background:var(--ink)"></div><div class="swatch__meta"><div class="swatch__name">Ink</div><div class="swatch__hex">#E9F0F8 · --ink</div><div class="swatch__use">Primary text</div></div></div>
+        <div class="swatch"><div class="swatch__chip" style="background:var(--muted)"></div><div class="swatch__meta"><div class="swatch__name">Muted</div><div class="swatch__hex">#8A9AB0 · --muted</div><div class="swatch__use">Metadata, labels</div></div></div>
+      </div>
+      <div class="swatches">
+        <div class="swatch"><div class="swatch__chip" style="background:var(--accent)"></div><div class="swatch__meta"><div class="swatch__name">Krypton</div><div class="swatch__hex">#2FE3C6 · --accent</div><div class="swatch__use">Primary action, live</div></div></div>
+        <div class="swatch"><div class="swatch__chip" style="background:linear-gradient(90deg,var(--online) 0 33%,var(--warn) 33% 66%,var(--danger) 66% 100%)"></div><div class="swatch__meta"><div class="swatch__name">Status</div><div class="swatch__hex">#3DDC97 · #F5C451 · #FF7A7A</div><div class="swatch__use">Online · warn · offline</div></div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="card__head"><div class="card__title">Contrast audit <span class="section__hint">WCAG 2.1 AA, normal text ≥ 4.5:1</span></div><span class="badge badge--online">All body pairs pass</span></div>
+      <div class="card__body" style="padding:0">
+        <table class="contrast">
+          <thead><tr><th>Text</th><th>Background</th><th>Ratio</th><th>AA</th><th>Use</th></tr></thead>
+          <tbody>
+            <tr><td>Ink #E9F0F8</td><td>Card #0F1620</td><td class="mono">15.8:1</td><td class="ok">Pass</td><td>Body, titles</td></tr>
+            <tr><td>Ink-2 #C3CFDD</td><td>Card #0F1620</td><td class="mono">11.5:1</td><td class="ok">Pass</td><td>Secondary text</td></tr>
+            <tr><td>Muted #8A9AB0</td><td>Card #0F1620</td><td class="mono">6.3:1</td><td class="ok">Pass</td><td>Metadata</td></tr>
+            <tr><td>Faint #7E8EA4</td><td>Card #0F1620</td><td class="mono">4.6:1</td><td class="ok">Pass</td><td>Micro-labels only</td></tr>
+            <tr><td>Krypton #2FE3C6</td><td>Canvas #070A0E</td><td class="mono">12.2:1</td><td class="ok">Pass</td><td>Actions, active nav</td></tr>
+            <tr><td>Accent ink #04211C</td><td>Krypton #2FE3C6</td><td class="mono">10.4:1</td><td class="ok">Pass</td><td>Primary button label</td></tr>
+            <tr><td>Danger #FF7A7A</td><td>Card #0F1620</td><td class="mono">7.2:1</td><td class="ok">Pass</td><td>Failure / critical</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Typography <span>system stack · no webfonts (CSP)</span></div>
+    <p class="ds-lede">Native system UI font for everything; monospace only for machine data (times, channel numbers, IDs, hex). Tabular numerals are mandatory in tables, clocks and counters.</p>
+    <div class="ds-grid ds-grid--2">
+      <div class="card card--pad">
+        <div class="type-row"><div class="type-row__name">display / 28 · 650</div><div class="type-row__sample" style="font-size:28px;font-weight:650;letter-spacing:-0.03em">Live monitoring</div><div class="type-row__spec">login headline</div></div>
+        <div class="type-row"><div class="type-row__name">h1 / 24 · 650</div><div class="type-row__sample" style="font-size:24px;font-weight:650;letter-spacing:-0.02em">Dashboard</div><div class="type-row__spec">page title</div></div>
+        <div class="type-row"><div class="type-row__name">h2 / 16 · 650</div><div class="type-row__sample" style="font-size:16px;font-weight:650;letter-spacing:-0.01em">Right Side Outside Camera</div><div class="type-row__spec">card / inspector title</div></div>
+        <div class="type-row"><div class="type-row__name">body / 14 · 450</div><div class="type-row__sample">Four-camera live view over the local gateway.</div><div class="type-row__spec">default text</div></div>
+        <div class="type-row"><div class="type-row__name">compact / 13 · 550</div><div class="type-row__sample" style="font-size:13px;font-weight:550">Person detected · Left Side Outside</div><div class="type-row__spec">rows, buttons, nav</div></div>
+        <div class="type-row"><div class="type-row__name">meta / 12 · 450</div><div class="type-row__sample" style="font-size:12px;color:var(--muted)">04 Nov 2026 · 13:54:19 +05:30</div><div class="type-row__spec">metadata, helper</div></div>
+        <div class="type-row"><div class="type-row__name">label / 10-11 · 650</div><div class="type-row__sample" style="font-size:10px;font-weight:650;letter-spacing:0.14em;text-transform:uppercase;color:var(--faint)">Cameras online</div><div class="type-row__spec">uppercase micro-label</div></div>
+      </div>
+      <div class="card card--pad">
+        <div class="section__hint" style="margin-bottom:10px">Monospace data treatment</div>
+        <div class="ds-grid" style="gap:8px">
+          <div class="pill" style="align-self:start"><span class="dot dot--online"></span><span class="badge badge--mono">Camera 102</span><span>Sub stream</span></div>
+          <div class="rail-row" style="padding-left:0;padding-right:0;border-bottom:1px solid var(--line)"><span class="rail-row__time">13:54</span><span class="rail-row__main"><span class="rail-row__title">Person detected</span><span class="rail-row__sub">Left Side Outside · High priority</span></span><span class="badge badge--danger">High</span></div>
+          <div class="rail-row" style="padding-left:0;padding-right:0;border-bottom:0"><span class="rail-row__time">09:51</span><span class="rail-row__main"><span class="rail-row__title">Vehicle detected</span><span class="rail-row__sub">Left Side Outside · Normal priority</span></span><span class="badge">Normal</span></div>
+        </div>
+        <div class="notice" style="margin-top:12px"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>Use <code style="font-family:var(--font-mono);color:var(--accent)">font-variant-numeric: tabular-nums</code> so times and counters do not jitter as they update.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Space, radius, elevation <span>4 px rhythm</span></div>
+    <div class="ds-grid ds-grid--2">
+      <div class="card card--pad">
+        <div class="specimen">
+          <div class="specimen__row"><div class="specimen__label">s-1 · 4</div><div class="space-bar" style="width:4px"></div></div>
+          <div class="specimen__row"><div class="specimen__label">s-2 · 8</div><div class="space-bar" style="width:8px"></div></div>
+          <div class="specimen__row"><div class="specimen__label">s-3 · 12</div><div class="space-bar" style="width:12px"></div></div>
+          <div class="specimen__row"><div class="specimen__label">s-4 · 16</div><div class="space-bar" style="width:16px"></div></div>
+          <div class="specimen__row"><div class="specimen__label">s-5 · 20</div><div class="space-bar" style="width:20px"></div></div>
+          <div class="specimen__row"><div class="specimen__label">s-6 · 24</div><div class="space-bar" style="width:24px"></div></div>
+          <div class="specimen__row"><div class="specimen__label">s-7 · 32</div><div class="space-bar" style="width:32px"></div></div>
+        </div>
+      </div>
+      <div class="card card--pad">
+        <div class="ds-grid ds-grid--3" style="gap:8px">
+          <div class="radius-box" style="border-radius:6px">r-sm 6</div>
+          <div class="radius-box" style="border-radius:8px">r-md 8</div>
+          <div class="radius-box" style="border-radius:12px">r-lg 12</div>
+        </div>
+        <div class="section__hint" style="margin-top:12px">Card = 12 px · controls = 8 px · chips/badges = pill · popover shadow: <span class="badge badge--mono">0 18px 48px rgba(0,0,0,.55)</span></div>
+        <div class="notice" style="margin-top:12px"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>Depth comes from surface steps and 1 px hairline borders. Shadows are reserved for floating layers (calendar popover, mobile sheet).</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Actions <span>buttons</span></div>
+    <div class="card card--pad">
+      <div class="specimen">
+        <div class="specimen__row"><div class="specimen__label">primary</div><button class="btn btn--primary"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-plus"/></svg>New rule</button><button class="btn btn--primary btn--sm">Save</button><button class="btn btn--primary btn--lg">Search recordings</button></div>
+        <div class="specimen__row"><div class="specimen__label">secondary</div><button class="btn">Clear filters</button><button class="btn"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-external"/></svg>Open details</button><button class="btn btn--ghost">Cancel</button></div>
+        <div class="specimen__row"><div class="specimen__label">danger / disabled</div><button class="btn btn--danger">Delete rule</button><button class="btn btn--primary" disabled>Save</button><button class="icon-btn" aria-label="More"><svg class="icon" aria-hidden="true"><use href="#i-more"/></svg></button></div>
+        <div class="specimen__row"><div class="specimen__label">focus states</div><button class="btn btn--primary" style="box-shadow:var(--focus)">Keyboard focus</button><input class="input" style="width:220px" value="Focused input" ></div>
+      </div>
+      <div class="ds-grid ds-grid--2" style="margin-top:12px">
+        <div class="ds-do"><h4>Do</h4><ul><li>One primary action per view or card.</li><li>Verb-first labels: “Save rule”, “Search recordings”.</li><li>Keep visible labels — icons never replace names in tested navigation.</li></ul></div>
+        <div class="ds-dont"><h4>Don’t</h4><ul><li>No more than one teal fill in a card header.</li><li>No ghost buttons for destructive actions.</li><li>Don’t change accessible names to fit a layout.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Fields & controls <span>38 px · dark wells</span></div>
+    <div class="card card--pad">
+      <div class="ds-grid ds-grid--3">
+        <label class="field"><span class="field__label">Camera</span><select class="select"><option>All cameras</option><option>Parking</option><option>Right Side Outside Camera</option></select></label>
+        <label class="field"><span class="field__label">Date</span><input class="input input--mono" value="04/11/2026"></label>
+        <label class="field"><span class="field__label">Search</span><span class="search-input"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-search"/></svg><input class="input" placeholder="Search events"></span></label>
+        <label class="check"><input type="checkbox" checked>All cameras</label>
+        <label class="check"><input type="checkbox">Person</label>
+        <div style="display:flex;align-items:center;gap:10px"><span class="switch" aria-checked="true" role="switch" tabindex="0"></span><span class="section__hint">Rule enabled</span></div>
+        <div class="seg"><button class="seg__item" aria-pressed="true">24h</button><button class="seg__item" aria-pressed="false">6h</button><button class="seg__item" aria-pressed="false">1h</button></div>
+        <div class="seg"><button class="seg__item" aria-pressed="true">All</button><button class="seg__item" aria-pressed="false">Person</button><button class="seg__item" aria-pressed="false">Vehicle</button></div>
+        <div class="day-row"><button class="day" aria-pressed="true">MON</button><button class="day" aria-pressed="false">TUE</button><button class="day" aria-pressed="true">WED</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Status language <span>never colour-only</span></div>
+    <div class="card card--pad">
+      <div class="specimen">
+        <div class="specimen__row"><div class="specimen__label">system status</div><span class="status"><span class="dot dot--online"></span><span>Online</span></span><span class="status"><span class="dot dot--warn"></span><span>Checking</span></span><span class="status"><span class="dot dot--offline"></span><span>Camera unavailable</span></span><span class="status"><span class="dot dot--live"></span><span>Live</span></span></div>
+        <div class="specimen__row"><div class="specimen__label">badges</div><span class="badge badge--online">Sent</span><span class="badge badge--warn">Suppressed</span><span class="badge badge--danger">Failed</span><span class="badge badge--critical">Critical</span><span class="badge badge--accent">New</span><span class="badge badge--info">Unread</span><span class="badge">Normal</span><span class="badge badge--mono">704×576</span></div>
+        <div class="specimen__row"><div class="specimen__label">pills / chips</div><span class="pill"><span class="dot dot--online"></span>4 of 4 streams live</span><span class="chip chip--teal">All cameras</span><span class="chip">Person, Vehicle</span><span class="chip chip--mono">22:00–06:00</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Data display <span>stats · tiles · rows</span></div>
+    <div class="stat-row" style="margin-bottom:12px">
+      <div class="stat stat--accent"><div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-camera"/></svg></div><div><div class="stat__label">Cameras online</div><div class="stat__value">4 <small>/ 4</small></div><div class="stat__delta"><strong>All nominal</strong></div></div></div>
+      <div class="stat"><div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-events"/></svg></div><div><div class="stat__label">Events today</div><div class="stat__value">297</div><div class="stat__delta">+38 last hour</div></div></div>
+      <div class="stat stat--warn"><div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg></div><div><div class="stat__label">Alerts sent</div><div class="stat__value">3</div><div class="stat__delta">301 suppressed</div></div></div>
+      <div class="stat stat--info"><div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-faces"/></svg></div><div><div class="stat__label">Faces today</div><div class="stat__value">12</div><div class="stat__delta">348 all time</div></div></div>
+    </div>
+    <div class="ds-grid ds-grid--2">
+      <div class="card" style="overflow:hidden">
+        <div class="card__head"><div class="card__title">Camera tile</div><span class="badge badge--online">Live</span></div>
+        <div class="camera" style="border:0;border-radius:0">
+          <div class="camera__video" style="aspect-ratio:16/9"><img class="camera__media" src="assets/frames/cam2.jpg" alt="Camera tile example"><div class="camera__overlay"><div class="camera__top"><span class="camera__live"><span class="dot dot--live"></span>Live</span><span class="camera__action"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-expand"/></svg></span></div><div class="camera__bottom"><span class="camera__clock">04-11-2026 13:48:10</span><span class="camera__signal"><span class="dot dot--online"></span>Online</span></div></div></div>
+          <div class="camera__caption"><div class="camera__caption-main"><h2 class="camera__name">Right Side Outside Camera</h2><div class="camera__meta">SUB 202 · MAIN 201</div></div><span class="status"><span class="dot dot--online"></span><span>90 events</span></span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card__head"><div class="card__title">Event row</div><span class="section__hint">li › button</span></div>
+        <div class="card__body" style="display:grid;gap:6px">
+          <button class="event-row"><span class="event-row__time">13:54</span><span class="event-row__thumb"><img src="assets/frames/event-hero.jpg" alt=""></span><span class="event-row__main"><span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span><span class="chip chip--teal">New</span></span><span class="event-row__meta"><span>Left Side Outside</span><span class="sep">·</span><span>notified</span></span></span><span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span></button>
+          <button class="event-row" aria-pressed="true"><span class="event-row__time">09:51</span><span class="event-row__thumb"><img src="assets/frames/cam4.jpg" alt=""></span><span class="event-row__main"><span class="event-row__title"><span>Vehicle detected</span><span class="badge">Normal</span></span><span class="event-row__meta"><span>Left Side Outside</span><span class="sep">·</span><span>notified</span></span></span><span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span></button>
+        </div>
+        <div class="card__foot"><span class="section__hint">Selected row = teal border + 6% teal wash</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Feedback states <span>loading · empty · error</span></div>
+    <div class="ds-grid ds-grid--3">
+      <div class="card card--pad"><div class="section__hint" style="margin-bottom:8px">Loading skeleton</div><div class="skeleton" style="height:38px;width:60%"></div><div class="skeleton" style="height:12px;width:90%;margin-top:10px"></div><div class="skeleton" style="height:12px;width:74%;margin-top:8px"></div><div class="skeleton" style="height:120px;margin-top:12px"></div></div>
+      <div class="card card--pad"><div class="empty" style="padding:22px 14px"><div class="empty__icon"><svg class="icon" aria-hidden="true"><use href="#i-camera"/></svg></div><div class="empty__title">No events match your filters.</div><div class="empty__text">Clear a filter, or pick another date to see this hub’s stored events.</div><button class="btn btn--sm" style="margin-top:6px">Clear filters</button></div></div>
+      <div class="card card--pad"><div class="notice notice--danger"><svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg><span>Could not reach the DVR. The hub will retry automatically.</span></div><div class="notice notice--accent" style="margin-top:10px"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>Rule saved.</span></div><div class="notice" style="margin-top:10px"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>Snapshots are available for this event.</span></div></div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Navigation <span>8 destinations, grouped</span></div>
+    <div class="ds-grid ds-grid--2">
+      <div class="card card--pad">
+        <div class="section__hint" style="margin-bottom:8px">Desktop sidebar · 232 px, sticky, grouped</div>
+        <div class="mini-nav">
+          <a class="nav__item" href="#" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
+          <a class="nav__item" href="#"><svg class="icon" aria-hidden="true"><use href="#i-playback"/></svg><span>Playback</span></a>
+          <div style="height:8px"></div>
+          <a class="nav__item" href="#"><svg class="icon" aria-hidden="true"><use href="#i-events"/></svg><span>Events</span><span class="nav__badge">3</span></a>
+          <a class="nav__item" href="#"><svg class="icon" aria-hidden="true"><use href="#i-faces"/></svg><span>Faces</span></a>
+          <a class="nav__item" href="#"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg><span>Notifications</span></a>
+        </div>
+        <div class="notice" style="margin-top:10px"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span>Role-dependent: <strong>Settings</strong> appears only for ADMIN. Mobile duplicates are hidden with <code style="font-family:var(--font-mono)">display:none</code>, never opacity.</span></div>
+      </div>
+      <div class="card card--pad">
+        <div class="section__hint" style="margin-bottom:8px">Mobile bottom bar · 5 items + More sheet</div>
+        <div class="mobile-nav" style="display:grid;position:static;border:1px solid var(--line);border-radius:var(--r-md);padding-bottom:0">
+          <a class="mobile-nav__item" href="#" aria-current="page"><svg class="icon" aria-hidden="true"><use href="#i-dashboard"/></svg><span>Dashboard</span></a>
+          <a class="mobile-nav__item" href="#"><svg class="icon" aria-hidden="true"><use href="#i-playback"/></svg><span>Playback</span></a>
+          <a class="mobile-nav__item" href="#"><svg class="icon" aria-hidden="true"><use href="#i-events"/></svg><span>Events</span></a>
+          <a class="mobile-nav__item" href="#"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg><span>Alerts</span></a>
+          <button class="mobile-nav__more" type="button"><svg class="icon" aria-hidden="true"><use href="#i-more"/></svg><span>More</span></button>
+        </div>
+        <div class="section__hint" style="margin-top:8px">Every label keeps its full accessible name; the sheet holds Faces, Camera setup, Device, Settings, Account, Log out.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Implementation mapping <span>Tailwind 4 @theme tokens</span></div>
+    <div class="card">
+      <div class="card__body" style="padding:0">
+        <table class="token-table">
+          <thead><tr><th>Token</th><th>CSS variable</th><th>Tailwind class</th><th>Replaces (existing)</th></tr></thead>
+          <tbody>
+            <tr><td>Canvas</td><td><code>--color-bg</code></td><td><code>bg-bg</code></td><td class="new">same name, new value #070A0E</td></tr>
+            <tr><td>Surface</td><td><code>--color-surface</code></td><td><code>bg-surface</code></td><td class="new">panel</td></tr>
+            <tr><td>Card</td><td><code>--color-card</code></td><td><code>bg-card</code></td><td class="new">#141B24 → #0F1620</td></tr>
+            <tr><td>Raised</td><td><code>--color-raised</code></td><td><code>bg-raised</code></td><td class="new">hover/popover</td></tr>
+            <tr><td>Ink</td><td><code>--color-ink</code></td><td><code>text-ink</code></td><td class="new">same name</td></tr>
+            <tr><td>Muted</td><td><code>--color-muted</code></td><td><code>text-muted</code></td><td class="new">same name</td></tr>
+            <tr><td>Accent</td><td><code>--color-accent</code></td><td><code>text-accent / bg-accent</code></td><td class="new">teal (keep name, tweak value)</td></tr>
+            <tr><td>Focus ring</td><td><code>--ring</code></td><td><code>focus-visible:ring-2</code></td><td class="new">2 px accent ring + 2 px offset</td></tr>
+            <tr><td>Card radius</td><td><code>--radius-lg</code></td><td><code>rounded-xl</code> (12 px)</td><td>rounded-xl stays valid</td></tr>
+            <tr><td>Control height</td><td><code>--control-h</code></td><td><code>h-9.5</code> (38 px)</td><td>mix of h-11 / h-9</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="ds-section">
+    <div class="ds-h2">Accessibility contract <span>non-negotiable</span></div>
+    <div class="ds-grid ds-grid--2">
+      <div class="card card--pad">
+        <ul style="display:grid;gap:8px;font-size:var(--fs-13);color:var(--ink-2)">
+          <li>▪ <strong>Focus visible</strong> on every interactive element: 2 px teal ring, 2 px offset.</li>
+          <li>▪ <strong>Status text</strong> accompanies every colour (Online / Offline / Checking).</li>
+          <li>▪ <strong>Tap targets</strong> ≥ 36 px on desktop, ≥ 44 px on mobile primary controls.</li>
+          <li>▪ <strong>Reduced motion</strong>: live pulse and shimmer disabled under <code style="font-family:var(--font-mono)">prefers-reduced-motion</code>.</li>
+          <li>▪ <strong>Contrast</strong>: body ≥ 4.5:1; non-text UI boundaries ≥ 3:1 against adjacent colours.</li>
+          <li>▪ <strong>Semantics</strong>: one h1 per page; named landmarks; tables with headers; no icon-only nav in the tested app.</li>
+        </ul>
+      </div>
+      <div class="ds-grid">
+        <div class="ds-do"><h4>Do</h4><ul><li>Keep the exact strings and roles the Playwright suite asserts.</li><li>Use <code style="font-family:var(--font-mono)">aria-current="page"</code> for the active destination.</li><li>Announce async results with role="status" / role="alert".</li></ul></div>
+        <div class="ds-dont"><h4>Don’t</h4><ul><li>Don’t introduce a webfont or icon CDN — CSP blocks it.</li><li>Don’t render time/random values during SSR (hydration warning).</li><li>Don’t make the calendar a fixed panel or change the Date trigger text.</li></ul></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

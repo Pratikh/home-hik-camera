@@ -1,13 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
 import type { EventStatsResponse } from "@/lib/api-types";
 import type { CctvEvent } from "@/lib/events";
 import { eventTitle } from "@/lib/events";
-import { api } from "@/lib/client-api";
 import { formatKolkataClock } from "@/lib/time-kolkata";
 import { PriorityBadge } from "@/components/events/PriorityBadge";
+import { Icon } from "@/components/ui/Icon";
 
 function relativeTime(timestamp: string, now: number): string {
   const ms = now - new Date(timestamp).getTime();
@@ -24,68 +23,78 @@ function relativeTime(timestamp: string, now: number): string {
 }
 
 /**
- * Recent Security Events. Only HIGH and CRITICAL priority events are requested,
- * so the dashboard never pulls the whole event table: the server does the
- * filtering and returns a short list.
+ * Recent Security Events rail on the dashboard.
+ *
+ * Presentational: the dashboard owns the fetch so the KPI strip and this list
+ * share one polled response. Only HIGH and CRITICAL priority events are shown —
+ * the server does the filtering, the browser never downloads the event table.
  */
-export function RecentEvents() {
-  const [events, setEvents] = useState<CctvEvent[]>([]);
-  const [stats, setStats] = useState<EventStatsResponse | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  const reload = useCallback(async () => {
-    const [recent, summary] = await Promise.all([
-      api<{ events: CctvEvent[] }>("/api/events/recent?limit=5&important=true"),
-      api<EventStatsResponse>("/api/events/stats?range=today"),
-    ]);
-    setEvents(recent.events);
-    setStats(summary);
-    setNow(Date.now());
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => void reload().catch(() => undefined), 0);
-    const onEvent = () => void reload().catch(() => undefined);
-    window.addEventListener("cctv-event", onEvent);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("cctv-event", onEvent);
-    };
-  }, [reload]);
-
+export function RecentEvents({
+  events,
+  stats,
+  cameraNames,
+  now,
+}: {
+  events: CctvEvent[];
+  stats: EventStatsResponse | null;
+  cameraNames: Record<number, string>;
+  now: number;
+}) {
+  const name = (id: number) => cameraNames[id] ?? `Camera ${id}`;
   return (
-    <section className="mt-6 min-w-0 rounded-xl border border-line bg-card p-4" aria-label="Recent security events">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Recent security events</h2>
-        <div className="flex gap-3">
-          <Link href="/events/stats" className="text-sm text-teal">Statistics</Link>
-          <Link href="/events" className="text-sm text-teal">All events</Link>
+    <section className="card" aria-label="Recent security events">
+      <div className="card__head">
+        <div className="card__title">
+          <Icon name="zap" className="icon icon-sm" />
+          Recent security events
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Link href="/events/stats" className="btn btn--sm btn--ghost">
+            Statistics
+          </Link>
+          <Link href="/events" className="btn btn--sm btn--ghost">
+            All events
+          </Link>
         </div>
       </div>
       {stats ? (
-        <p className="mt-2 text-sm text-muted">
-          Today: {stats.total} events. Person {stats.person}. Vehicle {stats.vehicle}. Motion {stats.motion}.
-          {stats.critical > 0 ? ` Critical ${stats.critical}.` : ""}
-        </p>
+        <div className="rail-row rail-summary" style={{ gap: 6, flexWrap: "wrap" }}>
+          <span className="section__hint">
+            Today: <strong className="text-ink">{stats.total}</strong> events · Person {stats.person} · Vehicle{" "}
+            {stats.vehicle} · Motion {stats.motion}
+            {stats.critical > 0 ? ` · Critical ${stats.critical}` : ""}
+          </span>
+        </div>
       ) : null}
-      {events.length === 0 ? <p className="mt-3 text-sm text-muted">No important events today.</p> : null}
-      <ul className="mt-3 flex flex-col gap-2">
-        {events.map((event) => (
-          <li key={event.id}>
-            <Link
-              href={`/events/${event.id}`}
-              className="flex items-center gap-3 rounded-lg px-1 py-1 text-sm hover:bg-white/5"
-            >
-              <span className="min-w-0 flex-1 truncate">{eventTitle(event.type, event.classification)}</span>
-              <PriorityBadge priority={event.priority} />
-              <span className="text-muted">Camera {event.cameraId}</span>
-              <span className="text-xs text-muted" title={formatKolkataClock(new Date(event.timestamp))}>
-                {relativeTime(event.timestamp, now)}
+      {events.length === 0 ? (
+        <p className="section__hint" style={{ padding: "14px 16px" }}>
+          No important events today.
+        </p>
+      ) : (
+        <div className="rail-list">
+          {events.map((event) => (
+            <Link key={event.id} href={`/events/${event.id}`} className="rail-row">
+              <span className="rail-row__time">{formatKolkataClock(new Date(event.timestamp)).slice(0, 5)}</span>
+              <span className="rail-row__main">
+                <span className="rail-row__title">{eventTitle(event.type, event.classification)}</span>
+                <span className="rail-row__sub">
+                  {name(event.cameraId)} · {relativeTime(event.timestamp, now)}
+                </span>
+              </span>
+              <span className="rail-row__flag">
+                <PriorityBadge priority={event.priority} />
               </span>
             </Link>
-          </li>
-        ))}
-      </ul>
+          ))}
+        </div>
+      )}
+      <div className="card__foot" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span className="section__hint">HIGH + CRITICAL only</span>
+        <Link href="/events" className="btn btn--sm">
+          Open timeline
+          <Icon name="arrowRight" className="icon icon-sm" />
+        </Link>
+      </div>
     </section>
   );
 }

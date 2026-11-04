@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detected Faces · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+<style>
+  /* Page-level density override (ds.css keeps the 4-column default).
+     Face crops are small, so the gallery is tighter than the generic grid:
+     4 columns up to 1500, 5 at 1501+, 6 at 1760+; 4 on tablet, 2 on phones. */
+  @media (min-width: 1025px) and (max-width: 1500px) {
+    .face-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1501px) {
+    .face-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  }
+  @media (min-width: 1760px) {
+    .face-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; }
+  }
+  @media (min-width: 721px) and (max-width: 1024px) {
+    .face-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  }
+  @media (max-width: 720px) {
+    .page-head__actions .pill { display: none; }
+    .filter-panel__foot .section__hint,
+    .pagination .section__hint,
+    .notice .badge { display: none; }
+    .section__head { flex-direction: column; align-items: flex-start; gap: 3px; }
+  }
+  /* The "More" sheet is closed by default and has no static state; hiding the
+     off-canvas copy keeps it out of full-page screenshot composites. */
+  .sheet, .sheet-backdrop { display: none !important; }
+</style>
+</head>
+<body data-nav="faces" data-crumb="Investigate">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Investigate</div>
+      <h1>Detected Faces</h1>
+      <p class="page-head__sub">Faces found in event snapshots by the local detector. Every face stays Unassigned until a later phase adds people.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="pill"><span class="dot dot--idle"></span>Face worker idle</span>
+      <a class="btn" href="events.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-events"/></svg>Events</a>
+      <a class="btn" href="settings-system.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>System health</a>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat stat--accent">
+      <div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-faces"/></svg></div>
+      <div>
+        <div class="stat__label">Detected faces</div>
+        <div class="stat__value">348</div>
+        <div class="stat__delta"><strong>All time</strong> · since 27 Oct 2026</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg></div>
+      <div>
+        <div class="stat__label">Today</div>
+        <div class="stat__value">12</div>
+        <div class="stat__delta">Last at 13:54 · Left Side Outside</div>
+      </div>
+    </div>
+    <div class="stat stat--info">
+      <div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg></div>
+      <div>
+        <div class="stat__label">Unassigned</div>
+        <div class="stat__value">348</div>
+        <div class="stat__delta">No identity matching in this phase</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg></div>
+      <div>
+        <div class="stat__label">Snapshots queued</div>
+        <div class="stat__value">0</div>
+        <div class="stat__delta">Queue clear · last crop 13:54:19</div>
+      </div>
+    </div>
+  </div>
+
+  <form class="filter-panel" method="get" action="/faces">
+    <div class="filter-grid">
+      <div class="field">
+        <label class="field__label" for="face-camera">Camera</label>
+        <select class="select" id="face-camera" name="camera">
+          <option value="all" selected>All cameras</option>
+          <option value="1">Parking</option>
+          <option value="2">Right Side Outside Camera</option>
+          <option value="3">First Floor Passage</option>
+          <option value="4">Left Side Outside</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="face-date">Date (optional)</label>
+        <input class="input input--mono" id="face-date" name="date" type="date" value="2026-11-04">
+      </div>
+      <div class="field">
+        <label class="field__label" for="face-assignment">Assignment</label>
+        <select class="select" id="face-assignment" name="assigned">
+          <option value="all" selected>All</option>
+          <option value="false">Unassigned</option>
+          <option value="true">Assigned</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field__label" for="face-confidence">Minimum confidence</label>
+        <select class="select" id="face-confidence" name="minConfidence">
+          <option value="all" selected>Any</option>
+          <option value="0.5">50%+</option>
+          <option value="0.6">60%+</option>
+          <option value="0.7">70%+</option>
+          <option value="0.8">80%+</option>
+          <option value="0.9">90%+</option>
+        </select>
+      </div>
+    </div>
+    <div class="filter-panel__foot">
+      <button class="btn btn--primary" type="submit"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-scan"/></svg>Apply filters</button>
+      <button class="btn btn--ghost" type="reset">Clear filters</button>
+      <span class="section__hint" style="margin-left:auto">Filters apply to the gallery below</span>
+    </div>
+  </form>
+
+  <div class="notice notice--accent" role="status" style="margin-top:12px">
+    <svg class="icon" aria-hidden="true"><use href="#i-zap"/></svg>
+    <div style="min-width:0">
+      <div style="font-weight:600;font-size:var(--fs-12)">Face test notifications active until 04 Nov 2026, 16:30:00</div>
+      <div style="font-size:var(--fs-12);color:var(--muted)">One browser notification per detection · cooldown 5 minutes / camera</div>
+    </div>
+    <span class="badge badge--accent" style="margin-left:auto">Test mode</span>
+  </div>
+
+  <section class="section">
+    <div class="section__head">
+      <h2 class="section__title">All detections</h2>
+      <span class="section__hint">Showing 1–8 of 348 detected faces · newest first</span>
+    </div>
+
+    <div class="face-grid">
+      <article class="face-card">
+        <div class="face-card__img">
+          <img src="assets/faces/face2.jpg" alt="Detected face from First Floor Passage" style="object-fit:contain">
+          <span class="face-card__conf badge badge--mono" style="background:rgba(4,9,12,.78);border-color:rgba(255,255,255,.18)">72%</span>
+        </div>
+        <div class="face-card__body">
+          <div class="face-card__row">
+            <span class="face-card__name">Unassigned</span>
+            <span class="face-card__time">72% confidence</span>
+          </div>
+          <div class="face-card__meta">First Floor Passage</div>
+          <div class="face-card__time">04 Nov 2026, 13:43:12</div>
+          <a class="face-card__link" href="event-detail.html" style="display:inline-flex;align-items:center;gap:4px">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </article>
+
+      <article class="face-card">
+        <div class="face-card__img">
+          <img src="assets/faces/face4.jpg" alt="Detected face from Left Side Outside" style="object-fit:contain">
+          <span class="face-card__conf badge badge--mono" style="background:rgba(4,9,12,.78);border-color:rgba(255,255,255,.18)">84%</span>
+        </div>
+        <div class="face-card__body">
+          <div class="face-card__row">
+            <span class="face-card__name">Unassigned</span>
+            <span class="face-card__time">84% confidence</span>
+          </div>
+          <div class="face-card__meta">Left Side Outside</div>
+          <div class="face-card__time">04 Nov 2026, 13:54:19</div>
+          <a class="face-card__link" href="event-detail.html" style="display:inline-flex;align-items:center;gap:4px">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </article>
+
+      <article class="face-card">
+        <div class="face-card__img">
+          <img src="assets/faces/face3.jpg" alt="Detected face from Parking" style="object-fit:contain">
+          <span class="face-card__conf badge badge--mono" style="background:rgba(4,9,12,.78);border-color:rgba(255,255,255,.18)">66%</span>
+        </div>
+        <div class="face-card__body">
+          <div class="face-card__row">
+            <span class="face-card__name">Unassigned</span>
+            <span class="face-card__time">66% confidence</span>
+          </div>
+          <div class="face-card__meta">Parking</div>
+          <div class="face-card__time">04 Nov 2026, 09:59:44</div>
+          <a class="face-card__link" href="event-detail.html" style="display:inline-flex;align-items:center;gap:4px">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </article>
+
+      <article class="face-card">
+        <div class="face-card__img">
+          <img src="assets/faces/face1.jpg" alt="Detected face from Right Side Outside Camera" style="object-fit:contain">
+          <span class="face-card__conf badge badge--mono" style="background:rgba(4,9,12,.78);border-color:rgba(255,255,255,.18)">91%</span>
+        </div>
+        <div class="face-card__body">
+          <div class="face-card__row">
+            <span class="face-card__name">Unassigned</span>
+            <span class="face-card__time">91% confidence</span>
+          </div>
+          <div class="face-card__meta">Right Side Outside Camera</div>
+          <div class="face-card__time">04 Nov 2026, 09:51:02</div>
+          <a class="face-card__link" href="event-detail.html" style="display:inline-flex;align-items:center;gap:4px">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </article>
+
+      <article class="face-card">
+        <div class="face-card__img">
+          <img src="assets/faces/face2.jpg" alt="Detected face from Left Side Outside" style="object-fit:contain;object-position:50% 30%">
+          <span class="face-card__conf badge badge--mono" style="background:rgba(4,9,12,.78);border-color:rgba(255,255,255,.18)">78%</span>
+        </div>
+        <div class="face-card__body">
+          <div class="face-card__row">
+            <span class="face-card__name">Unassigned</span>
+            <span class="face-card__time">78% confidence</span>
+          </div>
+          <div class="face-card__meta">Left Side Outside</div>
+          <div class="face-card__time">03 Nov 2026, 18:42:55</div>
+          <a class="face-card__link" href="event-detail.html" style="display:inline-flex;align-items:center;gap:4px">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </article>
+
+      <article class="face-card">
+        <div class="face-card__img">
+          <img src="assets/faces/face3.jpg" alt="Detected face from First Floor Passage" style="object-fit:contain;object-position:50% 40%">
+          <span class="face-card__conf badge badge--mono" style="background:rgba(4,9,12,.78);border-color:rgba(255,255,255,.18)">88%</span>
+        </div>
+        <div class="face-card__body">
+          <div class="face-card__row">
+            <span class="face-card__name">Unassigned</span>
+            <span class="face-card__time">88% confidence</span>
+          </div>
+          <div class="face-card__meta">First Floor Passage</div>
+          <div class="face-card__time">03 Nov 2026, 17:20:08</div>
+          <a class="face-card__link" href="event-detail.html" style="display:inline-flex;align-items:center;gap:4px">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </article>
+
+      <article class="face-card">
+        <div class="face-card__img" style="display:grid;place-items:center;background:radial-gradient(circle at 50% 42%, #101720 0%, #05080b 70%)">
+          <div style="display:grid;justify-items:center;gap:8px;padding:0 16px;text-align:center;color:var(--faint)">
+            <svg class="icon icon-lg" aria-hidden="true" style="color:#2a3747"><use href="#i-faces"/></svg>
+            <span style="font-size:var(--fs-11)">Face image unavailable</span>
+          </div>
+          <span class="face-card__conf badge badge--mono" style="background:rgba(4,9,12,.78);border-color:rgba(255,255,255,.18)">81%</span>
+        </div>
+        <div class="face-card__body">
+          <div class="face-card__row">
+            <span class="face-card__name">Unassigned</span>
+            <span class="face-card__time">81% confidence</span>
+          </div>
+          <div class="face-card__meta">Parking</div>
+          <div class="face-card__time">03 Nov 2026, 08:12:36</div>
+          <a class="face-card__link" href="event-detail.html" style="display:inline-flex;align-items:center;gap:4px">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </article>
+
+      <article class="face-card">
+        <div class="face-card__img">
+          <img src="assets/faces/face4.jpg" alt="Detected face from Right Side Outside Camera" style="object-fit:contain;object-position:50% 65%">
+          <span class="face-card__conf badge badge--mono" style="background:rgba(4,9,12,.78);border-color:rgba(255,255,255,.18)">75%</span>
+        </div>
+        <div class="face-card__body">
+          <div class="face-card__row">
+            <span class="face-card__name">Unassigned</span>
+            <span class="face-card__time">75% confidence</span>
+          </div>
+          <div class="face-card__meta">Right Side Outside Camera</div>
+          <div class="face-card__time">02 Nov 2026, 19:05:47</div>
+          <a class="face-card__link" href="event-detail.html" style="display:inline-flex;align-items:center;gap:4px">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </article>
+    </div>
+
+    <div class="pagination" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line);flex-wrap:wrap">
+      <span class="pagination__count">Page 1 of 44 · 8 per page</span>
+      <span class="toolbar__spacer"></span>
+      <button class="icon-btn" type="button" aria-label="Previous page" disabled><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronLeft"/></svg></button>
+      <div class="seg" role="group" aria-label="Pages">
+        <button class="seg__item" type="button" aria-current="page">1</button>
+        <button class="seg__item" type="button">2</button>
+        <button class="seg__item" type="button">3</button>
+        <span class="seg__item" style="cursor:default">…</span>
+        <button class="seg__item" type="button">44</button>
+      </div>
+      <button class="icon-btn" type="button" aria-label="Next page"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></button>
+      <span class="section__hint" style="margin-left:4px">348 total</span>
+    </div>
+  </section>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

@@ -1,0 +1,655 @@
+{
+  "eventId": "evt_417d9dd35c747de1567a8a95",
+  "sizes": [
+    "tablet",
+    "mobile",
+    "laptop"
+  ],
+  "report": [
+    {
+      "size": "tablet",
+      "route": "dashboard",
+      "belowFold": true,
+      "file": "dashboard-tablet-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1952,
+      "after": {
+        "winY": 0,
+        "mainTop": 901
+      }
+    },
+    {
+      "size": "tablet",
+      "route": "cameras",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1051
+    },
+    {
+      "size": "tablet",
+      "route": "events",
+      "belowFold": true,
+      "file": "events-tablet-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 2723,
+      "after": {
+        "winY": 0,
+        "mainTop": 1672
+      }
+    },
+    {
+      "size": "tablet",
+      "route": "event-detail",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1051
+    },
+    {
+      "size": "tablet",
+      "route": "event-stats",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1051
+    },
+    {
+      "size": "tablet",
+      "route": "faces",
+      "belowFold": true,
+      "file": "faces-tablet-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 6274,
+      "after": {
+        "winY": 0,
+        "mainTop": 5223
+      }
+    },
+    {
+      "size": "tablet",
+      "route": "playback",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1051
+    },
+    {
+      "size": "tablet",
+      "route": "notifications",
+      "belowFold": true,
+      "file": "notifications-tablet-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 3071,
+      "after": {
+        "winY": 0,
+        "mainTop": 2020
+      }
+    },
+    {
+      "size": "tablet",
+      "route": "device",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1051
+    },
+    {
+      "size": "tablet",
+      "route": "account",
+      "belowFold": true,
+      "file": "account-tablet-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 3567,
+      "after": {
+        "winY": 0,
+        "mainTop": 2516
+      }
+    },
+    {
+      "size": "tablet",
+      "route": "settings",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1051
+    },
+    {
+      "size": "tablet",
+      "route": "settings-notifications",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1051
+    },
+    {
+      "size": "tablet",
+      "route": "settings-users",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1051
+    },
+    {
+      "size": "tablet",
+      "route": "settings-detection",
+      "belowFold": true,
+      "file": "settings-detection-tablet-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 2276,
+      "after": {
+        "winY": 0,
+        "mainTop": 1225
+      }
+    },
+    {
+      "size": "tablet",
+      "route": "settings-audit",
+      "belowFold": true,
+      "file": "settings-audit-tablet-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 2134,
+      "after": {
+        "winY": 0,
+        "mainTop": 1083
+      }
+    },
+    {
+      "size": "tablet",
+      "route": "settings-system",
+      "belowFold": true,
+      "file": "settings-system-tablet-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 1051,
+      "mainScroll": 1116,
+      "after": {
+        "winY": 0,
+        "mainTop": 65
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "dashboard",
+      "belowFold": true,
+      "file": "dashboard-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1630,
+      "mainScroll": 1630,
+      "after": {
+        "winY": 847,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "cameras",
+      "belowFold": true,
+      "file": "cameras-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1488,
+      "mainScroll": 1488,
+      "after": {
+        "winY": 705,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "events",
+      "belowFold": true,
+      "file": "events-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 2983,
+      "mainScroll": 2983,
+      "after": {
+        "winY": 2200,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "event-detail",
+      "belowFold": true,
+      "file": "event-detail-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1018,
+      "mainScroll": 1018,
+      "after": {
+        "winY": 235,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "event-stats",
+      "belowFold": true,
+      "file": "event-stats-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 866,
+      "mainScroll": 866,
+      "after": {
+        "winY": 83,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "faces",
+      "belowFold": true,
+      "file": "faces-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 13223,
+      "mainScroll": 13223,
+      "after": {
+        "winY": 13233,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "playback",
+      "belowFold": true,
+      "file": "playback-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1125,
+      "mainScroll": 1125,
+      "after": {
+        "winY": 342,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "notifications",
+      "belowFold": true,
+      "file": "notifications-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 4094,
+      "mainScroll": 4094,
+      "after": {
+        "winY": 3311,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "device",
+      "belowFold": true,
+      "file": "device-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 998,
+      "mainScroll": 998,
+      "after": {
+        "winY": 215,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "account",
+      "belowFold": true,
+      "file": "account-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 3961,
+      "mainScroll": 3961,
+      "after": {
+        "winY": 3178,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "settings",
+      "belowFold": true,
+      "file": "settings-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 862,
+      "mainScroll": 862,
+      "after": {
+        "winY": 79,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "settings-notifications",
+      "belowFold": true,
+      "file": "settings-notifications-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1112,
+      "mainScroll": 1112,
+      "after": {
+        "winY": 329,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "settings-users",
+      "belowFold": true,
+      "file": "settings-users-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 842,
+      "mainScroll": 842,
+      "after": {
+        "winY": 59,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "settings-detection",
+      "belowFold": true,
+      "file": "settings-detection-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 3180,
+      "mainScroll": 3180,
+      "after": {
+        "winY": 2397,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "settings-audit",
+      "belowFold": true,
+      "file": "settings-audit-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 2274,
+      "mainScroll": 2274,
+      "after": {
+        "winY": 1491,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "mobile",
+      "route": "settings-system",
+      "belowFold": true,
+      "file": "settings-system-mobile-bottom.png",
+      "docScrollable": true,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 1692,
+      "mainScroll": 1692,
+      "after": {
+        "winY": 909,
+        "mainTop": 0
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "dashboard",
+      "belowFold": true,
+      "file": "dashboard-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 1170,
+      "after": {
+        "winY": 0,
+        "mainTop": 331
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "cameras",
+      "belowFold": true,
+      "file": "cameras-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 888,
+      "after": {
+        "winY": 0,
+        "mainTop": 49
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "events",
+      "belowFold": true,
+      "file": "events-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 1898,
+      "after": {
+        "winY": 0,
+        "mainTop": 1059
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "event-detail",
+      "belowFold": true,
+      "file": "event-detail-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 1183,
+      "after": {
+        "winY": 0,
+        "mainTop": 344
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "event-stats",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 839
+    },
+    {
+      "size": "laptop",
+      "route": "faces",
+      "belowFold": true,
+      "file": "faces-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 5478,
+      "after": {
+        "winY": 0,
+        "mainTop": 4639
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "playback",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 839
+    },
+    {
+      "size": "laptop",
+      "route": "notifications",
+      "belowFold": true,
+      "file": "notifications-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 2991,
+      "after": {
+        "winY": 0,
+        "mainTop": 2152
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "device",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 839
+    },
+    {
+      "size": "laptop",
+      "route": "account",
+      "belowFold": true,
+      "file": "account-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 3874,
+      "after": {
+        "winY": 0,
+        "mainTop": 3035
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "settings",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 839
+    },
+    {
+      "size": "laptop",
+      "route": "settings-notifications",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 839
+    },
+    {
+      "size": "laptop",
+      "route": "settings-users",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 839
+    },
+    {
+      "size": "laptop",
+      "route": "settings-detection",
+      "belowFold": true,
+      "file": "settings-detection-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 2192,
+      "after": {
+        "winY": 0,
+        "mainTop": 1353
+      }
+    },
+    {
+      "size": "laptop",
+      "route": "settings-audit",
+      "belowFold": false,
+      "docScrollable": false,
+      "mainScrollable": false,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 839
+    },
+    {
+      "size": "laptop",
+      "route": "settings-system",
+      "belowFold": true,
+      "file": "settings-system-laptop-bottom.png",
+      "docScrollable": false,
+      "mainScrollable": true,
+      "mainTop": 61,
+      "mainClient": 839,
+      "mainScroll": 1036,
+      "after": {
+        "winY": 0,
+        "mainTop": 197
+      }
+    }
+  ]
+}

@@ -239,9 +239,14 @@ its own (`podman inspect home-cctv-web-1 --format '{{.RestartCount}}'`). The
 object-detection worker is part of the default stack; it idles cheaply and stays
 healthy while detection is disabled, and Settings → Detection controls whether it
 runs inference (no container restart needed). Its YOLOX-Nano model is provisioned
-once into `./object-worker/models` on first start and reused afterwards. Note that
-`podman stop`/`podman kill` is an *explicit* stop, which that policy deliberately
-does not undo — use `podman start`, `npm run stack:up`, or `systemctl start home-cctv` afterwards.
+once into `./object-worker/models` **on the host before first start** (`npm run
+object:model`, or `python3 object-worker/scripts/download_model.py`) and reused
+afterwards. The mount is read-only: the container verifies the checksum at start
+and refuses to run with an actionable message when the model is missing, instead
+of downloading it. See [docs/Container-Hardening.md](docs/Container-Hardening.md).
+Note that `podman stop`/`podman kill` is an *explicit* stop, which that policy
+deliberately does not undo — use `podman start`, `npm run stack:up`, or
+`systemctl start home-cctv` afterwards.
 
 The production compose file publishes only the hub (`3000`) and the WebRTC media
 port (`8189`). For development on the host, with MediaMTX still in Podman:
@@ -431,13 +436,18 @@ Statistics range over whole Asia/Kolkata calendar days, so "today" means 00:00�
 
 - Use it on a trusted home LAN or through Tailscale. Do not port-forward the hub or the DVR on the router.
 - **Public surface:** only the hub on `3000`, and only through Tailscale Funnel. The compose file publishes `8189` for WebRTC ICE and nothing else; `8888` (HLS), `8889` (WHEP) and `9997` (API) are internal. The DVR's `80`/`554` are never published. `554`, `8888`, `8889`, `9997` and the DVR address must never appear in a Funnel rule or router port-forward.
-- **MediaMTX authentication is required.** `MEDIAMTX_AUTH_PASSWORD` (16+ characters) is rendered into MediaMTX at container start. Anonymous read is available only with the explicit development flag `MEDIAMTX_ALLOW_ANONYMOUS=true`; the container refuses to start without a password otherwise. Do not set that flag in production.
+- **MediaMTX authentication is required — including for the Control API.** `MEDIAMTX_AUTH_PASSWORD` (16+ characters) is rendered into MediaMTX at container start. Production renders exactly two internal users: the hub account (`read`, `playback`, `api`, bound by source address to the web container) and a separate read-only `worker` account for the object-detection worker (`MEDIAMTX_WORKER_USER`, bound to the worker address). There is no anonymous user in production; anonymous read/playback/api exists only with the explicit `MEDIAMTX_ALLOW_ANONYMOUS=true` development flag, and the container refuses to start without a password otherwise.
+- **Media network isolation.** The web hub and MediaMTX are the only services with the `egress` network (DVR/Telegram); MediaMTX and the object worker share an `internal` media network with static addresses (the API allowlist depends on them), and the face worker has no network at all. MediaMTX's stdout/stderr are piped through a credential-redaction wrapper, so a rendered RTSP source URL cannot leak the DVR password into the container log.
 - **DVR credentials** stay in the server process and in the MediaMTX process. They are never in `NEXT_PUBLIC_*` variables, React props, browser URLs, API responses, or logs. MediaMTX's rendered runtime config is created with mode `0600` inside the container.
 - **`.env`** is gitignored, never copied into an image or backup, and must be mode `0600` (`chmod 600 /opt/home-cctv/.env`). Treat the DVR password, `SESSION_SECRET`, Telegram token and MediaMTX password as independent secrets; do not reuse them.
 - **Password storage:** scrypt with a random salt. Plaintext passwords are never stored, logged, or returned. API responses never include `passwordHash`; the Users and Settings pages mask the DVR password.
+- **Login protection:** failed logins are throttled per account and per client address in SQLite (five account failures in fifteen minutes lock that account temporarily; locks expire on their own and grow only up to one hour for repeat offenders). A successful login clears both counters. Password verification runs off the event loop with a bounded queue, so a login flood degrades to `503` instead of stalling the hub.
+- **Client address trust:** the TCP peer address is authoritative. `X-Forwarded-For`, `X-Forwarded-Proto` and `CF-Connecting-IP` are honoured **only** when the peer matches `TRUSTED_PROXY_CIDRS` (set it to `127.0.0.1,::1` for a host-run Tailscale Funnel or cloudflared). Never add LAN client ranges to that list.
 - **Password lifecycle:** a signed-in user can change their own password at `/account`; an ADMIN can reset another user's password at `/settings/users`. Either action revokes every existing session for that user (self-change issues a fresh session to the current browser). Session rows are checked against the database on every request; logout deletes the row.
 - **Sessions:** a user can list and revoke their own sessions; an ADMIN can revoke another user's sessions. Expired sessions are pruned at startup, hourly, on login, and when session lists are read. Active sessions are never deleted by pruning.
-- **Files:** event snapshots are stored under `data/events` with mode `0600` and served only through the authenticated `/api/events/<id>/snapshot` route. They are never placed in `public/`. Face crops have the same rule. Stored paths are resolved inside their configured directory; traversal, absolute paths and symlinks are refused. Backups are written with `umask 077`.
+- **Files:** event snapshots are stored under `data/events` with mode `0600` and served only through the authenticated `/api/events/<id>/snapshot` route. They are never placed in `public/`. Face crops have the same rule. Stored paths are resolved inside their configured directory; traversal, absolute paths and symlinks are refused. Backups are written with `umask 077`. **The data directory and the SQLite database (including `-wal`/`-shm`) are forced to `0700`/`0600` on every start**, so a legacy install is repaired automatically; snapshot directories are created `0700` and snapshot files `0600`.
+- **Data retention:** event rows/snapshots/face crops follow `EVENT_RETENTION_DAYS`; audit-log rows follow `AUDIT_LOG_RETENTION_DAYS` (default 365); object-detection track metadata follows the event window; stale viewer-presence rows (24 h) and completed detection-test requests (7 days) are always pruned. Setting `EVENT_RETENTION_DAYS=0` disables only event retention — the privacy pruning above still runs.
+- **Content-Security-Policy:** generated per request in the proxy with a fresh nonce. Production uses `script-src 'self' 'nonce-…' 'strict-dynamic'` (no `unsafe-inline` for scripts), plus `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` and `frame-ancestors 'none'`; development keeps `'unsafe-eval'` for HMR. HSTS is intentionally not sent until the production HTTPS domain behaviour has been verified.
 - **Authorization:** notification rule management, user management, settings and `/api/system/health` require ADMIN. Event and notification reads require a session. Role checks run on the server, and ids sent by the browser are validated rather than trusted.
 - **Health data:** the public `/api/health` endpoint is intentionally small. Detailed operational data (queue counts, storage, backups, worker status) is on the ADMIN-only `/api/system/health`; neither returns passwords, tokens, DVR credentials, session tokens or filesystem paths.
 
@@ -705,6 +715,23 @@ are bounded by `FACE_DETECTION_BATCH_SIZE`, and FFmpeg clip files are removed
 after upload or after 30 minutes if a crash left them behind.
 
 ## Hardening (V5.2)
+
+### Container and secret isolation (Phase 2)
+
+Every container now runs as the non-root user `cctv` (uid/gid **10001**) with a
+read-only image filesystem (tmpfs for `/tmp`), `cap_drop: [ALL]`,
+`no-new-privileges`, memory and PID limits, and a `stop_grace_period`. MediaMTX
+and both workers no longer receive the whole `.env`: they get an explicit,
+minimal `environment:` block, so `SESSION_SECRET`, `TELEGRAM_*`, `APP_*` and —
+for the workers — the DVR credentials never reach them. The object-worker model
+is mounted read-only and provisioned on the host.
+
+Upgrading an existing host needs a rebuild, a one-time
+`chown -R 10001:10001 data backups object-worker/models` (and `chmod 700 data
+backups`), and a brief container recreate; rollback and verification commands are
+in [docs/Container-Hardening.md](docs/Container-Hardening.md). Rootless Podman is
+documented there but is **not** enabled by default; network segmentation remains
+a later phase.
 
 ### Backup
 

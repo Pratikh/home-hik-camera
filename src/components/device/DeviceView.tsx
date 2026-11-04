@@ -3,14 +3,23 @@
 import type { DvrInfoResponse } from "@/lib/api-types";
 import { Messages } from "@/lib/messages";
 import { usePoll } from "@/components/hooks/usePoll";
-import { ErrorBanner, PageIntro } from "@/components/ui/States";
+import { ErrorBanner } from "@/components/ui/States";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusLamp } from "@/components/ui/StatusLamp";
+import { formatKolkataDateTimeFromIso } from "@/lib/time-kolkata";
 
 function display(value: string | number | null | undefined): string {
   if (value === null || value === undefined || value === "") return Messages.notReported;
   return String(value);
 }
 
+/**
+ * DVR identity.
+ *
+ * Read-only: whatever the DVR reports over the local network, with an explicit
+ * "Not reported" for fields it does not answer. The poll interval and the
+ * `/api/dvr/info` contract are unchanged.
+ */
 export function DeviceView() {
   const { data, error, loading, reload } = usePoll<DvrInfoResponse>("/api/dvr/info");
   const tone = data?.dvr === "connected" ? "online" : data?.dvr === "disconnected" ? "offline" : "warn";
@@ -27,37 +36,52 @@ export function DeviceView() {
         ["Plugin version", display(data.device.pluginVersion)],
         ["Channels", display(data.device.channelCount)],
         ["HDDs", display(data.device.hddCount)],
-        ["Device time", display(data.device.currentDeviceTime)],
+        ["Device time", data.device.currentDeviceTime ? formatKolkataDateTimeFromIso(data.device.currentDeviceTime) : Messages.notReported],
       ]
     : [];
 
   return (
-    <section>
-      <PageIntro title="Device" detail="Information read from the DVR over the local network." />
-      {loading && !data ? <p className="text-sm text-muted">{Messages.checking}</p> : null}
+    <div className="min-w-0" style={{ maxWidth: 1000, margin: "0 auto" }}>
+      <PageHeader
+        eyebrow="System"
+        title="Device"
+        detail="Information read from the DVR over the local network."
+      />
+
+      {loading && !data ? <p className="section__hint">{Messages.checking}</p> : null}
       {error && !data ? <ErrorBanner message={error} onRetry={() => void reload()} /> : null}
+
       {data ? (
         <>
-          <div className="mb-4 rounded-xl border border-line bg-card px-4 py-3">
-            <StatusLamp tone={tone} label={data.message} />
-          </div>
-          {rows.length > 0 ? (
-            <dl className="grid grid-cols-1 gap-px overflow-hidden rounded-xl border border-line bg-line sm:grid-cols-2">
-              {rows.map(([label, value], index) => (
-                <div
-                  key={label}
-                  className={`min-w-0 bg-card px-4 py-3 ${index === rows.length - 1 && rows.length % 2 === 1 ? "sm:col-span-2" : ""}`}
-                >
-                  <dt className="text-xs uppercase tracking-wide text-muted">{label}</dt>
-                  <dd className="mt-1 break-words text-sm">{value}</dd>
-                </div>
-              ))}
-            </dl>
-          ) : (
-            <p className="text-sm text-muted">{data.message}</p>
-          )}
+          <section className="card" aria-label="DVR status">
+            <div
+              className="card__body"
+              style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "10px 24px", padding: "12px 16px" }}
+            >
+              <StatusLamp tone={tone} label={data.message} />
+              <span className="section__hint" style={{ marginLeft: "auto" }}>
+                Read over the local network · no DVR credential is shown
+              </span>
+            </div>
+          </section>
+
+          <section className="section">
+            {rows.length > 0 ? (
+              <dl className="kv-grid">
+                {rows.map(([label, value]) => (
+                  <div key={label} className="kv">
+                    <dt>{label}</dt>
+                    <dd className={value === Messages.notReported ? undefined : "mono"}>{value}</dd>
+                  </div>
+                ))}
+                {rows.length % 2 === 1 ? <div className="kv" aria-hidden="true" /> : null}
+              </dl>
+            ) : (
+              <p className="section__hint">{data.message}</p>
+            )}
+          </section>
         </>
       ) : null}
-    </section>
+    </div>
   );
 }

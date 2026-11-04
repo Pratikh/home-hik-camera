@@ -1,6 +1,7 @@
 import "server-only";
 import { spawn } from "node:child_process";
 import { getConfig } from "@/lib/config";
+import { mediamtxAuthHeaders } from "@/server/video/mediamtx-auth";
 import { THUMBNAIL_TILE, THUMBNAIL_TILES_PER_SPRITE, thumbnailIntervalMs } from "@/lib/playback-thumbnail";
 import { playbackTrack } from "@/server/cameras/channels";
 import { buildPlaybackRtsp } from "@/server/hikvision/hikvision-playback";
@@ -65,6 +66,7 @@ export async function isPlayerStreaming(): Promise<boolean> {
   try {
     const response = await fetch(`${config.mediamtxApiUrl}/v3/paths/get/playback`, {
       cache: "no-store",
+      headers: mediamtxAuthHeaders(),
       signal: AbortSignal.timeout(1500),
     });
     if (!response.ok) return false;

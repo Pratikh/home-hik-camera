@@ -2,6 +2,22 @@
 # Podman on macOS runs containers in a Linux VM. Outbound traffic to the DVR
 # is NATed through the Mac, which usually reaches the LAN. host network mode
 # does not attach containers to the Mac's LAN, so it is not used here.
+#
+# SECURITY MODEL (Phase 2, WRK-01 / WRK-02 / STR-03):
+#   * Every image runs as the non-root user cctv (uid/gid 10001); see the
+#     Dockerfiles and docs/Container-Hardening.md for the host-side ownership
+#     migration. Each container has a read-only root filesystem with tmpfs for
+#     scratch space, drops all Linux capabilities, forbids privilege escalation,
+#     and has memory/PID limits.
+#   * Only the hub keeps `env_file: .env`: it is the one service that genuinely
+#     needs the application secret set (SESSION_SECRET, APP_*, DVR_*, Telegram,
+#     detection settings). MediaMTX and both workers get an explicit, minimal
+#     `environment:` block instead, so a compromised worker or media server
+#     cannot read the session signing secret, the Telegram token, the hub login
+#     or the DVR password. Compose still reads the project `.env` for the
+#     interpolation below.
+#   * Network segmentation is NOT part of Phase 2 (Phase 3 owns it); this file
+#     intentionally defines no `networks:`.
 name: home-cctv
 
 services:
@@ -9,8 +25,27 @@ services:
     build:
       context: .
       dockerfile: mediamtx/Dockerfile
-    env_file:
-      - .env
+    # Explicit, minimal environment. MediaMTX renders these into its config at
+    # container start. It must never see SESSION_SECRET, TELEGRAM_*, APP_* or
+    # the DVR HTTP port. Empty values fall back to the renderer's defaults and
+    # fail-closed auth (no password -> no anonymous reads unless the explicit
+    # development escape hatch is set).
+    environment:
+      # DVR RTSP source. The HIKVISION_* names are the documented aliases.
+      DVR_HOST: "${DVR_HOST:-}"
+      HIKVISION_IP: "${HIKVISION_IP:-}"
+      DVR_RTSP_PORT: "${DVR_RTSP_PORT:-}"
+      DVR_USERNAME: "${DVR_USERNAME:-}"
+      HIKVISION_USERNAME: "${HIKVISION_USERNAME:-}"
+      DVR_PASSWORD: "${DVR_PASSWORD:-}"
+      HIKVISION_PASSWORD: "${HIKVISION_PASSWORD:-}"
+      # Read credential rendered into MediaMTX's internal auth user.
+      MEDIAMTX_AUTH_USER: "${MEDIAMTX_AUTH_USER:-}"
+      MEDIAMTX_AUTH_PASSWORD: "${MEDIAMTX_AUTH_PASSWORD:-}"
+      # Development-only escape hatch; leave unset/false in production.
+      MEDIAMTX_ALLOW_ANONYMOUS: "${MEDIAMTX_ALLOW_ANONYMOUS:-}"
+      # LAN address advertised in WebRTC ICE candidates.
+      WEBRTC_ADDITIONAL_HOST: "${WEBRTC_ADDITIONAL_HOST:-}"
     # Only the WebRTC media port is published in production.
     #
     # The browser talks to the hub for signalling (WHEP) and HLS, and the hub
@@ -23,6 +58,28 @@ services:
     ports:
       - "8189:8189/tcp"
       - "8189:8189/udp"
+    # entrypoint.sh renders the config to /tmp, so /tmp must be writable even
+    # though the image filesystem is read-only. 16m is ample for one small YAML.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    # Host is documented as 4 GB. MediaMTX relays four WebRTC/HLS streams with
+    # small in-memory buffer queues; 384m covers that plus the Node config
+    # renderer. tmpfs pages count against this limit.
+    mem_limit: 384m
+    pids_limit: 256
+    stop_grace_period: 15s
+    # The Control API is bound by source address to the hub, so MediaMTX must be
+    # on the media network with the hub. It also needs the egress network to pull
+    # RTSP from the DVR. Workers are on the media network only.
+    networks:
+      media:
+        ipv4_address: 172.28.0.11
+      egress: {}
     logging:
       driver: json-file
       options:
@@ -30,7 +87,8 @@ services:
         max-file: "3"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:9997/v3/paths/list"]
+      # Authenticated probe (the Control API rejects anonymous clients).
+      test: ["CMD", "node", "/usr/local/bin/healthcheck.mjs"]
       interval: 10s
       timeout: 3s
       retries: 8
@@ -40,6 +98,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    # The hub is the only service that legitimately needs the full application
+    # environment: it signs sessions (SESSION_SECRET), logs in (APP_*), talks to
+    # the DVR (DVR_*/HIKVISION_*), sends Telegram media (TELEGRAM_*), runs face
+    # detection and thumbnail settings, and owns the shared SQLite database.
+    # Keeping `env_file` here means new hub settings are available without a
+    # compose edit; no other container receives this file.
     env_file:
       - .env
     environment:
@@ -53,7 +117,30 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      # The only persistent application data. The host directory must be owned
+      # by uid/gid 10001 (see docs/Container-Hardening.md).
       - ./data:/app/data
+    networks:
+      media:
+        ipv4_address: 172.28.0.10
+      egress: {}
+    # FFmpeg clip conversion and thumbnail extraction use the OS temp dir, and
+    # Next.js may write cache files under .next/cache. Both are tmpfs so the
+    # image itself can stay read-only. Sizes are upper bounds, not reservations.
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+      - /app/.next/cache:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    # Next.js + FFmpeg + SQLite on a 4 GB host; 768m leaves room for MediaMTX
+    # and the workers while still bounding a runaway FFmpeg or event loop.
+    mem_limit: 768m
+    pids_limit: 256
+    # Give the node process time to finish in-flight requests and close SQLite.
+    stop_grace_period: 30s
     depends_on:
       mediamtx:
         condition: service_healthy
@@ -73,24 +160,59 @@ services:
   # controlled ONLY by Settings → Detection (SQLite); when it is off the process
   # keeps running idle and the container stays healthy.
   #
-  # The YOLOX-Nano model lives in ./object-worker/models (kept out of git). On
-  # first start the entrypoint downloads it once if missing; an existing model is
-  # verified and reused, so later starts need no network.
+  # The YOLOX-Nano model lives in ./object-worker/models (kept out of git) and is
+  # provisioned on the HOST before the container starts:
+  #   npm run object:model        # or python3 object-worker/scripts/download_model.py
+  # It is mounted read-only. The entrypoint verifies it and fails with an
+  # actionable message when it is missing; nothing downloads in the container.
   object-worker:
     build:
       context: .
       dockerfile: object-worker/Dockerfile
-    env_file:
-      - .env
+    # Explicit, minimal environment: no SESSION_SECRET, no TELEGRAM_*, no APP_*,
+    # no DVR_*/HIKVISION_* (the worker reaches MediaMTX, never the DVR). Only the
+    # variables object-worker/config.py reads are passed. Empty values keep the
+    # documented defaults in the code.
     environment:
       DATA_DIR: /app/data
       OBJECT_DETECTION_MODEL_PATH: /app/models/yolox_nano.onnx
       MEDIAMTX_RTSP_URL: rtsp://mediamtx:8554
       OBJECT_DETECTION_STREAM: rtsp
+      # Dedicated read-only MediaMTX account for this worker (never the hub's
+      # credential, so the worker cannot use the Control API).
+      MEDIAMTX_AUTH_USER: "${MEDIAMTX_WORKER_USER:-worker}"
+      MEDIAMTX_AUTH_PASSWORD: "${MEDIAMTX_AUTH_PASSWORD:-}"
+      # Worker tuning from .env; empty means "use the code default".
+      OBJECT_DETECTION_SETTINGS_POLL_MS: "${OBJECT_DETECTION_SETTINGS_POLL_MS:-}"
+      OBJECT_DETECTION_HEARTBEAT_MS: "${OBJECT_DETECTION_HEARTBEAT_MS:-}"
+      OBJECT_DETECTION_FRAME_STALE_MS: "${OBJECT_DETECTION_FRAME_STALE_MS:-}"
+      OBJECT_DETECTION_RECONNECT_BACKOFF_MS: "${OBJECT_DETECTION_RECONNECT_BACKOFF_MS:-}"
+      OBJECT_DETECTION_MAX_TRACKS_PER_CAMERA: "${OBJECT_DETECTION_MAX_TRACKS_PER_CAMERA:-}"
     volumes:
       - ./data:/app/data
-      # Writable so the entrypoint can provision the model on a fresh install.
-      - ./object-worker/models:/app/models
+      # Read-only: the model is provisioned on the host, never inside the
+      # container. The host directory must be readable by uid/gid 10001.
+      - ./object-worker/models:/app/models:ro
+    # OpenCV/ONNX Runtime temp files go to /tmp; the rest of the image is
+    # read-only. No persistent state lives outside ./data.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    # Measured worker footprint is ~214 MB RAM; 1g allows for two-camera
+    # inference peaks and OpenCV decode buffers without letting a model/parser
+    # bug exhaust the 4 GB host. tmpfs pages count against this limit.
+    mem_limit: 1g
+    pids_limit: 256
+    stop_grace_period: 30s
+    # Media network only: the worker reaches MediaMTX RTSP but has no route to
+    # the DVR, Telegram or the internet.
+    networks:
+      media:
+        ipv4_address: 172.28.0.12
     depends_on:
       mediamtx:
         condition: service_healthy
@@ -130,14 +252,42 @@ services:
       context: .
       dockerfile: face-worker/Dockerfile
     profiles: ["faces"]
-    env_file:
-      - .env
+    # Explicit, minimal environment: no SESSION_SECRET, no TELEGRAM_*, no APP_*,
+    # no DVR_*/HIKVISION_*, and no MediaMTX credentials (this worker only reads
+    # snapshots from the shared database). Only the variables
+    # face-worker/config.py reads are passed; empty means "use the code default".
     environment:
       DATA_DIR: /app/data
       FACE_DETECTION_MODEL_PATH: /app/models/face_detection_yunet_2023mar.onnx
+      FACE_DETECTION_ENABLED: "${FACE_DETECTION_ENABLED:-false}"
+      FACE_DETECTION_CONFIDENCE: "${FACE_DETECTION_CONFIDENCE:-}"
+      FACE_DETECTION_MAX_FACES: "${FACE_DETECTION_MAX_FACES:-}"
+      FACE_DETECTION_POLL_INTERVAL_MS: "${FACE_DETECTION_POLL_INTERVAL_MS:-}"
+      FACE_DETECTION_BACKFILL_DAYS: "${FACE_DETECTION_BACKFILL_DAYS:-}"
+      FACE_DETECTION_MAX_ATTEMPTS: "${FACE_DETECTION_MAX_ATTEMPTS:-}"
+      FACE_DETECTION_STALE_AFTER_S: "${FACE_DETECTION_STALE_AFTER_S:-}"
+      FACE_DETECTION_BATCH_SIZE: "${FACE_DETECTION_BATCH_SIZE:-}"
+      FACE_DETECTION_MAX_WIDTH: "${FACE_DETECTION_MAX_WIDTH:-}"
+      FACE_DETECTION_JPEG_QUALITY: "${FACE_DETECTION_JPEG_QUALITY:-}"
     volumes:
       - ./data:/app/data
       - ./face-worker/models:/app/models:ro
+    # OpenCV temp files go to /tmp; the rest of the image is read-only.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - "no-new-privileges:true"
+    # YuNet is tiny; 1g is the same conservative bound as object-worker so the
+    # optional profiles can never be the reason the 4 GB host runs out of RAM.
+    mem_limit: 1g
+    pids_limit: 256
+    stop_grace_period: 30s
+    # The face worker only reads snapshots from the shared database and writes
+    # crops; it needs no network interface at all.
+    network_mode: "none"
     depends_on:
       web:
         condition: service_started
@@ -150,3 +300,17 @@ services:
     # harmless. A crash retries and then stops rather than looping forever.
     restart: on-failure
 
+networks:
+  # Outbound-only: the hub (DVR ISAPI + Telegram) and MediaMTX (DVR RTSP).
+  # Workers are deliberately not attached to it.
+  egress:
+    driver: bridge
+  # Static, internal media network. Static addresses are required because the
+  # MediaMTX Control API user is bound to the hub's address. `internal: true`
+  # keeps media traffic off the host and the internet.
+  media:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24

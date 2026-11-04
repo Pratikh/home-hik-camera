@@ -1,0 +1,72 @@
+{
+  "capturedAt": "2026-11-04T17:30+05:30",
+  "fixVersion": "deterministic dev-cache isolation (predev clears .next/dev whenever a production build exists; prebuild clears before every build)",
+  "reproductionPreFix": {
+    "sequence": "clean .next -> next dev -> compile 14 routes -> stop -> next build -> next dev",
+    "documentRequests": 138,
+    "navigations": 274,
+    "seconds": 12,
+    "compiledLines": 125,
+    "consoleErrors": 0,
+    "hmrReloadMessage": "reloadPage: HMR hash mismatch",
+    "initiator": "Turbopack client restart()"
+  },
+  "postFix": {
+    "cleanSequenceSameAsAbove": {
+      "documentRequests": 1,
+      "seconds": 20
+    },
+    "sustainedIdle60s": {
+      "documentRequests": 1,
+      "compiledLines": 0
+    },
+    "repeatedDevRestarts": {
+      "runs": 2,
+      "documentRequestsEach": 1
+    },
+    "directNextBuildSelfHeal": {
+      "documentRequests": 1,
+      "seconds": 15
+    },
+    "concurrentProductionServerThenDevRestart": {
+      "documentRequests": 1,
+      "seconds": 20
+    },
+    "routes": 14,
+    "routesDocumentLoadsEach": 1,
+    "horizontalOverflow": 0
+  },
+  "login": {
+    "status": 200,
+    "httpOnly": true,
+    "sameSite": "Lax",
+    "maxAgeSeconds": 604800,
+    "secure": false
+  },
+  "logout": {
+    "path": "/login",
+    "sessionStatus": 401
+  },
+  "tamperedCookie": {
+    "finalPath": "/login",
+    "documentRequests": 2,
+    "note": "redirect hop + login page, no loop"
+  },
+  "production": {
+    "nonceCsp": true,
+    "sameRequestNonceMatch": true,
+    "cspViolations": 0,
+    "consoleErrors": 0,
+    "idleDocumentLoads": 0
+  },
+  "suites": {
+    "typecheck": "pass",
+    "lint": "0 errors, 8 pre-existing warnings",
+    "vitest": "82 files / 837 tests passed",
+    "productionBuild": "pass",
+    "playwright": {
+      "firstCleanRunAfterFix": "101 passed, 10 skipped, 0 failed",
+      "laterRuns": "99-100 passed; playback PLAY-016/PLAY-018 flaky due to DVR single-playback-slot contention (MediaMTX 453 Not Enough Bandwidth from a hung Telegram-clip ffmpeg / thumbnail generator) and partially cold thumbnail cache (nearest preview 150s > 90s tolerance). PLAY-016 passes standalone when the DVR slot is free (4.2s). All non-playback tests pass consistently."
+    }
+  }
+}

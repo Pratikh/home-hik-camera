@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { SESSION_MAX_AGE, requestUsesHttps, sessionCookieOptions } from "@/lib/auth";
+import { resolveClientIp } from "@/lib/client-ip";
 import { getConfig } from "@/lib/config";
 import { Messages } from "@/lib/messages";
-import { verifyPassword } from "@/lib/password-hash";
+import { PasswordVerificationBusyError, verifyPasswordAsync } from "@/lib/password-hash";
+import { getPeerIp } from "@/lib/peer-ip";
 import { validateNewPassword } from "@/lib/passwords";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { COOKIE_NAME, SESSION_TTL_MS, signSession } from "@/lib/session";
@@ -12,9 +14,8 @@ import { requireUser } from "@/server/http/require-user";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || "local";
+function clientIp(request: Request, trustedProxies: readonly string[]): string | null {
+  return resolveClientIp({ peerIp: getPeerIp(), trustedProxies, headers: request.headers });
 }
 
 type Body = { currentPassword?: unknown; newPassword?: unknown };
@@ -48,13 +49,22 @@ export async function POST(request: Request) {
 
   const config = getConfig();
   const accounts = accountStore(config.dataDir);
-  const ip = clientIp(request);
+  const ip = clientIp(request, config.trustedProxies);
   const userAgent = request.headers.get("user-agent");
 
   const user = accounts.findById(auth.userId);
   if (!user || !user.enabled) return NextResponse.json({ error: Messages.authFailed }, { status: 401 });
 
-  if (!verifyPassword(currentPassword, user.passwordHash)) {
+  let currentPasswordOk = false;
+  try {
+    currentPasswordOk = await verifyPasswordAsync(currentPassword, user.passwordHash);
+  } catch (error) {
+    if (error instanceof PasswordVerificationBusyError) {
+      return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
+    }
+    throw error;
+  }
+  if (!currentPasswordOk) {
     accounts.writeAudit({
       userId: user.id,
       action: "PASSWORD_CHANGE_FAILED",

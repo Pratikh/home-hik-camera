@@ -1,20 +1,38 @@
+import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { SESSION_MAX_AGE, requestUsesHttps, sessionCookieOptions } from "@/lib/auth";
+import { resolveClientIp } from "@/lib/client-ip";
 import { getConfig } from "@/lib/config";
 import { Messages } from "@/lib/messages";
-import { verifyPassword } from "@/lib/password-hash";
+import {
+  PasswordVerificationBusyError,
+  hashPassword,
+  verifyPasswordAsync,
+} from "@/lib/password-hash";
+import { getPeerIp } from "@/lib/peer-ip";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { safeNext } from "@/lib/redirect";
 import { COOKIE_NAME, SESSION_TTL_MS, signSession } from "@/lib/session";
 import { accountStore } from "@/server/auth/accounts";
+import {
+  checkLoginThrottle,
+  clearLoginFailures,
+  pruneLoginThrottle,
+  recordLoginFailure,
+} from "@/server/auth/login-throttle";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || "local";
-}
+/** Largest login body accepted (JSON or form). Credentials are tiny. */
+const MAX_LOGIN_BODY_BYTES = 8 * 1024;
+
+/**
+ * A real scrypt hash that no submitted password matches, used when the username
+ * does not exist (or is disabled) so both branches cost the same. Without it,
+ * response timing enumerates valid usernames.
+ */
+const DUMMY_PASSWORD_HASH = hashPassword(randomBytes(24).toString("hex"));
 
 /** A plain HTML form submission, as opposed to the app's fetch call. */
 function isFormPost(request: Request): boolean {
@@ -69,66 +87,116 @@ async function readCredentials(
   }
 }
 
+function tooManyRequests(fromForm: boolean, retryAfterMs: number): NextResponse {
+  const retryAfterSeconds = Math.max(1, Math.ceil(retryAfterMs / 1000));
+  if (fromForm) return seeOther("/login?error=rate");
+  return NextResponse.json(
+    { error: Messages.authFailed },
+    { status: 429, headers: { "retry-after": String(retryAfterSeconds) } },
+  );
+}
+
+function rejected(fromForm: boolean): NextResponse {
+  if (fromForm) return seeOther("/login?error=auth");
+  return NextResponse.json({ error: Messages.authFailed }, { status: 401 });
+}
+
 export async function POST(request: Request) {
   const fromForm = isFormPost(request);
   const config = getConfig();
 
   if (!config.appConfigured) {
-    if (fromForm) {
-      return seeOther("/login?error=config");
-    }
+    if (fromForm) return seeOther("/login?error=config");
     return NextResponse.json({ error: Messages.invalidConfig }, { status: 500 });
   }
 
-  const limit = consumeRateLimit(`login:${clientIp(request)}`, 8, 15 * 60 * 1000);
-  if (!limit.allowed) {
-    if (fromForm) {
-      return seeOther("/login?error=rate");
-    }
-    return NextResponse.json({ error: Messages.authFailed }, { status: 429 });
+  // Bound the body before parsing: credentials are tiny, and an unauthenticated
+  // endpoint must not buffer arbitrary uploads.
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_LOGIN_BODY_BYTES) {
+    return rejected(fromForm);
   }
 
+  // One process-wide budget blunts floods even before the per-account/per-address
+  // budgets (which live in SQLite and therefore survive a restart) are consulted.
+  const globalLimit = consumeRateLimit("login:global", 60, 60 * 1000);
+  if (!globalLimit.allowed) return tooManyRequests(fromForm, globalLimit.retryAfterMs);
+
+  const peerIp = getPeerIp();
+  const clientIp = resolveClientIp({
+    peerIp,
+    trustedProxies: config.trustedProxies,
+    headers: request.headers,
+  });
+
   const credentials = await readCredentials(request, fromForm);
-  if (!credentials) {
-    if (fromForm) return seeOther("/login?error=auth");
-    return NextResponse.json({ error: Messages.authFailed }, { status: 401 });
-  }
+  if (!credentials) return rejected(fromForm);
+
   const { username, password, next } = credentials;
   if (username.length > 64 || password.length > 200 || password.length < 1) {
-    if (fromForm) return seeOther("/login?error=auth");
-    return NextResponse.json({ error: Messages.authFailed }, { status: 401 });
+    return rejected(fromForm);
   }
 
   const accounts = accountStore(config.dataDir);
+  const userAgent = request.headers.get("user-agent");
+  const now = Date.now();
+
   accounts.ensureBootstrapAdmin(config.appUsername, config.appPassword);
   // Opportunistic maintenance: expired rows are never usable, and login is the
   // natural point where a returning user clears them.
   accounts.pruneExpiredSessions();
-  const user = accounts.findByUsername(username);
-  const ip = clientIp(request);
-  const userAgent = request.headers.get("user-agent");
-  if (!user || !user.enabled || !verifyPassword(password, user.passwordHash)) {
-    accounts.writeAudit({ userId: user?.id ?? null, action: "LOGIN_FAILED", resource: username, ip, userAgent });
-    // The failure redirect carries a reason code only — never the credentials.
-    if (fromForm) return seeOther("/login?error=auth");
-    return NextResponse.json({ error: Messages.authFailed }, { status: 401 });
+  pruneLoginThrottle(accounts.db, now);
+
+  const throttle = checkLoginThrottle(accounts.db, { username, clientIp, now });
+  if (!throttle.allowed) {
+    accounts.writeAudit({
+      userId: null,
+      action: "LOGIN_BLOCKED",
+      resource: username,
+      metadata: { reason: throttle.reason },
+      ip: clientIp,
+      userAgent,
+    });
+    return tooManyRequests(fromForm, throttle.retryAfterMs);
   }
 
+  const user = accounts.findByUsername(username);
+  // Always derive a hash, even for an unknown/disabled account, so the response
+  // time cannot reveal whether the username exists.
+  let passwordOk = false;
+  try {
+    passwordOk = await verifyPasswordAsync(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+  } catch (error) {
+    if (error instanceof PasswordVerificationBusyError) {
+      return tooManyRequests(fromForm, 5_000);
+    }
+    console.error("[auth] verify", error instanceof Error ? error.name : "error");
+    return NextResponse.json({ error: Messages.invalidConfig }, { status: 500 });
+  }
+
+  if (!user || !user.enabled || !passwordOk) {
+    recordLoginFailure(accounts.db, { username, clientIp, now: Date.now() });
+    accounts.writeAudit({ userId: user?.id ?? null, action: "LOGIN_FAILED", resource: username, ip: clientIp, userAgent });
+    // The failure redirect carries a reason code only — never the credentials.
+    return rejected(fromForm);
+  }
+
+  clearLoginFailures(accounts.db, { username, clientIp });
   const sessionId = accounts.createSession({
     userId: user.id,
-    ip,
+    ip: clientIp,
     userAgent,
     expiresAt: Date.now() + SESSION_TTL_MS,
   });
   accounts.markLogin(user.id);
-  accounts.writeAudit({ userId: user.id, action: "LOGIN", resource: user.username, ip, userAgent });
+  accounts.writeAudit({ userId: user.id, action: "LOGIN", resource: user.username, ip: clientIp, userAgent });
 
   try {
     const token = await signSession(user.username, config.sessionSecret, Date.now(), { sessionId, role: user.role });
     // A native submit gets a redirect so the browser lands on the app; the
     // hydrated app gets JSON and navigates itself.
     const response = fromForm ? seeOther(next) : NextResponse.json({ ok: true, redirect: next, role: user.role });
-    response.cookies.set(COOKIE_NAME, token, { ...sessionCookieOptions(config.cookieSecure || requestUsesHttps(request)), maxAge: SESSION_MAX_AGE });
+    response.cookies.set(COOKIE_NAME, token, { ...sessionCookieOptions(config.cookieSecure || requestUsesHttps(request, peerIp, config.trustedProxies)), maxAge: SESSION_MAX_AGE });
     return response;
   } catch (error) {
     console.error("[auth] session", error instanceof Error ? error.name : "error");

@@ -1,20 +1,23 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { CameraView } from "@/lib/api-types";
 import { Messages } from "@/lib/messages";
 import { LivePlayer } from "@/components/camera/LivePlayer";
 import { MessagePanel } from "@/components/ui/States";
 import { StatusLamp } from "@/components/ui/StatusLamp";
+import { Icon } from "@/components/ui/Icon";
+import { useFocusTrap } from "@/components/hooks/useFocusTrap";
 
 /**
- * One camera in the grid.
+ * One camera in the live wall.
  *
- * Clicking anywhere in the video area opens the camera in the application's
- * focus mode. The trigger is a button overlay at z-10; the player's own controls
- * sit at z-20 above it and stop propagation, so Mute / Retry still work.
+ * The video wrapper is deliberately the first child of the <article>: the QA
+ * suite measures it, and focus mode reuses the SAME mounted player element so
+ * entering/leaving focus never tears down the WebRTC session.
  *
- * The video keeps its own aspect ratio (`object-contain`), so the picture is
- * never stretched or cropped; leftover space becomes letterboxing.
+ * Only one control carries the accessible name "Open <name> full screen" — the
+ * top-right expand chip — so role-based locators resolve to a single match.
  */
 export function CameraTile({
   camera,
@@ -22,6 +25,7 @@ export function CameraTile({
   active,
   focused,
   hidden = false,
+  eventCount = null,
   onExpand,
   onExitFocus,
 }: {
@@ -30,40 +34,42 @@ export function CameraTile({
   active: boolean;
   /** When true this tile's video fills the viewport in focus mode. */
   focused: boolean;
-  /**
-   * Hidden while another camera is focused. Uses `display: none` so the
-   * component stays mounted and its WebRTC session is never torn down.
-   */
+  /** Hidden while another camera is focused (display:none keeps it mounted). */
   hidden?: boolean;
+  /** Events seen today on this camera, if known. */
+  eventCount?: number | null;
   onExpand: () => void;
   onExitFocus: () => void;
 }) {
+  const articleRef = useRef<HTMLElement | null>(null);
+  const expandRef = useRef<HTMLButtonElement | null>(null);
+  // Focus mode is a modal surface: keep Tab inside the focused tile, close on
+  // Escape, and restore focus to the expand control on exit.
+  useFocusTrap(focused, articleRef, onExitFocus);
+  useEffect(() => {
+    if (!focused) return;
+    const trigger = expandRef.current;
+    return () => {
+      // The tile stays mounted after leaving focus; return the keyboard user to
+      // the control that opened it.
+      requestAnimationFrame(() => trigger?.focus({ preventScroll: true }));
+    };
+  }, [focused]);
   const tone = camera.online === true ? "online" : camera.online === false ? "offline" : "warn";
   const signal = camera.online === true ? Messages.online : camera.online === false ? Messages.offline : Messages.notReported;
 
   return (
-    /*
-      In focus mode this article becomes a fixed, full-viewport surface. The
-      player inside it is the SAME element that was in the grid, so the WebRTC
-      session is never torn down and re-created when entering or leaving focus.
-    */
     <article
+      ref={articleRef as React.RefObject<HTMLElement>}
+      tabIndex={focused ? -1 : undefined}
       className={
         focused
-          ? "fixed inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden bg-black"
-          : `group relative flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-card${
-              hidden ? " hidden" : ""
-            }`
+          ? "camera camera--focused"
+          : `camera${hidden ? " hidden" : ""}`
       }
       aria-label={focused ? `${camera.name} focus view` : undefined}
     >
-      <div
-        className={
-          focused
-            ? "relative min-h-0 w-full flex-1 basis-0 bg-black"
-            : "relative aspect-video min-h-0 w-full bg-black lg:aspect-auto lg:flex-1 lg:basis-0"
-        }
-      >
+      <div className="camera__video">
         {suspended ? (
           <MessagePanel message={suspended} />
         ) : (
@@ -71,73 +77,64 @@ export function CameraTile({
         )}
 
         {focused ? (
-          /*
-            Focus mode: minimal overlay controls. The exit button is anchored to
-            the top-right, clear of the DVR's burned-in timestamp (top-left) and
-            the player's own Mute control (bottom-left).
-          */
           <>
-            <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 sm:p-5">
-              <span className="rounded-lg border border-white/15 bg-black/60 px-3 py-2 text-sm font-medium text-white">
-                {camera.name}
-              </span>
-              <button
-                type="button"
-                onClick={onExitFocus}
-                className="pointer-events-auto inline-flex h-11 shrink-0 items-center gap-2 rounded-lg border border-white/25 bg-black/70 px-3 text-sm font-medium text-white hover:bg-black/90"
-                aria-label={`Exit focus view for ${camera.name}`}
-                autoFocus
-              >
-                <CloseIcon />
-                Exit
-              </button>
+            <div className="camera__overlay">
+              <div className="camera__top">
+                <span className="camera__live">{camera.name}</span>
+                <button
+                  type="button"
+                  onClick={onExitFocus}
+                  className="btn btn--sm"
+                  aria-label={`Exit focus view for ${camera.name}`}
+                  autoFocus
+                >
+                  <Icon name="close" className="icon icon-sm" />
+                  Exit
+                </button>
+              </div>
             </div>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-3 sm:p-5">
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-end p-3 sm:p-5">
               <StatusLamp tone={tone} label={signal} compact />
             </div>
           </>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={onExpand}
-              aria-label={`Open ${camera.name} full screen`}
-              className="absolute inset-0 z-10 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-teal"
-            />
-            <span className="pointer-events-none absolute right-2 top-2 z-20 inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/20 bg-black/60 px-2.5 text-xs font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              <ExpandIcon />
-              Full screen
-            </span>
-          </>
+          <div className="camera__overlay">
+            <div className="camera__top">
+              <button
+                ref={expandRef}
+                type="button"
+                onClick={onExpand}
+                className="camera__expand"
+                aria-label={`Open ${camera.name} full screen`}
+              >
+                <Icon name="expand" className="icon icon-sm" />
+                <span>Full screen</span>
+              </button>
+            </div>
+            <div className="camera__bottom" style={{ justifyContent: "flex-end" }}>
+              <span className="camera__signal">
+                <span className={`dot ${tone === "online" ? "dot--online" : tone === "offline" ? "dot--offline" : "dot--warn"}`} />
+                {signal}
+              </span>
+            </div>
+          </div>
         )}
       </div>
 
-      {/* The caption row is only part of the grid presentation. */}
       {focused ? null : (
-        <div className="flex shrink-0 items-center justify-between gap-3 px-3 py-2">
-          <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold">{camera.name}</h2>
-            <p className="mt-0.5 font-mono text-xs text-muted">Sub {camera.subChannel}</p>
+        <div className="camera__caption">
+          <div className="camera__caption-main">
+            <h2 className="camera__name">{camera.name}</h2>
+            <div className="camera__meta">
+              Sub {camera.subChannel}
+              {eventCount !== null ? ` · ${eventCount} events today` : ""}
+            </div>
           </div>
-          <StatusLamp tone={tone} label={signal} />
+          <div className="camera__caption-side">
+            <StatusLamp tone={tone} label={signal} compact />
+          </div>
         </div>
       )}
     </article>
-  );
-}
-
-function ExpandIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-    </svg>
   );
 }

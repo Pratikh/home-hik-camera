@@ -4,15 +4,11 @@ import { getConfig } from "@/lib/config";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { COOKIE_NAME } from "@/lib/session";
 import { accountStore } from "@/server/auth/accounts";
+import { requestClientIp } from "@/server/http/client-ip";
 import { requireUser } from "@/server/http/require-user";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function clientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || "local";
-}
 
 /**
  * The signed-in user's own local sessions.
@@ -62,7 +58,7 @@ export async function DELETE(request: Request) {
     action: "SESSIONS_REVOKED",
     resource: auth.username,
     metadata: { scope, revoked },
-    ip: clientIp(request),
+    ip: requestClientIp(request),
     userAgent: request.headers.get("user-agent"),
   });
 

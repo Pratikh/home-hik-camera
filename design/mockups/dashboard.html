@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+</head>
+<body data-nav="dashboard" data-crumb="Live monitoring">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Live monitoring</div>
+      <h1>Dashboard</h1>
+      <p class="page-head__sub">Four-camera live view over the local gateway. H.264 sub streams only — the DVR is never exposed beyond this hub.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="pill"><span class="dot dot--live"></span>4 of 4 streams live</span>
+      <a class="btn" href="events.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-events"/></svg>Events</a>
+      <a class="btn btn--primary" href="playback.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-playback"/></svg>Playback</a>
+    </div>
+  </div>
+
+  <div class="stat-row">
+    <div class="stat stat--accent">
+      <div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-camera"/></svg></div>
+      <div>
+        <div class="stat__label">Cameras online</div>
+        <div class="stat__value">4 <small>/ 4</small></div>
+        <div class="stat__delta"><strong>All nominal</strong> · 704×576 sub</div>
+      </div>
+    </div>
+    <div class="stat">
+      <div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-events"/></svg></div>
+      <div>
+        <div class="stat__label">Events today</div>
+        <div class="stat__value">297</div>
+        <div class="stat__delta"><strong>+38</strong> in last hour</div>
+      </div>
+    </div>
+    <div class="stat stat--info">
+      <div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-scan"/></svg></div>
+      <div>
+        <div class="stat__label">Person / vehicle</div>
+        <div class="stat__value">273 <small>· 24</small></div>
+        <div class="stat__delta">DVR classification labels</div>
+      </div>
+    </div>
+    <div class="stat stat--warn">
+      <div class="stat__icon"><svg class="icon" aria-hidden="true"><use href="#i-bell"/></svg></div>
+      <div>
+        <div class="stat__label">Alerts sent today</div>
+        <div class="stat__value">3</div>
+        <div class="stat__delta">301 suppressed by rules</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dash">
+    <div class="dash__main">
+      <div class="live-wall">
+        <article class="camera">
+          <div class="camera__video">
+            <img class="camera__media" src="assets/frames/cam1.jpg" alt="Parking live view">
+            <div class="camera__overlay">
+              <div class="camera__top">
+                <span class="camera__live"><span class="dot dot--live"></span>Live</span>
+                <span class="camera__action"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-expand"/></svg></span>
+              </div>
+              <div class="camera__bottom">
+                <span class="camera__clock">04-11-2026 13:48:10</span>
+                <span class="camera__signal"><span class="dot dot--online"></span>Online</span>
+              </div>
+            </div>
+          </div>
+          <div class="camera__caption">
+            <div class="camera__caption-main">
+              <h2 class="camera__name">Parking</h2>
+              <div class="camera__meta">Sub 102 · Main 101</div>
+            </div>
+            <span class="status"><span class="dot dot--online"></span><span>78 events</span></span>
+          </div>
+        </article>
+
+        <article class="camera">
+          <div class="camera__video">
+            <img class="camera__media" src="assets/frames/cam2.jpg" alt="Right Side Outside Camera live view">
+            <div class="camera__overlay">
+              <div class="camera__top">
+                <span class="camera__live"><span class="dot dot--live"></span>Live</span>
+                <span class="camera__action"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-expand"/></svg></span>
+              </div>
+              <div class="camera__bottom">
+                <span class="camera__clock">04-11-2026 13:48:10</span>
+                <span class="camera__signal"><span class="dot dot--online"></span>Online</span>
+              </div>
+            </div>
+          </div>
+          <div class="camera__caption">
+            <div class="camera__caption-main">
+              <h2 class="camera__name">Right Side Outside Camera</h2>
+              <div class="camera__meta">Sub 202 · Main 201</div>
+            </div>
+            <span class="status"><span class="dot dot--online"></span><span>90 events</span></span>
+          </div>
+        </article>
+
+        <article class="camera">
+          <div class="camera__video">
+            <img class="camera__media" src="assets/frames/cam3.jpg" alt="First Floor Passage live view">
+            <div class="camera__overlay">
+              <div class="camera__top">
+                <span class="camera__live"><span class="dot dot--live"></span>Live</span>
+                <span class="camera__action"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-expand"/></svg></span>
+              </div>
+              <div class="camera__bottom">
+                <span class="camera__clock">04-11-2026 13:48:10</span>
+                <span class="camera__signal"><span class="dot dot--online"></span>Online</span>
+              </div>
+            </div>
+          </div>
+          <div class="camera__caption">
+            <div class="camera__caption-main">
+              <h2 class="camera__name">First Floor Passage</h2>
+              <div class="camera__meta">Sub 302 · Main 301</div>
+            </div>
+            <span class="status"><span class="dot dot--online"></span><span>24 events</span></span>
+          </div>
+        </article>
+
+        <article class="camera">
+          <div class="camera__video">
+            <img class="camera__media" src="assets/frames/cam4.jpg" alt="Left Side Outside live view">
+            <div class="camera__overlay">
+              <div class="camera__top">
+                <span class="camera__live"><span class="dot dot--live"></span>Live</span>
+                <span class="camera__action"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-expand"/></svg></span>
+              </div>
+              <div class="camera__bottom">
+                <span class="camera__clock">04-11-2026 13:48:10</span>
+                <span class="camera__signal"><span class="dot dot--online"></span>Online</span>
+              </div>
+            </div>
+          </div>
+          <div class="camera__caption">
+            <div class="camera__caption-main">
+              <h2 class="camera__name">Left Side Outside</h2>
+              <div class="camera__meta">Sub 402 · Main 401</div>
+            </div>
+            <span class="status"><span class="dot dot--online"></span><span>106 events</span></span>
+          </div>
+        </article>
+      </div>
+
+      <div class="today-col">
+        <section class="card">
+          <div class="card__head"><div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>Today by camera</div></div>
+          <div class="card__body by-camera">
+            <div class="by-camera__row"><span class="by-camera__name">Parking</span><span class="by-camera__bar"><span class="by-camera__fill" style="width:74%"></span></span><span class="by-camera__count">78</span></div>
+            <div class="by-camera__row"><span class="by-camera__name">Right Side Outside</span><span class="by-camera__bar"><span class="by-camera__fill" style="width:85%"></span></span><span class="by-camera__count">90</span></div>
+            <div class="by-camera__row"><span class="by-camera__name">First Floor Passage</span><span class="by-camera__bar"><span class="by-camera__fill" style="width:23%"></span></span><span class="by-camera__count">24</span></div>
+            <div class="by-camera__row"><span class="by-camera__name">Left Side Outside</span><span class="by-camera__bar"><span class="by-camera__fill" style="width:100%"></span></span><span class="by-camera__count">106</span></div>
+          </div>
+          <div class="card__foot"><a class="btn btn--sm btn--ghost" href="events/stats">All statistics<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a></div>
+        </section>
+      </div>
+    </div>
+
+    <aside class="dash__rail">
+      <section class="card" aria-label="Recent security events">
+        <div class="card__head">
+          <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-zap"/></svg>Recent security events</div>
+          <div style="display:flex;gap:12px">
+            <a class="btn btn--sm btn--ghost" href="events/stats">Statistics</a>
+            <a class="btn btn--sm btn--ghost" href="events.html">All events</a>
+          </div>
+        </div>
+        <div class="rail-list">
+          <a class="rail-row" href="event-detail.html">
+            <span class="rail-row__time">13:54</span>
+            <span class="rail-row__main"><span class="rail-row__title">Person detected</span><span class="rail-row__sub">Left Side Outside · 42 seconds ago</span></span>
+            <span class="rail-row__flag badge badge--danger">High</span>
+          </a>
+          <a class="rail-row" href="event-detail.html">
+            <span class="rail-row__time">13:43</span>
+            <span class="rail-row__main"><span class="rail-row__title">Person detected</span><span class="rail-row__sub">First Floor Passage · 5 minutes ago</span></span>
+            <span class="rail-row__flag badge badge--danger">High</span>
+          </a>
+          <a class="rail-row" href="event-detail.html">
+            <span class="rail-row__time">09:59</span>
+            <span class="rail-row__main"><span class="rail-row__title">Person detected</span><span class="rail-row__sub">Left Side Outside · 3 hours ago</span></span>
+            <span class="rail-row__flag badge badge--danger">High</span>
+          </a>
+          <a class="rail-row" href="event-detail.html">
+            <span class="rail-row__time">09:51</span>
+            <span class="rail-row__main"><span class="rail-row__title">Vehicle detected</span><span class="rail-row__sub">Left Side Outside · 3 hours ago</span></span>
+            <span class="rail-row__flag badge">Normal</span>
+          </a>
+          <a class="rail-row" href="event-detail.html">
+            <span class="rail-row__time">09:52</span>
+            <span class="rail-row__main"><span class="rail-row__title">Person detected</span><span class="rail-row__sub">Left Side Outside · 3 hours ago</span></span>
+            <span class="rail-row__flag badge badge--danger">High</span>
+          </a>
+        </div>
+        <div class="card__foot" style="display:flex;align-items:center;justify-content:space-between">
+          <span class="section__hint">HIGH + CRITICAL only</span>
+          <a class="btn btn--sm" href="events.html">Open timeline<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-database"/></svg>System snapshot</div><span class="badge badge--online">Healthy</span></div>
+        <div class="card__body" style="display:grid;gap:10px">
+          <div class="status" style="justify-content:space-between"><span><span class="dot dot--online"></span> DVR connection</span><span class="badge badge--mono">192.168.1.200</span></div>
+          <div class="status" style="justify-content:space-between"><span><span class="dot dot--online"></span> Video gateway</span><span class="badge badge--mono">WebRTC</span></div>
+          <div class="status" style="justify-content:space-between"><span><span class="dot dot--idle"></span> Event pipeline</span><span class="badge badge--mono">poll 5s</span></div>
+          <div class="status" style="justify-content:space-between"><span><span class="dot dot--idle"></span> Face worker</span><span class="badge">Idle</span></div>
+        </div>
+        <div class="card__foot"><a class="btn btn--sm btn--ghost" href="settings-system.html">System health<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a></div>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-playback"/></svg>Jump back in</div></div>
+        <div class="quick-links">
+          <a class="quick-link" href="playback.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-playback"/></svg><span>Playback today</span><span>04 Nov</span></a>
+          <a class="quick-link" href="faces.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-faces"/></svg><span>Detected faces</span><span>348</span></a>
+          <a class="quick-link" href="notifications.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-bell"/></svg><span>Notification history</span><span>304</span></a>
+          <a class="quick-link" href="cameras.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-camera"/></svg><span>Camera setup</span><span>4 ch</span></a>
+        </div>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

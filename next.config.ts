@@ -5,26 +5,19 @@ const extraOrigins = (process.env.DEV_ALLOWED_ORIGINS ?? "")
   .map((item) => item.trim())
   .filter(Boolean);
 
-const isDev = process.env.NODE_ENV !== "production";
-
 /**
- * React and Turbopack use eval() in development for debugging features such as
- * reconstructing call stacks. Without 'unsafe-eval' the dev bundle throws, the
- * client never hydrates, and the login form cannot submit, so the page reloads
- * in a loop. Production never uses eval(), so it keeps the strict policy.
+ * Static security headers.
+ *
+ * The Content-Security-Policy is **not** set here: it is generated per request
+ * in `src/proxy.ts` so that a fresh nonce can be embedded in both the policy and
+ * Next's inline scripts (`script-src 'nonce-…' 'strict-dynamic'` in production).
+ * A static CSP from this file would be sent in addition to the nonce policy and
+ * the browser would intersect both, which would either block Next's scripts or
+ * force `'unsafe-inline'` back in.
+ *
+ * HSTS is intentionally omitted: it is only safe once the production HTTPS
+ * deployment and domain behaviour have been verified (see README/Security).
  */
-const scriptSrc = isDev ? "'self' 'unsafe-inline' 'unsafe-eval'" : "'self' 'unsafe-inline'";
-
-const contentSecurityPolicy = [
-  "default-src 'self'",
-  "img-src 'self' data: blob:",
-  "media-src 'self' blob:",
-  "connect-src 'self'",
-  `script-src ${scriptSrc}`,
-  "style-src 'self' 'unsafe-inline'",
-  "frame-ancestors 'none'",
-].join("; ");
-
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -39,7 +32,6 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "same-origin" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-          { key: "Content-Security-Policy", value: contentSecurityPolicy },
         ],
       },
     ];

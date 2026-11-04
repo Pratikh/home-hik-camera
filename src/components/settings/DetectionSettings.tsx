@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DetectionSettingsResponse, DetectionTestResponse } from "@/lib/api-types";
 import {
@@ -23,8 +24,10 @@ import {
 } from "@/lib/object-detection";
 import { CAMERA_IDS } from "@/lib/cameras";
 import { ApiError, api } from "@/lib/client-api";
+import { formatKolkataClock } from "@/lib/time-kolkata";
 import { useCameraNames, cameraName } from "@/components/hooks/useCameraNames";
-import { PageIntro } from "@/components/ui/States";
+import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 /**
  * Admin editor for live object detection.
@@ -32,16 +35,37 @@ import { PageIntro } from "@/components/ui/States";
  * The API validates everything again, so this form is a convenience, not a
  * trust boundary. Every control has a visible label and a stable test id: the
  * Playwright suite drives this page and reloads it to prove persistence.
+ *
+ * Layout note: the save bar is `position: sticky` INSIDE the settings content
+ * column. It is never `fixed inset-x-0`, so it can never cover the sidebar, and
+ * on phones it sits above the fixed bottom navigation
+ * (`bottom: 52px + safe-area inset`) instead of underneath it.
  */
 
-const STATUS_TONE: Record<string, string> = {
-  running: "text-online",
-  starting: "text-warn",
-  overloaded: "text-warn",
-  error: "text-offline",
-  disabled: "text-muted",
-  stopped: "text-offline",
+type Tone = "online" | "offline" | "warn" | "idle";
+
+const WORKER_TONE: Record<string, Tone> = {
+  running: "online",
+  starting: "warn",
+  overloaded: "warn",
+  error: "offline",
+  disabled: "idle",
+  stopped: "offline",
 };
+
+function badgeFor(tone: Tone): string {
+  if (tone === "online") return "badge--online";
+  if (tone === "offline") return "badge--danger";
+  if (tone === "warn") return "badge--warn";
+  return "";
+}
+
+function dotFor(tone: Tone): string {
+  if (tone === "online") return "dot--online";
+  if (tone === "offline") return "dot--offline";
+  if (tone === "warn") return "dot--warn";
+  return "dot--idle";
+}
 
 function percent(value: number): number {
   return Math.round(value * 100);
@@ -51,41 +75,58 @@ function fromPercent(value: number): number {
   return Math.min(CONFIDENCE_MAX, Math.max(CONFIDENCE_MIN, Math.round(value) / 100));
 }
 
-function Section({ title, detail, children }: { title: string; detail?: string; children: React.ReactNode }) {
+function SettingRow({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="rounded-xl border border-line bg-card p-4">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      {detail ? <p className="mt-1 text-xs text-muted">{detail}</p> : null}
-      <div className="mt-3 grid gap-3">{children}</div>
-    </section>
+    <div className="setting-row max-[720px]:flex-wrap max-[720px]:items-start max-[720px]:gap-2">
+      <div className="setting-row__main">
+        <div className="setting-row__title">{title}</div>
+        {description ? <div className="setting-row__desc">{description}</div> : null}
+      </div>
+      <div className="setting-row__control max-[720px]:w-full max-[720px]:justify-start">{children}</div>
+    </div>
   );
 }
 
-function Toggle({
+function CheckboxToggle({
   id,
   label,
   checked,
   onChange,
   disabled = false,
+  testId,
+  ariaLabel,
 }: {
   id: string;
-  label: string;
+  /** Visible text; pass an empty string when the surrounding row supplies the label. */
+  label?: string;
   checked: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
+  testId?: string;
+  /** Accessible name when there is no visible label (or it must be more specific). */
+  ariaLabel?: string;
 }) {
+  const name = ariaLabel ?? label ?? id;
   return (
-    <label htmlFor={id} className="flex items-center justify-between gap-3 text-sm">
-      <span>{label}</span>
+    <label htmlFor={id} className="check" style={{ opacity: disabled ? 0.5 : 1 }}>
       <input
         id={id}
-        data-testid={id}
+        data-testid={testId ?? id}
         type="checkbox"
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
-        className="h-5 w-5 accent-teal"
+        aria-label={name}
       />
+      {label ? <span>{label}</span> : null}
     </label>
   );
 }
@@ -112,9 +153,9 @@ function NumberField({
   disabled?: boolean;
 }) {
   return (
-    <label htmlFor={id} className="grid gap-1 text-sm">
-      <span className="text-muted">{label}</span>
-      <span className="flex items-center gap-2">
+    <label htmlFor={id} className="field">
+      <span className="field__label">{label}</span>
+      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <input
           id={id}
           data-testid={id}
@@ -128,9 +169,10 @@ function NumberField({
             const parsed = Number(event.target.value);
             if (Number.isFinite(parsed)) onChange(parsed);
           }}
-          className="h-10 w-24 rounded-lg border border-line bg-bg px-3"
+          className="input"
+          style={{ width: 92, textAlign: "right" }}
         />
-        {suffix ? <span className="text-xs text-muted">{suffix}</span> : null}
+        {suffix ? <span className="section__hint">{suffix}</span> : null}
       </span>
     </label>
   );
@@ -141,42 +183,47 @@ function ConfidenceField({
   label,
   value,
   onChange,
+  compact = false,
+  disabled = false,
 }: {
   id: string;
   label: string;
   value: number;
   onChange: (value: number) => void;
+  compact?: boolean;
+  disabled?: boolean;
 }) {
+  const accessibleName = label || "Confidence threshold";
   return (
-    <div className="grid gap-1 text-sm">
-      <span className="text-muted">{label}</span>
-      <div className="flex items-center gap-3">
-        <input
-          id={`${id}-range`}
-          data-testid={`${id}-range`}
-          type="range"
-          min={percent(CONFIDENCE_MIN)}
-          max={percent(CONFIDENCE_MAX)}
-          step={1}
-          value={percent(value)}
-          onChange={(event) => onChange(fromPercent(Number(event.target.value)))}
-          className="h-5 flex-1 accent-teal"
-          aria-label={label}
-        />
-        <input
-          id={id}
-          data-testid={id}
-          type="number"
-          min={percent(CONFIDENCE_MIN)}
-          max={percent(CONFIDENCE_MAX)}
-          step={1}
-          value={percent(value)}
-          onChange={(event) => onChange(fromPercent(Number(event.target.value)))}
-          className="h-10 w-20 rounded-lg border border-line bg-bg px-3"
-          aria-label={`${label} percentage`}
-        />
-        <span className="text-xs text-muted">%</span>
-      </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+      <input
+        id={`${id}-range`}
+        data-testid={`${id}-range`}
+        type="range"
+        min={percent(CONFIDENCE_MIN)}
+        max={percent(CONFIDENCE_MAX)}
+        step={1}
+        value={percent(value)}
+        disabled={disabled}
+        onChange={(event) => onChange(fromPercent(Number(event.target.value)))}
+        aria-label={accessibleName}
+        style={{ width: compact ? 74 : 116, accentColor: "var(--accent)" }}
+      />
+      <input
+        id={id}
+        data-testid={id}
+        type="number"
+        min={percent(CONFIDENCE_MIN)}
+        max={percent(CONFIDENCE_MAX)}
+        step={1}
+        value={percent(value)}
+        disabled={disabled}
+        onChange={(event) => onChange(fromPercent(Number(event.target.value)))}
+        className="input"
+        style={{ width: 68, textAlign: "right" }}
+        aria-label={`${accessibleName} percentage`}
+      />
+      <span className="section__hint">%</span>
     </div>
   );
 }
@@ -217,6 +264,7 @@ export function DetectionSettings() {
 
   const worker = data?.worker ?? null;
   const workerStatus = worker?.status ?? "stopped";
+  const workerTone = WORKER_TONE[workerStatus] ?? "idle";
   const workerLabel = worker
     ? workerStatus === "running"
       ? "Running"
@@ -290,405 +338,649 @@ export function DetectionSettings() {
   }
 
   if (loading && !data) {
-    return <p className="text-sm text-muted">Loading detection settings…</p>;
+    return <p className="section__hint">Loading detection settings…</p>;
   }
   if (!settings) {
     return (
-      <div className="rounded-xl border border-line bg-card px-4 py-8 text-center" role="alert">
-        <p className="text-sm">{error ?? "Detection settings are unavailable."}</p>
-        <button type="button" onClick={() => void load()} className="mt-3 rounded-lg border border-line px-3 py-2 text-sm">
+      <div className="card card--pad" role="alert">
+        <div className="notice notice--danger">
+          <Icon name="alert" />
+          <span>{error ?? "Detection settings are unavailable."}</span>
+        </div>
+        <button type="button" onClick={() => void load()} className="btn btn--sm" style={{ marginTop: 12 }}>
           Try again
         </button>
       </div>
     );
   }
 
+  const lastReport = worker?.updatedAt ? formatKolkataClock(new Date(worker.updatedAt)) : "never";
+
   return (
-    <div className="grid max-w-3xl gap-4 pb-24">
-      <PageIntro
+    <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+      <PageHeader
+        eyebrow="Administration"
         title="Object detection"
         detail="Detect people and vehicles on the camera substreams. Detection is off until you enable and save it. The DVR's own person/vehicle labels are controlled separately by the detection source below."
+        actions={
+          <>
+            <span className={`pill${workerTone === "online" ? "" : workerTone === "idle" ? "" : " pill--warn"}`}>
+              <span className={`dot ${dotFor(workerTone)}`} />
+              {workerStatus === "running" ? "Worker running" : workerStatus === "stopped" ? "Worker stopped" : workerLabel}
+            </span>
+            <Link href="/settings/system" className="btn">
+              <Icon name="activity" className="icon icon-sm" />
+              System
+            </Link>
+          </>
+        }
       />
 
       {error ? (
-        <p className="rounded-lg border border-offline/50 bg-card px-3 py-2 text-sm text-offline" role="alert">
-          {error}
-        </p>
+        <div className="notice notice--danger" role="alert" style={{ alignItems: "center" }}>
+          <Icon name="alert" />
+          <span>{error}</span>
+        </div>
       ) : null}
       {message ? (
-        <p className="rounded-lg border border-online/40 bg-card px-3 py-2 text-sm text-online" role="status">
-          {message}
-        </p>
+        <div className="notice notice--accent" role="status" style={{ alignItems: "center" }}>
+          <Icon name="check" />
+          <span>{message}</span>
+        </div>
       ) : null}
 
-      <Section
-        title="Object detection"
-        detail="Master switch. Off means the worker loads no model and analyses no frames; existing events and notifications are untouched."
-      >
-        <Toggle
-          id="detection-enabled"
-          label="Enable object detection"
-          checked={settings.enabled}
-          onChange={(value) => patchSettings({ enabled: value })}
-        />
-        <div className="rounded-lg border border-line bg-bg/40 p-3 text-sm" data-testid="detection-worker-status">
-          <p className="flex flex-wrap items-center gap-2">
-            <span className="text-muted">Worker</span>
-            <span className={STATUS_TONE[workerStatus] ?? "text-muted"}>{workerLabel}</span>
-            {worker?.updatedAt ? (
-              <span className="text-xs text-muted">
-                last report {new Date(worker.updatedAt).toLocaleTimeString()}
+      <div className="split">
+        <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="scan" className="icon icon-sm" />
+                Detection
+              </h2>
+              <span className={`badge ${settings.enabled ? "badge--online" : ""}`}>
+                {settings.enabled ? "Enabled" : "Disabled"}
               </span>
-            ) : null}
-          </p>
-          <p className="mt-1 text-xs text-muted">
-            Model: {data?.model.name} {data?.model.version} ({data?.model.license}, ~{data?.model.sizeMb} MB).
-            Cameras monitored: {monitored}. Person {percent(settings.personConfidence)}% · Vehicle{" "}
-            {percent(settings.vehicleConfidence)}%.
-          </p>
-          {worker?.detail ? <p className="mt-1 text-xs text-warn">{worker.detail}</p> : null}
-          {worker?.metrics ? (
-            <p className="mt-1 text-xs text-muted">
-              Inference {worker.metrics.averageInferenceMs === null ? "—" : `${Math.round(worker.metrics.averageInferenceMs)} ms`} ·
-              FPS {worker.metrics.inferenceFps ?? "—"} · Queue {worker.metrics.queueDepth ?? "—"} · Dropped{" "}
-              {worker.metrics.droppedFrames ?? "—"} · Today: {worker.metrics.detectionsToday ?? 0} (
-              {worker.metrics.personDetectionsToday ?? 0} person, {worker.metrics.vehicleDetectionsToday ?? 0} vehicle)
-            </p>
-          ) : null}
-          <p className="mt-1 text-xs text-muted">
-            {workerStatus === "stopped"
-              ? "The detection worker is not running. Start the object worker service after enabling detection."
-              : "The worker applies saved changes within a few seconds; no restart is needed."}
-          </p>
+            </div>
+
+            <SettingRow
+              title="Enable object detection"
+              description="Master switch. Off means the worker loads no model and analyses no frames; existing events and notifications are untouched."
+            >
+              <span className="status">
+                <span className={`dot ${dotFor(workerTone)}`} aria-hidden="true" />
+                <span className="status__text">{workerLabel}</span>
+              </span>
+              <CheckboxToggle
+                id="detection-enabled"
+                ariaLabel="Enable object detection"
+                checked={settings.enabled}
+                onChange={(value) => patchSettings({ enabled: value })}
+              />
+            </SettingRow>
+
+            <SettingRow
+              title="Person detection"
+              description="Independent threshold for the person class. A detection must reach this confidence to be stored as an event."
+            >
+              <ConfidenceField
+                id="person-confidence"
+                label="Global person confidence threshold"
+                value={settings.personConfidence}
+                onChange={(value) => patchSettings({ personConfidence: value })}
+              />
+              <CheckboxToggle
+                id="person-enabled"
+                ariaLabel="Enable person detection"
+                checked={settings.personEnabled}
+                onChange={(value) => patchSettings({ personEnabled: value })}
+              />
+            </SettingRow>
+
+            <SettingRow
+              title="Vehicle detection"
+              description="Independent threshold for car, motorcycle, bus and truck. Same confidence rule as person detection."
+            >
+              <ConfidenceField
+                id="vehicle-confidence"
+                label="Global vehicle confidence threshold"
+                value={settings.vehicleConfidence}
+                onChange={(value) => patchSettings({ vehicleConfidence: value })}
+              />
+              <CheckboxToggle
+                id="vehicle-enabled"
+                ariaLabel="Enable vehicle detection"
+                checked={settings.vehicleEnabled}
+                onChange={(value) => patchSettings({ vehicleEnabled: value })}
+              />
+            </SettingRow>
+
+            <div className="card__foot">
+              <span className="section__hint">
+                Thresholds apply to the local YOLOX-Nano detector. The DVR keeps its own Human / Vehicle labels.
+              </span>
+            </div>
+          </section>
+
+          <section className="card" style={{ minWidth: 0 }}>
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="camera" className="icon icon-sm" />
+                Camera monitoring
+              </h2>
+              <span className="section__hint">
+                {monitored} of {cameras.length || CAMERA_IDS.length} cameras · per-camera overrides
+              </span>
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="table table--stack" style={{ minWidth: 760 }}>
+                <thead>
+                  <tr>
+                    <th>Camera</th>
+                    <th>Detection</th>
+                    <th>Person</th>
+                    <th>Vehicle</th>
+                    <th>Person threshold</th>
+                    <th>Vehicle threshold</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {CAMERA_IDS.map((cameraId) => {
+                    const camera = cameras.find((item) => item.cameraId === cameraId);
+                    if (!camera) return null;
+                    const effective = effectiveCameraDetection(settings, camera);
+                    const name = cameraName(names, cameraId);
+                    return (
+                      <tr key={cameraId}>
+                        <td data-label="Camera">
+                          <div style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{name}</div>
+                          <div className="section__hint" style={{ fontFamily: "var(--font-mono)", fontSize: 10 }}>
+                            CH 0{cameraId} ·{" "}
+                            {effective.enabled
+                              ? `person ${percent(effective.person.confidence)}% · vehicle ${percent(
+                                  effective.vehicle.confidence,
+                                )}%`
+                              : "not monitoring"}
+                          </div>
+                        </td>
+                        <td data-label="Detection">
+                          <CheckboxToggle
+                            id={`camera-${cameraId}-enabled`}
+                            ariaLabel={`Detection for ${name}`}
+                            checked={camera.enabled}
+                            onChange={(value) => patchCamera(cameraId, { enabled: value })}
+                          />
+                        </td>
+                        <td data-label="Person">
+                          <CheckboxToggle
+                            id={`camera-${cameraId}-person`}
+                            ariaLabel={`Person detection for ${name}`}
+                            checked={camera.personEnabled}
+                            onChange={(value) => patchCamera(cameraId, { personEnabled: value })}
+                            disabled={!camera.enabled}
+                          />
+                        </td>
+                        <td data-label="Vehicle">
+                          <CheckboxToggle
+                            id={`camera-${cameraId}-vehicle`}
+                            ariaLabel={`Vehicle detection for ${name}`}
+                            checked={camera.vehicleEnabled}
+                            onChange={(value) => patchCamera(cameraId, { vehicleEnabled: value })}
+                            disabled={!camera.enabled}
+                          />
+                        </td>
+                        <td data-label="Person threshold">
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <label htmlFor={`camera-${cameraId}-person-global`} className="check">
+                              <input
+                                id={`camera-${cameraId}-person-global`}
+                                data-testid={`camera-${cameraId}-person-global`}
+                                type="checkbox"
+                                checked={camera.personConfidence === null}
+                                disabled={!camera.enabled}
+                                onChange={(event) =>
+                                  patchCamera(cameraId, {
+                                    personConfidence: event.target.checked ? null : settings.personConfidence,
+                                  })
+                                }
+                                aria-label={`Use the global person threshold for ${name}`}
+                              />
+                              <span className="section__hint">global</span>
+                            </label>
+                            {camera.personConfidence !== null ? (
+                              <ConfidenceField
+                                id={`camera-${cameraId}-person-confidence`}
+                                label={`${name} person threshold`}
+                                value={camera.personConfidence}
+                                onChange={(value) => patchCamera(cameraId, { personConfidence: value })}
+                                compact
+                                disabled={!camera.enabled}
+                              />
+                            ) : null}
+                          </div>
+                        </td>
+                        <td data-label="Vehicle threshold">
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <label htmlFor={`camera-${cameraId}-vehicle-global`} className="check">
+                              <input
+                                id={`camera-${cameraId}-vehicle-global`}
+                                data-testid={`camera-${cameraId}-vehicle-global`}
+                                type="checkbox"
+                                checked={camera.vehicleConfidence === null}
+                                disabled={!camera.enabled}
+                                onChange={(event) =>
+                                  patchCamera(cameraId, {
+                                    vehicleConfidence: event.target.checked ? null : settings.vehicleConfidence,
+                                  })
+                                }
+                                aria-label={`Use the global vehicle threshold for ${name}`}
+                              />
+                              <span className="section__hint">global</span>
+                            </label>
+                            {camera.vehicleConfidence !== null ? (
+                              <ConfidenceField
+                                id={`camera-${cameraId}-vehicle-confidence`}
+                                label={`${name} vehicle threshold`}
+                                value={camera.vehicleConfidence}
+                                onChange={(value) => patchCamera(cameraId, { vehicleConfidence: value })}
+                                compact
+                                disabled={!camera.enabled}
+                              />
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="card__foot">
+              <span className="section__hint">
+                A camera only runs when the master switch and its own switch are both on.
+              </span>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="sliders" className="icon icon-sm" />
+                Performance and behaviour
+              </h2>
+              <span className="chip chip--mono">2-core hub</span>
+            </div>
+            <div className="card__body" style={{ display: "grid", gap: 14 }}>
+              <div className="form-grid form-grid--3">
+                <label htmlFor="base-fps" className="field">
+                  <span className="field__label">Base AI FPS (per camera)</span>
+                  <select
+                    id="base-fps"
+                    data-testid="base-fps"
+                    value={settings.baseFps}
+                    onChange={(event) => patchSettings({ baseFps: Number(event.target.value) })}
+                    className="select"
+                  >
+                    {FPS_CHOICES.map((value) => (
+                      <option key={value} value={value}>
+                        {value} FPS
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label htmlFor="active-fps" className="field">
+                  <span className="field__label">Active AI FPS</span>
+                  <select
+                    id="active-fps"
+                    data-testid="active-fps"
+                    value={settings.activeFps}
+                    onChange={(event) => patchSettings({ activeFps: Number(event.target.value) })}
+                    className="select"
+                  >
+                    {FPS_CHOICES.map((value) => (
+                      <option key={value} value={value}>
+                        {value} FPS
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label htmlFor="max-fps" className="field">
+                  <span className="field__label">Maximum AI FPS</span>
+                  <select
+                    id="max-fps"
+                    data-testid="max-fps"
+                    value={settings.maxFps}
+                    onChange={(event) => patchSettings({ maxFps: Number(event.target.value) })}
+                    className="select"
+                  >
+                    {FPS_CHOICES.filter((value) => value >= settings.activeFps).map((value) => (
+                      <option key={value} value={value}>
+                        {value} FPS
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 16, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+                <div className="setting-row__main">
+                  <div className="setting-row__title">Motion-triggered boost</div>
+                  <div className="setting-row__desc">
+                    Raises the AI rate while a track is moving, then drops back to the base rate. Sampling stays bounded so
+                    the hub is never overloaded.
+                  </div>
+                </div>
+                <CheckboxToggle
+                  id="motion-boost"
+                  label="Motion-triggered boost"
+                  checked={settings.motionBoost}
+                  onChange={(value) => patchSettings({ motionBoost: value })}
+                />
+              </div>
+
+              <div className="form-grid">
+                <NumberField
+                  id="activity-timeout"
+                  label="Activity timeout"
+                  value={settings.activityTimeoutSeconds}
+                  min={ACTIVITY_TIMEOUT_MIN}
+                  max={ACTIVITY_TIMEOUT_MAX}
+                  suffix="seconds"
+                  onChange={(value) => patchSettings({ activityTimeoutSeconds: Math.round(value) })}
+                  disabled={!settings.motionBoost}
+                />
+                <NumberField
+                  id="max-concurrent"
+                  label="Maximum concurrent inference"
+                  value={settings.maxConcurrentInference}
+                  min={MAX_CONCURRENT_MIN}
+                  max={MAX_CONCURRENT_MAX}
+                  onChange={(value) => patchSettings({ maxConcurrentInference: Math.round(value) })}
+                />
+                <NumberField
+                  id="queue-size"
+                  label="Inference queue size"
+                  value={settings.queueSize}
+                  min={QUEUE_SIZE_MIN}
+                  max={QUEUE_SIZE_MAX}
+                  suffix="frames"
+                  onChange={(value) => patchSettings({ queueSize: Math.round(value) })}
+                />
+              </div>
+            </div>
+            <div className="card__foot">
+              <span className="section__hint">
+                Frames older than the queue are dropped, never processed late. No frame leaves the LAN.
+              </span>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="activity" className="icon icon-sm" />
+                Detection behaviour
+              </h2>
+            </div>
+            <div className="card__body" style={{ display: "grid", gap: 14 }}>
+              <div className="form-grid">
+                <NumberField
+                  id="disappearance-timeout"
+                  label="Object disappearance timeout"
+                  value={settings.disappearanceThresholdSeconds}
+                  min={DISAPPEARANCE_MIN}
+                  max={DISAPPEARANCE_MAX}
+                  suffix="seconds"
+                  onChange={(value) => patchSettings({ disappearanceThresholdSeconds: Math.round(value) })}
+                />
+                <NumberField
+                  id="min-duration"
+                  label="Minimum event duration"
+                  value={settings.minimumEventDurationSeconds}
+                  min={0}
+                  max={MIN_DURATION_MAX}
+                  step={0.5}
+                  suffix="seconds (0 = off)"
+                  onChange={(value) => patchSettings({ minimumEventDurationSeconds: value })}
+                />
+              </div>
+              <label htmlFor="detection-source" className="field">
+                <span className="field__label">Detection source for person/vehicle notifications</span>
+                <select
+                  id="detection-source"
+                  data-testid="detection-source"
+                  value={settings.detectionSource}
+                  onChange={(event) => patchSettings({ detectionSource: event.target.value as DetectionSource })}
+                  className="select"
+                >
+                  {DETECTION_SOURCES.map((value) => (
+                    <option key={value} value={value}>
+                      {data?.detectionSources.find((source) => source.value === value)?.label ?? value}
+                    </option>
+                  ))}
+                </select>
+                <span className="field__hint">
+                  {data?.detectionSources.find((source) => source.value === settings.detectionSource)?.description}
+                </span>
+              </label>
+            </div>
+            <div className="card__foot">
+              <span className="section__hint">
+                One tracked object becomes one event. A short pass-by does not create one event per frame.
+              </span>
+            </div>
+          </section>
         </div>
-      </Section>
 
-      <Section title="Person detection" detail="Independent threshold for the person class.">
-        <Toggle
-          id="person-enabled"
-          label="Enable person detection"
-          checked={settings.personEnabled}
-          onChange={(value) => patchSettings({ personEnabled: value })}
-        />
-        <ConfidenceField
-          id="person-confidence"
-          label="Global person confidence threshold"
-          value={settings.personConfidence}
-          onChange={(value) => patchSettings({ personConfidence: value })}
-        />
-      </Section>
+        <aside style={{ display: "grid", gap: 14, minWidth: 0 }}>
+          <section className="card" data-testid="detection-worker-status">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="cpu" className="icon icon-sm" />
+                Worker status
+              </h2>
+              <span className={`badge ${badgeFor(workerTone)}`}>{workerLabel}</span>
+            </div>
+            <div className="card__body">
+              <dl className="prop-list">
+                <dt>Status</dt>
+                <dd className="mono">{workerLabel}</dd>
+                <dt>Model</dt>
+                <dd className="mono">
+                  {data?.model.name} {data?.model.version}
+                </dd>
+                <dt>Licence</dt>
+                <dd className="mono">
+                  {data?.model.license} · {data?.model.sizeMb} MB
+                </dd>
+                <dt>Last report</dt>
+                <dd className="mono">{lastReport}</dd>
+                <dt>Cameras monitored</dt>
+                <dd className="mono">
+                  {monitored} of {cameras.length || CAMERA_IDS.length}
+                </dd>
+                <dt>Thresholds</dt>
+                <dd className="mono">
+                  person {percent(settings.personConfidence)}% · vehicle {percent(settings.vehicleConfidence)}%
+                </dd>
+                {worker?.metrics ? (
+                  <>
+                    <dt>Inference</dt>
+                    <dd className="mono">
+                      {worker.metrics.averageInferenceMs === null
+                        ? "—"
+                        : `${Math.round(worker.metrics.averageInferenceMs)} ms`}{" "}
+                      · {worker.metrics.inferenceFps ?? "—"} FPS
+                    </dd>
+                    <dt>Queue</dt>
+                    <dd className="mono">
+                      {worker.metrics.queueDepth ?? "—"} queued · {worker.metrics.droppedFrames ?? "—"} dropped
+                    </dd>
+                    <dt>Today</dt>
+                    <dd className="mono">
+                      {worker.metrics.detectionsToday ?? 0} detections · {worker.metrics.personDetectionsToday ?? 0}{" "}
+                      person · {worker.metrics.vehicleDetectionsToday ?? 0} vehicle
+                    </dd>
+                  </>
+                ) : null}
+              </dl>
+              {worker?.detail ? (
+                <p className="section__hint" style={{ marginTop: 10, color: "var(--warn)" }}>
+                  {worker.detail}
+                </p>
+              ) : null}
+              <p className="section__hint" style={{ marginTop: 10 }}>
+                {workerStatus === "stopped"
+                  ? "The detection worker is not running. Start the object worker service after enabling detection."
+                  : "The worker applies saved changes within a few seconds; no restart is needed."}
+              </p>
+            </div>
+          </section>
 
-      <Section title="Vehicle detection" detail="Independent threshold for car, motorcycle, bus and truck.">
-        <Toggle
-          id="vehicle-enabled"
-          label="Enable vehicle detection"
-          checked={settings.vehicleEnabled}
-          onChange={(value) => patchSettings({ vehicleEnabled: value })}
-        />
-        <ConfidenceField
-          id="vehicle-confidence"
-          label="Global vehicle confidence threshold"
-          value={settings.vehicleConfidence}
-          onChange={(value) => patchSettings({ vehicleConfidence: value })}
-        />
-      </Section>
-
-      <Section
-        title="Camera monitoring"
-        detail="Each camera can run detection independently and may override the global thresholds. A camera only runs when the master switch and its own switch are both on."
-      >
-        {CAMERA_IDS.map((cameraId) => {
-          const camera = cameras.find((item) => item.cameraId === cameraId);
-          if (!camera) return null;
-          const effective = effectiveCameraDetection(settings, camera);
-          return (
-            <div key={cameraId} className="rounded-lg border border-line bg-bg/40 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium">{cameraName(names, cameraId)}</p>
-                <span className={`text-xs ${effective.enabled ? "text-online" : "text-muted"}`}>
-                  {effective.enabled
-                    ? `Monitoring · person ${percent(effective.person.confidence)}% · vehicle ${percent(effective.vehicle.confidence)}%`
-                    : "Not monitoring"}
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="zap" className="icon icon-sm" />
+                Diagnostics
+              </h2>
+              <span className="chip chip--mono">Latest snapshot</span>
+            </div>
+            <div className="card__body" style={{ display: "grid", gap: 10 }}>
+              <p className="section__hint">
+                Run the detector once on the most recent event snapshot. The result proves what the model sees; it does not
+                create an event or send anything.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+                <button
+                  type="button"
+                  data-testid="detection-test-button"
+                  onClick={() => void runDetectionTest()}
+                  disabled={testPhase === "starting" || testPhase === "waiting"}
+                  className="btn btn--sm"
+                >
+                  <Icon name="zap" className="icon icon-sm" />
+                  {testPhase === "starting" || testPhase === "waiting" ? "Running test…" : "Run detection test"}
+                </button>
+                <span className="section__hint">
+                  {workerStatus === "running"
+                    ? "The worker is running."
+                    : "No worker is running: the test stays queued until it starts."}
                 </span>
               </div>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                <Toggle
-                  id={`camera-${cameraId}-enabled`}
-                  label="Detection"
-                  checked={camera.enabled}
-                  onChange={(value) => patchCamera(cameraId, { enabled: value })}
-                />
-                <Toggle
-                  id={`camera-${cameraId}-person`}
-                  label="Person"
-                  checked={camera.personEnabled}
-                  onChange={(value) => patchCamera(cameraId, { personEnabled: value })}
-                  disabled={!camera.enabled}
-                />
-                <Toggle
-                  id={`camera-${cameraId}-vehicle`}
-                  label="Vehicle"
-                  checked={camera.vehicleEnabled}
-                  onChange={(value) => patchCamera(cameraId, { vehicleEnabled: value })}
-                  disabled={!camera.enabled}
-                />
-              </div>
-              {camera.enabled ? (
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  <label className="flex items-center gap-2 text-xs text-muted">
-                    <input
-                      data-testid={`camera-${cameraId}-person-global`}
-                      type="checkbox"
-                      checked={camera.personConfidence === null}
-                      onChange={(event) =>
-                        patchCamera(cameraId, {
-                          personConfidence: event.target.checked ? null : settings.personConfidence,
-                        })
-                      }
-                      className="h-4 w-4 accent-teal"
-                    />
-                    Person threshold: use global
-                  </label>
-                  {camera.personConfidence !== null ? (
-                    <ConfidenceField
-                      id={`camera-${cameraId}-person-confidence`}
-                      label="Person threshold"
-                      value={camera.personConfidence}
-                      onChange={(value) => patchCamera(cameraId, { personConfidence: value })}
-                    />
-                  ) : null}
-                  <label className="flex items-center gap-2 text-xs text-muted">
-                    <input
-                      data-testid={`camera-${cameraId}-vehicle-global`}
-                      type="checkbox"
-                      checked={camera.vehicleConfidence === null}
-                      onChange={(event) =>
-                        patchCamera(cameraId, {
-                          vehicleConfidence: event.target.checked ? null : settings.vehicleConfidence,
-                        })
-                      }
-                      className="h-4 w-4 accent-teal"
-                    />
-                    Vehicle threshold: use global
-                  </label>
-                  {camera.vehicleConfidence !== null ? (
-                    <ConfidenceField
-                      id={`camera-${cameraId}-vehicle-confidence`}
-                      label="Vehicle threshold"
-                      value={camera.vehicleConfidence}
-                      onChange={(value) => patchCamera(cameraId, { vehicleConfidence: value })}
-                    />
-                  ) : null}
+              {testError ? (
+                <p role="alert" data-testid="detection-test-error" className="notice notice--warn">
+                  <Icon name="alert" />
+                  <span>{testError}</span>
+                </p>
+              ) : null}
+              {testPhase === "waiting" ? (
+                <p className="section__hint" data-testid="detection-test-waiting">
+                  Waiting for the worker to analyse the latest event snapshot…
+                </p>
+              ) : null}
+              {testPhase === "done" && testResult && "detections" in testResult ? (
+                <div
+                  data-testid="detection-test-result"
+                  style={{
+                    display: "grid",
+                    gap: 6,
+                    border: "1px solid var(--line)",
+                    borderRadius: "var(--r-md)",
+                    padding: "10px 12px",
+                    background: "var(--bg)",
+                  }}
+                >
+                  <p className="section__hint">
+                    {testResult.model} · {testResult.inferenceMs} ms · {testResult.image.width}×{testResult.image.height}
+                  </p>
+                  {testResult.detections.length === 0 ? (
+                    <p style={{ fontSize: "var(--fs-12)" }}>No person or vehicle above the detector floor.</p>
+                  ) : (
+                    <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 4 }}>
+                      {testResult.detections.map((detection, index) => (
+                        <li
+                          key={index}
+                          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+                        >
+                          <span style={{ fontSize: "var(--fs-12)", fontWeight: 600 }}>{detection.rawClass}</span>
+                          <span className={`badge ${detection.accepted ? "badge--online" : ""}`}>
+                            {Math.round(detection.confidence * 100)}%{" "}
+                            {detection.accepted ? "accepted" : "below threshold"}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="section__hint">
+                    Thresholds: person {Math.round(testResult.thresholds.person * 100)}% · vehicle{" "}
+                    {Math.round(testResult.thresholds.vehicle * 100)}%
+                  </p>
                 </div>
               ) : null}
             </div>
-          );
-        })}
-      </Section>
+          </section>
 
-      <Section title="Performance" detail="Sampling is bounded so a 2-core server is never overloaded. Frames older than the queue are dropped, never processed late.">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="grid gap-1 text-sm">
-            <span className="text-muted">Base AI FPS (per camera)</span>
-            <select
-              id="base-fps"
-              data-testid="base-fps"
-              value={settings.baseFps}
-              onChange={(event) => patchSettings({ baseFps: Number(event.target.value) })}
-              className="h-10 rounded-lg border border-line bg-bg px-3"
-            >
-              {FPS_CHOICES.map((value) => (
-                <option key={value} value={value}>
-                  {value} FPS
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm">
-            <span className="text-muted">Active AI FPS</span>
-            <select
-              id="active-fps"
-              data-testid="active-fps"
-              value={settings.activeFps}
-              onChange={(event) => patchSettings({ activeFps: Number(event.target.value) })}
-              className="h-10 rounded-lg border border-line bg-bg px-3"
-            >
-              {FPS_CHOICES.map((value) => (
-                <option key={value} value={value}>
-                  {value} FPS
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="grid gap-1 text-sm">
-            <span className="text-muted">Maximum AI FPS</span>
-            <select
-              id="max-fps"
-              data-testid="max-fps"
-              value={settings.maxFps}
-              onChange={(event) => patchSettings({ maxFps: Number(event.target.value) })}
-              className="h-10 rounded-lg border border-line bg-bg px-3"
-            >
-              {FPS_CHOICES.filter((value) => value >= settings.activeFps).map((value) => (
-                <option key={value} value={value}>
-                  {value} FPS
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <Toggle
-          id="motion-boost"
-          label="Motion-triggered boost"
-          checked={settings.motionBoost}
-          onChange={(value) => patchSettings({ motionBoost: value })}
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <NumberField
-            id="activity-timeout"
-            label="Activity timeout"
-            value={settings.activityTimeoutSeconds}
-            min={ACTIVITY_TIMEOUT_MIN}
-            max={ACTIVITY_TIMEOUT_MAX}
-            suffix="seconds"
-            onChange={(value) => patchSettings({ activityTimeoutSeconds: Math.round(value) })}
-            disabled={!settings.motionBoost}
-          />
-          <NumberField
-            id="max-concurrent"
-            label="Maximum concurrent inference"
-            value={settings.maxConcurrentInference}
-            min={MAX_CONCURRENT_MIN}
-            max={MAX_CONCURRENT_MAX}
-            onChange={(value) => patchSettings({ maxConcurrentInference: Math.round(value) })}
-          />
-          <NumberField
-            id="queue-size"
-            label="Inference queue size"
-            value={settings.queueSize}
-            min={QUEUE_SIZE_MIN}
-            max={QUEUE_SIZE_MAX}
-            suffix="frames"
-            onChange={(value) => patchSettings({ queueSize: Math.round(value) })}
-          />
-        </div>
-      </Section>
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="info" className="icon icon-sm" />
+                About this model
+              </h2>
+            </div>
+            <div className="card__body" style={{ display: "grid", gap: 10 }}>
+              <p className="section__hint">
+                Detection runs locally on the hub. No frame, snapshot or result leaves the LAN.
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <span className="chip chip--mono">CPU · 2 cores</span>
+                <span className="chip chip--mono">{data?.model.name ?? "YOLOX-Nano"}</span>
+                <span className="chip chip--mono">{settings.baseFps} FPS base</span>
+              </div>
+              <Link href="/settings/system" className="btn btn--sm btn--ghost">
+                Worker health
+                <Icon name="arrowRight" className="icon icon-sm" />
+              </Link>
+            </div>
+          </section>
+        </aside>
+      </div>
 
-      <Section title="Detection behaviour" detail="One tracked object becomes one event. A short pass-by does not create one event per frame.">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <NumberField
-            id="disappearance-timeout"
-            label="Object disappearance timeout"
-            value={settings.disappearanceThresholdSeconds}
-            min={DISAPPEARANCE_MIN}
-            max={DISAPPEARANCE_MAX}
-            suffix="seconds"
-            onChange={(value) => patchSettings({ disappearanceThresholdSeconds: Math.round(value) })}
-          />
-          <NumberField
-            id="min-duration"
-            label="Minimum event duration"
-            value={settings.minimumEventDurationSeconds}
-            min={0}
-            max={MIN_DURATION_MAX}
-            step={0.5}
-            suffix="seconds (0 = off)"
-            onChange={(value) => patchSettings({ minimumEventDurationSeconds: value })}
-          />
-        </div>
-        <label htmlFor="detection-source" className="grid gap-1 text-sm">
-          <span className="text-muted">Detection source for person/vehicle notifications</span>
-          <select
-            id="detection-source"
-            data-testid="detection-source"
-            value={settings.detectionSource}
-            onChange={(event) => patchSettings({ detectionSource: event.target.value as DetectionSource })}
-            className="h-10 rounded-lg border border-line bg-bg px-3"
-          >
-            {DETECTION_SOURCES.map((value) => (
-              <option key={value} value={value}>
-                {data?.detectionSources.find((source) => source.value === value)?.label ?? value}
-              </option>
-            ))}
-          </select>
-          <span className="text-xs text-muted">
-            {data?.detectionSources.find((source) => source.value === settings.detectionSource)?.description}
-          </span>
-        </label>
-      </Section>
-
-      <Section
-        title="Diagnostics"
-        detail="Run the detector once on the most recent event snapshot. The result proves what the model sees; it does not create an event or send anything."
+      {/* Reserve the sticky bar's height so it can never cover the last rows. */}
+      <div aria-hidden="true" style={{ height: "calc(88px + env(safe-area-inset-bottom))" }} />
+      {/*
+        Sticky save bar: inside the content column (never fixed), offset above the
+        mobile bottom navigation so it can never be covered by it.
+      */}
+      <div
+        className="card sticky bottom-[calc(62px+env(safe-area-inset-bottom))] min-[1025px]:bottom-0 z-20"
+        style={{
+          background: "var(--surface)",
+          borderColor: "var(--line-2)",
+          boxShadow: "0 -10px 30px rgba(0, 0, 0, 0.35)",
+        }}
       >
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            data-testid="detection-test-button"
-            onClick={() => void runDetectionTest()}
-            disabled={testPhase === "starting" || testPhase === "waiting"}
-            className="h-10 rounded-lg border border-line bg-white/5 px-3 text-sm hover:bg-white/10 disabled:opacity-60"
-          >
-            {testPhase === "starting" || testPhase === "waiting" ? "Running test…" : "Run detection test"}
-          </button>
-          <span className="text-xs text-muted">
-            {workerStatus === "running"
-              ? "The worker is running."
-              : "No worker is running: the test stays queued until it starts."}
-          </span>
-        </div>
-        {testError ? (
-          <p className="text-sm text-warn" role="alert" data-testid="detection-test-error">
-            {testError}
-          </p>
-        ) : null}
-        {testPhase === "waiting" ? (
-          <p className="text-xs text-muted" data-testid="detection-test-waiting">
-            Waiting for the worker to analyse the latest event snapshot…
-          </p>
-        ) : null}
-        {testPhase === "done" && testResult && "detections" in testResult ? (
-          <div className="rounded-lg border border-line bg-bg/40 p-3 text-sm" data-testid="detection-test-result">
-            <p className="text-xs text-muted">
-              {testResult.model} · {testResult.inferenceMs} ms · {testResult.image.width}×{testResult.image.height}
-            </p>
-            {testResult.detections.length === 0 ? (
-              <p className="mt-1">No person or vehicle above the detector floor.</p>
-            ) : (
-              <ul className="mt-1 grid gap-1">
-                {testResult.detections.map((detection, index) => (
-                  <li key={index} className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{detection.rawClass}</span>
-                    <span>{Math.round(detection.confidence * 100)}%</span>
-                    <span className={detection.accepted ? "text-online" : "text-muted"}>
-                      {detection.accepted ? "accepted" : "below threshold"}
-                    </span>
-                    <span className="font-mono text-xs text-muted">
-                      {Math.round(detection.boundingBox.width)}×{Math.round(detection.boundingBox.height)} px
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="mt-1 text-xs text-muted">
-              Thresholds: person {Math.round(testResult.thresholds.person * 100)}% · vehicle{" "}
-              {Math.round(testResult.thresholds.vehicle * 100)}%
-            </p>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            padding: "12px 16px",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+            <span className={`dot ${settings.enabled ? "dot--online" : "dot--idle"}`} aria-hidden="true" />
+            <div>
+              <div className="setting-row__title">{settings.enabled ? "Detection is enabled." : "Detection is off."}</div>
+              <div className="section__hint">Saved changes reach the worker within a few seconds.</div>
+            </div>
           </div>
-        ) : null}
-      </Section>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-bg/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <p className="text-xs text-muted">
-            {settings.enabled ? "Detection is enabled." : "Detection is off."} Saved changes reach the worker within a few seconds.
-          </p>
           <button
             type="button"
             data-testid="detection-save"
             onClick={() => void save()}
             disabled={saving}
-            className="h-11 rounded-lg bg-teal px-4 text-sm font-semibold text-black disabled:opacity-60"
+            className="btn btn--primary w-full sm:w-auto"
           >
             {saving ? "Saving…" : "Save settings"}
           </button>

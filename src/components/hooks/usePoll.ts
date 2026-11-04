@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/client-api";
 
-export function usePoll<T>(url: string, intervalMs = 15000) {
+export function usePoll<T>(url: string, intervalMs = 15000, enabled = true) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +22,7 @@ export function usePoll<T>(url: string, intervalMs = 15000) {
   }, [url]);
 
   useEffect(() => {
+    if (!enabled) return;
     let ignore = false;
     const load = async () => {
       try {
@@ -45,7 +46,7 @@ export function usePoll<T>(url: string, intervalMs = 15000) {
       clearInterval(timer);
       window.removeEventListener("focus", onFocus);
     };
-  }, [intervalMs, url]);
+  }, [enabled, intervalMs, url]);
 
   return { data, error, loading, reload };
 }

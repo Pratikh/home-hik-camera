@@ -1,5 +1,6 @@
 import "server-only";
 
+import { parseTrustedProxies } from "@/lib/client-ip";
 import { DEFAULT_FACE_TEST_COOLDOWN_SECONDS } from "@/lib/faces";
 import { DEFAULT_THUMBNAIL_INTERVAL_SECONDS } from "@/lib/playback-thumbnail";
 
@@ -12,6 +13,12 @@ export type AppConfig = {
   appPassword: string;
   sessionSecret: string;
   cookieSecure: boolean;
+  /**
+   * IPs/CIDRs whose forwarding headers may be trusted (the tunnel/proxy
+   * process). Empty means "never trust forwarding headers": the TCP peer
+   * address is used as-is.
+   */
+  trustedProxies: string[];
   dvrHost: string;
   dvrHttpPort: number;
   dvrRtspPort: number;
@@ -27,6 +34,8 @@ export type AppConfig = {
   dataDir: string;
   eventPollIntervalMs: number;
   eventRetentionDays: number;
+  /** Days to keep audit_logs rows. 0 keeps them forever (not recommended). */
+  auditLogRetentionDays: number;
   aiEnabled: boolean;
   eventDevMock: boolean;
   mediamtxAuthUser: string;
@@ -139,6 +148,7 @@ export function readConfig(env: Env): AppConfig {
     appPassword,
     sessionSecret,
     cookieSecure: (env.COOKIE_SECURE ?? "").trim().toLowerCase() === "true",
+    trustedProxies: parseTrustedProxies(env.TRUSTED_PROXY_CIDRS),
     dvrHost,
     dvrHttpPort,
     dvrRtspPort,
@@ -154,6 +164,7 @@ export function readConfig(env: Env): AppConfig {
     dataDir: (env.DATA_DIR ?? "").trim() || "data",
     eventPollIntervalMs: readBoundedInt(env.EVENT_POLL_INTERVAL_MS, 5000, 1000, 300000),
     eventRetentionDays: readBoundedInt(env.EVENT_RETENTION_DAYS, 30, 0, 3650),
+    auditLogRetentionDays: readBoundedInt(env.AUDIT_LOG_RETENTION_DAYS, 365, 0, 3650),
     aiEnabled: (env.AI_ENABLED ?? "").trim().toLowerCase() === "true",
     eventDevMock: (env.NODE_ENV ?? "") !== "production" && (env.EVENT_DEV_MOCK ?? "").trim().toLowerCase() === "true",
     mediamtxAuthUser: (env.MEDIAMTX_AUTH_USER ?? "hub").trim() || "hub",

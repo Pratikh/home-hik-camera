@@ -1,0 +1,399 @@
+{
+  "keyboard": {
+    "tabStopsBeforeMain": 11,
+    "totalTabStops": 22,
+    "hasSkipLink": false,
+    "firstFive": [
+      "Dashboard",
+      "Camera setup",
+      "Playback",
+      "Events",
+      "Faces"
+    ]
+  },
+  "dashboardFold": {
+    "viewport": 1000,
+    "recentEvents": {
+      "top": 1032,
+      "height": 275,
+      "bottom": 1307
+    },
+    "cameraGrid": {
+      "top": 145,
+      "height": 847,
+      "bottom": 992
+    },
+    "gridIsAboveFold": true
+  },
+  "headings": {
+    "/": {
+      "title": "Home CCTV",
+      "h1": {
+        "text": "Dashboard",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": {
+        "text": "Recent security events",
+        "size": "14px",
+        "weight": "600"
+      },
+      "firstH3": null
+    },
+    "/events": {
+      "title": "Home CCTV",
+      "h1": {
+        "text": "Events",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": {
+        "text": "Today304 events",
+        "size": "14px",
+        "weight": "600"
+      },
+      "firstH3": null
+    },
+    "/playback": {
+      "title": "Home CCTV",
+      "h1": {
+        "text": "CCTV Playback",
+        "size": "16px",
+        "weight": "600"
+      },
+      "firstH2": {
+        "text": "Timeline",
+        "size": "12px",
+        "weight": "600"
+      },
+      "firstH3": null
+    },
+    "/faces": {
+      "title": "Detected Faces · Home CCTV",
+      "h1": {
+        "text": "Detected Faces",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": null,
+      "firstH3": null
+    },
+    "/cameras": {
+      "title": "Camera setup · Home CCTV",
+      "h1": {
+        "text": "Camera setup",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": null,
+      "firstH3": null
+    },
+    "/settings": {
+      "title": "Settings · Home CCTV",
+      "h1": {
+        "text": "Settings",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": null,
+      "firstH3": null
+    },
+    "/settings/detection": {
+      "title": "Object detection · Home CCTV",
+      "h1": {
+        "text": "Object detection",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": {
+        "text": "Object detection",
+        "size": "14px",
+        "weight": "600"
+      },
+      "firstH3": null
+    },
+    "/settings/users": {
+      "title": "Home CCTV",
+      "h1": {
+        "text": "Users",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": {
+        "text": "Create user",
+        "size": "14px",
+        "weight": "600"
+      },
+      "firstH3": null
+    },
+    "/settings/system": {
+      "title": "Home CCTV",
+      "h1": {
+        "text": "System",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": {
+        "text": "Face detection",
+        "size": "14px",
+        "weight": "600"
+      },
+      "firstH3": null
+    },
+    "/settings/audit-log": {
+      "title": "Home CCTV",
+      "h1": {
+        "text": "Audit log",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": null,
+      "firstH3": null
+    },
+    "/events/stats": {
+      "title": "Event statistics · Home CCTV",
+      "h1": {
+        "text": "Event statistics",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": {
+        "text": "Today",
+        "size": "14px",
+        "weight": "600"
+      },
+      "firstH3": null
+    },
+    "/notifications": {
+      "title": "Home CCTV",
+      "h1": {
+        "text": "Notification history",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": null,
+      "firstH3": null
+    },
+    "/device": {
+      "title": "Device · Home CCTV",
+      "h1": {
+        "text": "Device",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": null,
+      "firstH3": null
+    },
+    "/account": {
+      "title": "Home CCTV",
+      "h1": {
+        "text": "Account",
+        "size": "20px",
+        "weight": "600"
+      },
+      "firstH2": {
+        "text": "Change password",
+        "size": "14px",
+        "weight": "600"
+      },
+      "firstH3": null
+    }
+  },
+  "facesCards": [
+    {
+      "cardH": 614,
+      "imgH": 398,
+      "imgW": 322,
+      "square": false
+    },
+    {
+      "cardH": 614,
+      "imgH": 426,
+      "imgW": 322,
+      "square": false
+    },
+    {
+      "cardH": 614,
+      "imgH": 504,
+      "imgW": 322,
+      "square": false
+    },
+    {
+      "cardH": 614,
+      "imgH": 407,
+      "imgW": 322,
+      "square": false
+    },
+    {
+      "cardH": 572,
+      "imgH": 462,
+      "imgW": 322,
+      "square": false
+    },
+    {
+      "cardH": 572,
+      "imgH": 407,
+      "imgW": 322,
+      "square": false
+    },
+    {
+      "cardH": 572,
+      "imgH": 421,
+      "imgW": 322,
+      "square": false
+    },
+    {
+      "cardH": 572,
+      "imgH": 437,
+      "imgW": 322,
+      "square": false
+    }
+  ],
+  "buttonStyles": [
+    [
+      "36 | 8px | rgba(0, 0, 0, 0) | rgb(232, 238, 246) | 14px",
+      106
+    ],
+    [
+      "65 | 12px | rgb(20, 27, 36) | rgba(232, 237, 245, 0.1) | 16px",
+      19
+    ],
+    [
+      "36 | 8px | rgba(0, 0, 0, 0) | rgba(232, 237, 245, 0.1) | 12px",
+      18
+    ],
+    [
+      "40 | 8px | rgba(0, 0, 0, 0) | rgba(232, 237, 245, 0.1) | 14px",
+      17
+    ],
+    [
+      "36 | 8px | rgba(0, 0, 0, 0) | rgb(147, 160, 179) | 14px",
+      15
+    ],
+    [
+      "40 | 8px | rgba(0, 0, 0, 0) | rgb(147, 160, 179) | 14px",
+      15
+    ],
+    [
+      "36 | 8px | oklab(0.999994 0.0000455678 0.0000200868 / 0.1) | rgb(62, 224, 199) | 14px",
+      14
+    ],
+    [
+      "44 | 8px | rgb(62, 224, 199) | rgb(8, 17, 15) | 14px",
+      9
+    ],
+    [
+      "30 | 0px | rgba(0, 0, 0, 0) | rgb(232, 238, 246) | 16px",
+      6
+    ],
+    [
+      "30 | 8px | rgba(0, 0, 0, 0) | rgb(232, 238, 246) | 14px",
+      5
+    ],
+    [
+      "44 | 8px | oklab(0.999994 0.0000455678 0.0000200868 / 0.05) | rgba(232, 237, 245, 0.1) | 14px",
+      5
+    ],
+    [
+      "360 | 0px | rgba(0, 0, 0, 0) | rgb(232, 238, 246) | 16px",
+      4
+    ],
+    [
+      "36 | 3.35544e+07px | rgba(0, 0, 0, 0) | rgba(232, 237, 245, 0.1) | 14px",
+      4
+    ],
+    [
+      "44 | 8px | rgba(0, 0, 0, 0) | rgba(232, 237, 245, 0.1) | 14px",
+      4
+    ],
+    [
+      "58 | 8px | rgb(62, 224, 199) | rgb(0, 0, 0) | 14px",
+      4
+    ],
+    [
+      "58 | 8px | rgba(0, 0, 0, 0) | rgba(232, 237, 245, 0.1) | 14px",
+      4
+    ],
+    [
+      "32 | 8px | rgba(0, 0, 0, 0) | rgba(232, 237, 245, 0.1) | 12px",
+      2
+    ],
+    [
+      "36 | 3.35544e+07px | oklab(0.819201 -0.134919 0.000165522 / 0.1) | rgb(62, 224, 199) | 14px",
+      1
+    ],
+    [
+      "65 | 12px | oklab(0.999994 0.0000455678 0.0000200868 / 0.05) | rgb(62, 224, 199) | 16px",
+      1
+    ],
+    [
+      "44 | 8px | rgb(20, 27, 36) | rgba(232, 237, 245, 0.1) | 14px",
+      1
+    ],
+    [
+      "32 | 8px | oklab(0.819201 -0.134919 0.000165522 / 0.1) | rgb(62, 224, 199) | 12px",
+      1
+    ],
+    [
+      "40 | 8px | rgba(0, 0, 0, 0) | rgba(232, 237, 245, 0.1) | 12px",
+      1
+    ],
+    [
+      "40 | 8px | rgba(0, 0, 0, 0) | oklab(0.839011 0.0147589 0.118208 / 0.5) | 12px",
+      1
+    ],
+    [
+      "40 | 8px | oklab(0.999994 0.0000455678 0.0000200868 / 0.05) | rgba(232, 237, 245, 0.1) | 14px",
+      1
+    ],
+    [
+      "44 | 8px | rgb(62, 224, 199) | rgb(0, 0, 0) | 14px",
+      1
+    ],
+    [
+      "40 | 8px | rgba(0, 0, 0, 0) | rgb(62, 224, 199) | 14px",
+      1
+    ]
+  ],
+  "buttonCount": 260,
+  "inputStyles": [
+    [
+      "44 | 8px | rgb(20, 27, 36) | rgba(232, 237, 245, 0.1) | 0px/12px",
+      22
+    ],
+    [
+      "40 | 8px | rgb(8, 11, 16) | rgba(232, 237, 245, 0.1) | 0px/12px",
+      11
+    ],
+    [
+      "44 | 8px | rgb(8, 11, 16) | rgba(232, 237, 245, 0.1) | 0px/12px",
+      10
+    ],
+    [
+      "58 | 8px | rgb(8, 11, 16) | rgba(232, 237, 245, 0.1) | 8px/12px",
+      4
+    ]
+  ],
+  "inputCount": 47,
+  "cardStyles": [
+    [
+      "12px | rgb(20, 27, 36) | rgba(232, 237, 245, 0.1)",
+      30
+    ],
+    [
+      "12px | rgb(20, 27, 36) | oklab(0.839011 0.0147589 0.118208 / 0.5)",
+      2
+    ],
+    [
+      "12px | rgb(0, 0, 0) | rgba(232, 237, 245, 0.1)",
+      1
+    ]
+  ],
+  "cardCount": 33,
+  "loadingState": {
+    "hasSkeleton": false,
+    "ariaLiveRegions": [],
+    "roleStatus": 0,
+    "text": "Home CCTV Local hub Dashboard Camera setup Playback Events Faces Notifications Device Settings Account Log out Home CCTV Checking Checking 02:00:01 PM Enable notifications System Live status from this"
+  }
+}

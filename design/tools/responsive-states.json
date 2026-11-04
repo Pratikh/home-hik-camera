@@ -1,0 +1,224 @@
+{
+  "capturedAt": "2026-11-04T08:27:20.972Z",
+  "results": [
+    {
+      "size": "tablet",
+      "state": "events-selected",
+      "rows": 20,
+      "geo": {
+        "detail": {
+          "x": 244,
+          "y": 2131,
+          "width": 566,
+          "height": 629.25,
+          "top": 2131,
+          "right": 810,
+          "bottom": 2760.25,
+          "left": 244
+        },
+        "list": {
+          "x": 244,
+          "y": 593,
+          "width": 566,
+          "height": 1522,
+          "top": 593,
+          "right": 810,
+          "bottom": 2115,
+          "left": 244
+        },
+        "scrollY": 0,
+        "viewportH": 1112,
+        "mainScrollTop": 0,
+        "detailBelowFold": true,
+        "detailAfterList": true
+      },
+      "shots": [
+        {
+          "w": 834,
+          "h": 1112,
+          "bytes": 101281
+        },
+        {
+          "w": 834,
+          "h": 1112,
+          "bytes": 261601
+        }
+      ],
+      "files": [
+        "events-selected-tablet.png",
+        "events-selected-detail-tablet.png"
+      ]
+    },
+    {
+      "size": "tablet",
+      "state": "camera-focus",
+      "geo": {
+        "headerVisible": false,
+        "sidebarVisible": false,
+        "navCount": 2,
+        "fixedTile": {
+          "w": 834,
+          "h": 1112
+        },
+        "exitButton": {
+          "w": 74,
+          "h": 44,
+          "text": "Exit"
+        },
+        "bodyOverflow": "hidden"
+      },
+      "shot": {
+        "w": 834,
+        "h": 1112,
+        "bytes": 597174
+      },
+      "file": "dashboard-focus-tablet.png"
+    },
+    {
+      "size": "mobile",
+      "state": "events-selected",
+      "rows": 20,
+      "geo": {
+        "detail": {
+          "x": 12,
+          "y": 1900,
+          "width": 366,
+          "height": 516.75,
+          "top": 1900,
+          "right": 378,
+          "bottom": 2416.75,
+          "left": 12
+        },
+        "list": {
+          "x": 12,
+          "y": 362,
+          "width": 366,
+          "height": 1522,
+          "top": 362,
+          "right": 378,
+          "bottom": 1884,
+          "left": 12
+        },
+        "scrollY": 515,
+        "viewportH": 844,
+        "mainScrollTop": 0,
+        "detailBelowFold": true,
+        "detailAfterList": true
+      },
+      "shots": [
+        {
+          "w": 390,
+          "h": 844,
+          "bytes": 58516
+        },
+        {
+          "w": 390,
+          "h": 844,
+          "bytes": 124640
+        }
+      ],
+      "files": [
+        "events-selected-mobile.png",
+        "events-selected-detail-mobile.png"
+      ]
+    },
+    {
+      "size": "mobile",
+      "state": "camera-focus",
+      "geo": {
+        "headerVisible": false,
+        "sidebarVisible": false,
+        "navCount": 2,
+        "fixedTile": {
+          "w": 390,
+          "h": 844
+        },
+        "exitButton": {
+          "w": 74,
+          "h": 44,
+          "text": "Exit"
+        },
+        "bodyOverflow": "hidden"
+      },
+      "shot": {
+        "w": 390,
+        "h": 844,
+        "bytes": 185153
+      },
+      "file": "dashboard-focus-mobile.png"
+    },
+    {
+      "size": "laptop",
+      "state": "events-selected",
+      "rows": 20,
+      "geo": {
+        "detail": {
+          "x": 1096,
+          "y": 413,
+          "width": 320,
+          "height": 1522,
+          "top": 413,
+          "right": 1416,
+          "bottom": 1935,
+          "left": 1096
+        },
+        "list": {
+          "x": 244,
+          "y": 413,
+          "width": 836,
+          "height": 1522,
+          "top": 413,
+          "right": 1080,
+          "bottom": 1935,
+          "left": 244
+        },
+        "scrollY": 0,
+        "viewportH": 900,
+        "mainScrollTop": 0,
+        "detailBelowFold": false,
+        "detailAfterList": false
+      },
+      "shots": [
+        {
+          "w": 1440,
+          "h": 900,
+          "bytes": 183552
+        },
+        {
+          "w": 1440,
+          "h": 900,
+          "bytes": 184839
+        }
+      ],
+      "files": [
+        "events-selected-laptop.png",
+        "events-selected-detail-laptop.png"
+      ]
+    },
+    {
+      "size": "laptop",
+      "state": "camera-focus",
+      "geo": {
+        "headerVisible": false,
+        "sidebarVisible": false,
+        "navCount": 2,
+        "fixedTile": {
+          "w": 1440,
+          "h": 900
+        },
+        "exitButton": {
+          "w": 74,
+          "h": 44,
+          "text": "Exit"
+        },
+        "bodyOverflow": "hidden"
+      },
+      "shot": {
+        "w": 1440,
+        "h": 900,
+        "bytes": 13185
+      },
+      "file": "dashboard-focus-laptop.png"
+    }
+  ]
+}

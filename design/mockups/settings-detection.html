@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Object detection · Settings · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+
+<style>
+/* Page-level responsive fixes for the settings screens (ds.css is shared and untouched). */
+@media (max-width: 720px) {
+  .setting-row { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
+  .setting-row__control { flex: 1 1 100%; width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .setting-row__control .input { flex: 0 1 120px; }
+  .card__head, .card__foot { flex-wrap: wrap; }
+  .settings-nav__item { white-space: nowrap; }
+}
+@media (max-width: 720px) {
+  .table--cams { min-width: 0 !important; }
+  .table--cams thead { display: none; }
+  .table--cams, .table--cams tbody, .table--cams tr, .table--cams td { display: block; width: 100%; }
+  .table--cams tr { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-bottom: 8px; overflow: hidden; }
+  .table--cams tr:last-child { margin-bottom: 0; }
+  .table--cams td { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--line); }
+  .table--cams td:last-child { border-bottom: 0; }
+  .table--cams td::before { content: ""; flex: none; font-size: 10px; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); text-align: left; }
+  .table--cams td:nth-child(2)::before { content: "Detection"; }
+  .table--cams td:nth-child(3)::before { content: "Person"; }
+  .table--cams td:nth-child(4)::before { content: "Vehicle"; }
+  .table--cams td:nth-child(5)::before { content: "Person threshold"; }
+  .table--cams td:nth-child(6)::before { content: "Vehicle threshold"; }
+  .table--cams td:nth-child(1) { display: block; text-align: left; }
+  .table--cams td:nth-child(1)::before { display: none; }
+  .table--cams td[colspan] { display: block; text-align: left; }
+}
+</style>
+<style>
+/* Mobile table/list polish (settings pages only). */
+@media (max-width: 720px) {
+  .pagination { flex-wrap: wrap; row-gap: 8px; }
+  .pagination__count { flex: 1 1 100%; }
+}
+
+</style>
+<style>
+@media (max-width: 720px) {
+  .table--cams td[colspan]::before { display: none; }
+}
+
+</style>
+</head>
+<body data-nav="settings" data-crumb="Administration">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Administration</div>
+      <h1>Object detection</h1>
+      <p class="page-head__sub">Detect people and vehicles on the camera substreams. Detection is off until you enable and save it. The DVR's own person/vehicle labels are controlled separately by the detection source below.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="pill"><span class="dot dot--online"></span>Worker running</span>
+      <a class="btn" href="settings-system.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>System</a>
+    </div>
+  </div>
+
+  <div class="settings-shell">
+    <nav class="settings-nav" aria-label="Settings">
+      <div class="settings-nav__label">Settings</div>
+      <a class="settings-nav__item" href="settings.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-sliders"/></svg>Overview</a>
+      <a class="settings-nav__item" href="settings-users.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-users"/></svg>Users</a>
+      <a class="settings-nav__item" href="notification-rules.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-bell"/></svg>Notification rules</a>
+      <a class="settings-nav__item" href="settings-detection.html" aria-current="page"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-scan"/></svg>Object detection</a>
+      <a class="settings-nav__item" href="settings-audit.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"/></svg>Audit log</a>
+      <a class="settings-nav__item" href="settings-system.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>System</a>
+      <a class="settings-nav__item" href="settings.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronLeft"/></svg>Back to settings</a>
+    </nav>
+
+    <div class="settings-body">
+      <div class="notice notice--accent" style="align-items:center">
+        <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>
+        <div><strong>Saved.</strong> The detection worker picks this up within a few seconds. Detection is enabled.</div>
+      </div>
+
+      <div class="split" style="min-width:0">
+        <div style="display:grid;gap:14px;min-width:0">
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-scan"/></svg>Detection</h2>
+              <span class="badge badge--online">Enabled</span>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__main">
+                <div class="setting-row__title">Enable object detection</div>
+                <div class="setting-row__desc">Master switch. Off means the worker loads no model and analyses no frames; existing events and notifications are untouched.</div>
+              </div>
+              <div class="setting-row__control">
+                <span class="status"><span class="dot dot--online"></span><span class="status__text">Worker running</span></span>
+                <span class="switch" role="switch" aria-checked="true" aria-label="Enable object detection"></span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__main">
+                <div class="setting-row__title">Person detection</div>
+                <div class="setting-row__desc">Independent threshold for the person class. A detection must reach the confidence below to be stored as an event.</div>
+              </div>
+              <div class="setting-row__control">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <input class="input" style="width:70px;height:34px;text-align:right" value="70" aria-label="Global person confidence threshold">
+                  <span class="section__hint">%</span>
+                </div>
+                <span class="switch" role="switch" aria-checked="true" aria-label="Enable person detection"></span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__main">
+                <div class="setting-row__title">Vehicle detection</div>
+                <div class="setting-row__desc">Independent threshold for car, motorcycle, bus and truck. Same confidence rule as person detection.</div>
+              </div>
+              <div class="setting-row__control">
+                <div style="display:flex;align-items:center;gap:5px">
+                  <input class="input" style="width:70px;height:34px;text-align:right" value="70" aria-label="Global vehicle confidence threshold">
+                  <span class="section__hint">%</span>
+                </div>
+                <span class="switch" role="switch" aria-checked="true" aria-label="Enable vehicle detection"></span>
+              </div>
+            </div>
+            <div class="card__foot">
+              <span class="section__hint">Thresholds apply to the local YOLOX-Nano detector. The DVR keeps its own Human / Vehicle labels.</span>
+            </div>
+          </section>
+
+          <section class="card" style="min-width:0">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-camera"/></svg>Camera monitoring</h2>
+              <span class="section__hint">4 of 4 cameras · per-camera overrides</span>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="table table--cams" style="min-width:760px">
+                <thead>
+                  <tr>
+                    <th>Camera</th>
+                    <th>Detection</th>
+                    <th>Person</th>
+                    <th>Vehicle</th>
+                    <th>Person threshold</th>
+                    <th>Vehicle threshold</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div style="font-weight:600">Parking</div>
+                      <div class="section__hint" style="font-family:var(--font-mono);font-size:10px">CH 01 · SUB 102</div>
+                    </td>
+                    <td><span class="switch" role="switch" aria-checked="true" aria-label="Detection for Parking"></span></td>
+                    <td><span class="switch" role="switch" aria-checked="true" aria-label="Person detection for Parking"></span></td>
+                    <td><span class="switch" role="switch" aria-checked="true" aria-label="Vehicle detection for Parking"></span></td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <input class="input" style="width:64px;height:30px;text-align:right;padding:0 8px" value="70" aria-label="Parking person threshold">
+                        <span class="chip">global</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <input class="input" style="width:64px;height:30px;text-align:right;padding:0 8px" value="70" aria-label="Parking vehicle threshold">
+                        <span class="chip">global</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div style="font-weight:600">Right Side Outside Camera</div>
+                      <div class="section__hint" style="font-family:var(--font-mono);font-size:10px">CH 02 · SUB 202</div>
+                    </td>
+                    <td><span class="switch" role="switch" aria-checked="true" aria-label="Detection for Right Side Outside Camera"></span></td>
+                    <td><span class="switch" role="switch" aria-checked="true" aria-label="Person detection for Right Side Outside Camera"></span></td>
+                    <td><span class="switch" role="switch" aria-checked="true" aria-label="Vehicle detection for Right Side Outside Camera"></span></td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <input class="input" style="width:64px;height:30px;text-align:right;padding:0 8px" value="75" aria-label="Right Side Outside Camera person threshold">
+                        <span class="chip chip--teal">custom</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <input class="input" style="width:64px;height:30px;text-align:right;padding:0 8px" value="70" aria-label="Right Side Outside Camera vehicle threshold">
+                        <span class="chip">global</span>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div style="font-weight:600">First Floor Passage</div>
+                      <div class="section__hint" style="font-family:var(--font-mono);font-size:10px">CH 03 · SUB 302</div>
+                    </td>
+                    <td><span class="switch" role="switch" aria-checked="true" aria-label="Detection for First Floor Passage"></span></td>
+                    <td><span class="switch" role="switch" aria-checked="true" aria-label="Person detection for First Floor Passage"></span></td>
+                    <td><span class="switch" role="switch" aria-checked="false" aria-label="Vehicle detection for First Floor Passage"></span></td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <input class="input" style="width:64px;height:30px;text-align:right;padding:0 8px" value="70" aria-label="First Floor Passage person threshold">
+                        <span class="chip">global</span>
+                      </div>
+                    </td>
+                    <td><span class="section__hint">Vehicle class off</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div style="font-weight:600;color:var(--muted)">Left Side Outside</div>
+                      <div class="section__hint" style="font-family:var(--font-mono);font-size:10px">CH 04 · SUB 402</div>
+                    </td>
+                    <td><span class="switch" role="switch" aria-checked="false" aria-label="Detection for Left Side Outside"></span></td>
+                    <td><span class="switch" role="switch" aria-checked="false" style="opacity:0.5" aria-label="Person detection for Left Side Outside"></span></td>
+                    <td><span class="switch" role="switch" aria-checked="false" style="opacity:0.5" aria-label="Vehicle detection for Left Side Outside"></span></td>
+                    <td colspan="2"><span class="section__hint">Not monitoring — this camera is skipped by the worker.</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card__foot">
+              <span class="section__hint">A camera only runs when the master switch and its own switch are both on.</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-sliders"/></svg>Performance and behaviour</h2>
+              <span class="chip chip--mono">2-core hub</span>
+            </div>
+            <div class="card__body" style="display:grid;gap:14px">
+              <div class="form-grid form-grid--3">
+                <div class="field">
+                  <label class="field__label" for="base-fps">Base AI FPS (per camera)</label>
+                  <select class="select" id="base-fps">
+                    <option>1 FPS</option>
+                    <option>2 FPS</option>
+                    <option>3 FPS</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="active-fps">Active AI FPS</label>
+                  <select class="select" id="active-fps">
+                    <option>2 FPS</option>
+                    <option selected>3 FPS</option>
+                    <option>5 FPS</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="max-fps">Maximum AI FPS</label>
+                  <select class="select" id="max-fps">
+                    <option>3 FPS</option>
+                    <option selected>5 FPS</option>
+                    <option>8 FPS</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;border-top:1px solid var(--line);padding-top:14px">
+                <div class="setting-row__main">
+                  <div class="setting-row__title">Motion-triggered boost</div>
+                  <div class="setting-row__desc">Raises the AI rate while a track is moving, then drops back to the base rate. Sampling stays bounded so the hub is never overloaded.</div>
+                </div>
+                <span class="switch" role="switch" aria-checked="true" aria-label="Motion-triggered boost"></span>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label class="field__label" for="detection-source">Detection source</label>
+                  <select class="select" id="detection-source">
+                    <option selected>AI only</option>
+                    <option>DVR only</option>
+                    <option>AI + DVR</option>
+                  </select>
+                  <span class="field__hint">Only the object detector raises person/vehicle notifications. DVR labels are stored and searchable but do not notify.</span>
+                </div>
+                <div class="field">
+                  <label class="field__label" for="queue-size">Inference queue size</label>
+                  <input class="input" id="queue-size" value="2" inputmode="numeric">
+                  <span class="field__hint">Frames older than the queue are dropped, never processed late.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div class="card">
+            <div class="card__body" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:9px;min-width:0">
+                <span class="dot dot--online"></span>
+                <div>
+                  <div class="setting-row__title">Detection is enabled.</div>
+                  <div class="section__hint">Saved changes reach the worker within a few seconds.</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn" type="button">Discard changes</button>
+                <button class="btn btn--primary" type="button">Save settings</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside style="display:grid;gap:14px;min-width:0">
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-cpu"/></svg>Worker status</h2>
+              <span class="badge badge--online">Running</span>
+            </div>
+            <div class="card__body">
+              <dl class="prop-list">
+                <dt>Model</dt><dd class="mono">YOLOX-Nano · Apache-2.0</dd>
+                <dt>Last heartbeat</dt><dd>4 seconds ago</dd>
+                <dt>Inference</dt><dd class="mono">42 ms · 1 FPS</dd>
+                <dt>Queue</dt><dd class="mono">0 pending · 0 processing</dd>
+                <dt>Dropped frames</dt><dd class="mono">0 today</dd>
+                <dt>Today</dt><dd><strong style="font-weight:600">412</strong> detections · 301 person · 111 vehicle</dd>
+                <dt>Cameras</dt><dd class="mono">3 running · 1 skipped</dd>
+              </dl>
+            </div>
+            <div class="card__foot">
+              <span class="section__hint">The worker applies saved changes within a few seconds; no restart is needed.</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-zap"/></svg>Diagnostics</h2>
+              <span class="chip chip--mono">Latest snapshot</span>
+            </div>
+            <div class="card__body" style="display:grid;gap:10px">
+              <p class="section__hint">Run the detector once on the most recent event snapshot. The result proves what the model sees; it does not create an event or send anything.</p>
+              <div style="display:grid;gap:6px;border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px;background:var(--bg)">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                  <span style="font-size:var(--fs-12);font-weight:600">person</span>
+                  <span class="badge badge--online">92% accepted</span>
+                </div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                  <span style="font-size:var(--fs-12);font-weight:600">vehicle</span>
+                  <span class="badge">38% below threshold</span>
+                </div>
+                <div class="section__hint" style="font-family:var(--font-mono);font-size:10px">YOLOX-Nano · 38 ms · 704×576 px</div>
+              </div>
+            </div>
+            <div class="card__foot">
+              <button class="btn btn--sm" type="button"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-zap"/></svg>Run detection test</button>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-info"/></svg>About this model</h2>
+            </div>
+            <div class="card__body" style="display:grid;gap:10px">
+              <p class="section__hint">Detection runs locally on the hub. No frame, snapshot or result leaves the LAN.</p>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                <span class="chip chip--mono">CPU · 2 cores</span>
+                <span class="chip chip--mono">704×576</span>
+                <span class="chip chip--mono">1 FPS base</span>
+              </div>
+              <a class="btn btn--sm btn--ghost" href="settings-system.html" style="justify-content:space-between;width:100%">Worker health<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

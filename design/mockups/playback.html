@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CCTV Playback · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+<style>
+  /* The stage takes the width of the console but a height that keeps the
+     timeline inside a 1080px viewport; the 704×576 stream letterboxes inside
+     it (object-fit: contain is a hard requirement). Tablet and phone keep the
+     natural 4:3 stage from ds.css. */
+  .playback-stage { width: 100%; height: 545px; }
+  @media (max-width: 1024px) {
+    .playback-stage { height: auto; aspect-ratio: 4 / 3; }
+  }
+  @media (max-width: 720px) {
+    .playback-controls input[type="range"],
+    .playback-controls .pb-time { display: none; }
+    .page-head__actions .pill,
+    .toolbar > .section__hint,
+    .playback-timeline .section__hint { display: none; }
+  }
+  /* The "More" sheet is closed by default and has no static state; hiding the
+     off-canvas copy keeps it out of full-page screenshot composites. */
+  .sheet, .sheet-backdrop { display: none !important; }
+</style>
+</head>
+<body data-nav="playback" data-crumb="Live monitoring">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Live monitoring</div>
+      <h1>CCTV Playback</h1>
+      <p class="page-head__sub">Today's recordings load on open. Choose a date, then scrub the timeline.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="pill"><span class="dot dot--online"></span>Recording available · 04 Nov</span>
+      <a class="btn" href="events.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-events"/></svg>Events</a>
+    </div>
+  </div>
+
+  <form class="toolbar" method="get" action="/playback" style="align-items:flex-end">
+    <div class="field" style="width:250px">
+      <label class="field__label" for="pb-camera">Camera</label>
+      <select class="select" id="pb-camera" name="camera">
+        <option value="1">Parking</option>
+        <option value="2">Right Side Outside Camera</option>
+        <option value="3">First Floor Passage</option>
+        <option value="4" selected>Left Side Outside</option>
+      </select>
+    </div>
+    <div class="field">
+      <span class="field__label" id="pb-date-label">Date</span>
+      <button class="btn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-labelledby="pb-date-label pb-date-value">
+        <svg class="icon icon-sm" aria-hidden="true"><use href="#i-calendar"/></svg>
+        <span id="pb-date-value" style="font-family:var(--font-mono);letter-spacing:.02em">2026-11-04</span>
+        <svg class="icon icon-sm" aria-hidden="true" style="color:var(--muted)"><use href="#i-chevronDown"/></svg>
+      </button>
+    </div>
+    <button class="btn btn--primary" type="button"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-search"/></svg>Search recordings</button>
+    <span class="toolbar__spacer"></span>
+    <span class="section__hint" style="padding-bottom:9px">09:12:40 recorded · 43 events · Asia/Kolkata</span>
+  </form>
+
+  <div class="card" style="overflow:hidden">
+    <div class="playback-stage" style="border:0;border-radius:0">
+      <div aria-hidden="true" style="position:absolute;inset:-40px;background:url(assets/frames/cam4.jpg) center/cover;filter:blur(46px) saturate(.6) brightness(.6);opacity:.5;mask-image:radial-gradient(ellipse 66% 88% at 50% 50%, #000 0%, rgba(0,0,0,.5) 58%, transparent 80%);-webkit-mask-image:radial-gradient(ellipse 66% 88% at 50% 50%, #000 0%, rgba(0,0,0,.5) 58%, transparent 80%)"></div>
+      <img src="assets/frames/cam4.jpg" alt="Recording playback" style="position:relative;z-index:1">
+      <span class="playback-stage__tag badge badge--mono" style="z-index:2;background:rgba(4,9,12,.72);border-color:rgba(255,255,255,.16);color:#e9f0f8">H.264 sub stream</span>
+      <span class="badge badge--mono" style="position:absolute;z-index:2;top:10px;right:10px;background:rgba(4,9,12,.72);border-color:rgba(255,255,255,.16);color:#e9f0f8">04 Nov 2026</span>
+    </div>
+    <div class="card__foot" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <span class="status"><span class="dot dot--online"></span>Left Side Outside <span class="status__text">· Sub 402</span></span>
+      <span class="section__hint" style="font-family:var(--font-mono);letter-spacing:.02em">704×576 · 2h 32m</span>
+    </div>
+  </div>
+
+  <div class="playback-controls" style="flex-wrap:wrap;row-gap:8px">
+    <button class="btn btn--sm" type="button" aria-label="Seek backward 15 seconds" style="font-family:var(--font-mono)">−15s</button>
+    <button class="btn btn--primary" type="button" aria-label="Play" style="width:40px;height:40px;padding:0;border-radius:999px"><svg class="icon" aria-hidden="true" style="margin-left:2px"><use href="#i-play"/></svg></button>
+    <button class="btn btn--sm" type="button" aria-label="Seek forward 15 seconds" style="font-family:var(--font-mono)">+15s</button>
+    <span aria-hidden="true" style="width:1px;height:22px;background:var(--line);margin:0 4px"></span>
+    <button class="btn btn--sm btn--ghost" type="button" aria-label="Mute"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-mute"/></svg></button>
+    <input type="range" min="0" max="100" value="55" aria-label="Volume" style="width:96px;accent-color:var(--accent);height:4px">
+    <span class="toolbar__spacer"></span>
+    <span class="badge badge--mono pb-time">13:54:19</span>
+    <button class="btn btn--sm" type="button" aria-label="Full screen"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-fullscreen"/></svg>Full screen</button>
+  </div>
+
+  <section class="playback-timeline" role="region" aria-label="Timeline">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+      <h2 style="font-size:var(--fs-13);font-weight:650;letter-spacing:.01em">Timeline</h2>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="section__hint" style="font-family:var(--font-mono)">04 Nov 2026</span>
+        <div class="seg" role="group" aria-label="Timeline scale">
+          <button class="seg__item" type="button" aria-pressed="true">24h</button>
+          <button class="seg__item" type="button" aria-pressed="false">6h</button>
+          <button class="seg__item" type="button" aria-pressed="false">1h</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="track">
+      <span class="track__seg" style="left:33.333%;width:16.667%" title="08:00–12:00 · Motion"></span>
+      <span class="track__seg" style="left:50%;width:10.556%" title="12:00–14:32 · Motion"></span>
+      <span class="track__seg" style="left:63.194%;width:10.764%" title="15:10–17:45 · Alarm"></span>
+      <span class="track__seg" style="left:75.139%;width:19.306%" title="18:02–22:40 · Motion"></span>
+
+      <button type="button" aria-label="Vehicle detected, 09:51:12, Normal priority" style="position:absolute;top:5px;left:41.06%;transform:translateX(-50%);width:10px;height:10px;padding:0;border:0;border-radius:999px;background:var(--accent);box-shadow:0 0 0 2px rgba(7,10,14,.85)"></button>
+      <button type="button" aria-label="Person detected, 09:59:44, High priority" style="position:absolute;top:5px;left:41.65%;transform:translateX(-50%);width:10px;height:10px;padding:0;border:0;border-radius:999px;background:var(--warn);box-shadow:0 0 0 2px rgba(7,10,14,.85)"></button>
+      <button type="button" aria-label="Person detected, 13:43:12, High priority" style="position:absolute;top:5px;left:57.17%;transform:translateX(-50%);width:10px;height:10px;padding:0;border:0;border-radius:999px;background:var(--warn);box-shadow:0 0 0 2px rgba(7,10,14,.85)"></button>
+      <button type="button" aria-label="Person detected, 15:28:25, High priority, 3 events" style="position:absolute;top:5px;left:64.47%;transform:translateX(-50%);width:10px;height:10px;padding:0;border:0;border-radius:999px;background:var(--warn);box-shadow:0 0 0 2px rgba(7,10,14,.85)"></button>
+      <button type="button" aria-label="Person detected, 18:45:10, High priority" style="position:absolute;top:5px;left:78.13%;transform:translateX(-50%);width:10px;height:10px;padding:0;border:0;border-radius:999px;background:var(--warn);box-shadow:0 0 0 2px rgba(7,10,14,.85)"></button>
+
+      <span class="track__head" style="left:57.94%"></span>
+    </div>
+    <div class="track__labels">
+      <span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>20:00</span><span>24:00</span>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:16px;margin-top:10px;flex-wrap:wrap">
+      <span class="status" style="font-size:var(--fs-11);color:var(--muted)"><span style="width:14px;height:6px;border-radius:3px;background:var(--online);opacity:.55"></span>Recording</span>
+      <span class="status" style="font-size:var(--fs-11);color:var(--muted)"><span class="dot dot--warn"></span>Event · High</span>
+      <span class="status" style="font-size:var(--fs-11);color:var(--muted)"><span class="dot" style="background:var(--accent)"></span>Event · Normal</span>
+      <span class="toolbar__spacer"></span>
+      <span class="section__hint">Hover the track to preview a frame · click to seek</span>
+    </div>
+  </section>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Users · Settings · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+
+<style>
+/* Page-level responsive fixes for the settings screens (ds.css is shared and untouched). */
+@media (max-width: 720px) {
+  .setting-row { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
+  .setting-row__control { flex: 1 1 100%; width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .setting-row__control .input { flex: 0 1 120px; }
+  .card__head, .card__foot { flex-wrap: wrap; }
+  .settings-nav__item { white-space: nowrap; }
+}
+@media (max-width: 1024px) {
+  .table--users { min-width: 0 !important; }
+  .table--users thead { display: none; }
+  .table--users, .table--users tbody, .table--users tr, .table--users td { display: block; width: 100%; }
+  .table--users tr { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-bottom: 8px; overflow: hidden; }
+  .table--users tr:last-child { margin-bottom: 0; }
+  .table--users td { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--line); }
+  .table--users td:last-child { border-bottom: 0; }
+  .table--users td::before { content: ""; flex: none; font-size: 10px; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); text-align: left; }
+  .table--users td:nth-child(1) { display: block; text-align: left; }
+  .table--users td:nth-child(1)::before { display: none; }
+  .table--users td:nth-child(2)::before { content: "Role"; }
+  .table--users td:nth-child(3)::before { content: "Status"; }
+  .table--users td:nth-child(4)::before { content: "Sessions"; }
+  .table--users td:nth-child(5)::before { content: "Last active"; }
+  .table--users td:nth-child(6)::before { content: "Actions"; }
+  .table--users td:nth-child(6) > div { flex-wrap: wrap; justify-content: flex-end; }
+}
+</style>
+<style>
+/* Mobile table/list polish (settings pages only). */
+@media (max-width: 720px) {
+  .pagination { flex-wrap: wrap; row-gap: 8px; }
+  .pagination__count { flex: 1 1 100%; }
+}
+
+</style>
+</head>
+<body data-nav="settings" data-crumb="Administration">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Administration</div>
+      <h1>Users</h1>
+      <p class="page-head__sub">Administrators manage the hub. Viewers can watch live video, playback, and events.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="pill"><span class="dot dot--online"></span>3 accounts</span>
+      <a class="btn" href="settings-audit.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"/></svg>Audit log</a>
+    </div>
+  </div>
+
+  <div class="settings-shell">
+    <nav class="settings-nav" aria-label="Settings">
+      <div class="settings-nav__label">Settings</div>
+      <a class="settings-nav__item" href="settings.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-sliders"/></svg>Overview</a>
+      <a class="settings-nav__item" href="settings-users.html" aria-current="page"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-users"/></svg>Users</a>
+      <a class="settings-nav__item" href="notification-rules.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-bell"/></svg>Notification rules</a>
+      <a class="settings-nav__item" href="settings-detection.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-scan"/></svg>Object detection</a>
+      <a class="settings-nav__item" href="settings-audit.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"/></svg>Audit log</a>
+      <a class="settings-nav__item" href="settings-system.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>System</a>
+      <a class="settings-nav__item" href="settings.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronLeft"/></svg>Back to settings</a>
+    </nav>
+
+    <div class="settings-body">
+      <div class="split" style="min-width:0">
+        <div style="display:grid;gap:14px;min-width:0">
+          <section class="card" style="min-width:0">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-users"/></svg>Users</h2>
+              <span class="badge badge--mono">3 accounts</span>
+            </div>
+            <div style="overflow-x:auto">
+              <table class="table table--users" style="min-width:900px">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Sessions</th>
+                    <th>Last active</th>
+                    <th style="text-align:right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <span class="avatar">H</span>
+                        <div>
+                          <div style="display:flex;align-items:center;gap:6px;font-weight:600">home <span class="chip chip--teal">You</span></div>
+                          <div class="section__hint" style="font-family:var(--font-mono);font-size:10px">usr_home_01</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="badge badge--accent">ADMIN</span></td>
+                    <td><span class="status"><span class="dot dot--online"></span>Enabled</span></td>
+                    <td><span class="status"><span class="dot dot--online"></span>2 active</span></td>
+                    <td class="num">04 Nov 2026 · 13:48</td>
+                    <td>
+                      <div style="display:flex;gap:6px;justify-content:flex-end">
+                        <button class="btn btn--sm" type="button">Disable</button>
+                        <button class="btn btn--sm" type="button">Reset password</button>
+                        <button class="btn btn--sm btn--danger" type="button">Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <span class="avatar" style="background:rgba(106,176,255,0.12);color:var(--info)">P</span>
+                        <div>
+                          <div style="font-weight:600">piyu</div>
+                          <div class="section__hint" style="font-family:var(--font-mono);font-size:10px">usr_piyu_02</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="badge">VIEWER</span></td>
+                    <td><span class="status"><span class="dot dot--online"></span>Enabled</span></td>
+                    <td><span class="status"><span class="dot dot--online"></span>1 active</span></td>
+                    <td class="num">03 Nov 2026 · 21:12</td>
+                    <td>
+                      <div style="display:flex;gap:6px;justify-content:flex-end">
+                        <button class="btn btn--sm" type="button">Disable</button>
+                        <button class="btn btn--sm" type="button">Reset password</button>
+                        <button class="btn btn--sm btn--danger" type="button">Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:9px">
+                        <span class="avatar" style="background:rgba(255,255,255,0.06);color:var(--muted)">N</span>
+                        <div>
+                          <div style="font-weight:600;color:var(--muted)">naina</div>
+                          <div class="section__hint" style="font-family:var(--font-mono);font-size:10px">usr_naina_03</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="badge">VIEWER</span></td>
+                    <td><span class="status"><span class="dot dot--offline"></span>Disabled</span></td>
+                    <td><span class="status"><span class="dot dot--idle"></span>0 active</span></td>
+                    <td class="num">12 Oct 2026 · 08:34</td>
+                    <td>
+                      <div style="display:flex;gap:6px;justify-content:flex-end">
+                        <button class="btn btn--sm" type="button">Enable</button>
+                        <button class="btn btn--sm" type="button">Reset password</button>
+                        <button class="btn btn--sm btn--danger" type="button">Delete</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card__foot" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <span class="section__hint">Last active times are shown in India time (Asia/Kolkata).</span>
+              <span class="status"><span class="dot dot--online"></span><span class="status__text">Session store healthy</span></span>
+            </div>
+          </section>
+
+          <section class="card" role="alertdialog" aria-label="Confirm delete user naina" style="border-color:rgba(255,122,122,0.32)">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true" style="color:var(--danger)"><use href="#i-alert"/></svg>Delete user</h2>
+              <span class="badge badge--danger">Cannot be undone</span>
+            </div>
+            <div class="card__body" style="display:grid;gap:12px">
+              <p style="font-size:var(--fs-13)">Delete user <strong>naina</strong>? This cannot be undone.</p>
+              <p class="section__hint">Every session for this account is signed out immediately. Existing events, snapshots and audit rows stay in place.</p>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn--danger" type="button">Delete</button>
+                <button class="btn" type="button">Cancel</button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div style="display:grid;gap:14px;min-width:0">
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-plus"/></svg>Create user</h2>
+              <span class="chip">Local account</span>
+            </div>
+            <div class="card__body" style="display:grid;gap:12px">
+              <div class="field">
+                <label class="field__label" for="new-username">Username</label>
+                <input class="input" id="new-username" name="username" autocomplete="off" placeholder="e.g. security">
+              </div>
+              <div class="field">
+                <label class="field__label" for="new-password">Password</label>
+                <input class="input" id="new-password" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters">
+              </div>
+              <div class="field">
+                <label class="field__label" for="new-role">Role</label>
+                <select class="select" id="new-role" name="role">
+                  <option>Viewer</option>
+                  <option>Admin</option>
+                </select>
+              </div>
+              <button class="btn btn--primary" type="button"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-plus"/></svg>Create user</button>
+            </div>
+            <div class="card__foot">
+              <span class="section__hint">New accounts can sign in immediately. Passwords need at least 8 characters.</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-shield"/></svg>Roles</h2>
+            </div>
+            <div class="card__body" style="display:grid;gap:12px">
+              <div style="display:grid;gap:4px">
+                <div><span class="badge badge--accent">ADMIN</span></div>
+                <p class="section__hint">Manage users, notification rules, object detection, the audit log and system status. Full access to every camera.</p>
+              </div>
+              <div style="height:1px;background:var(--line)"></div>
+              <div style="display:grid;gap:4px">
+                <div><span class="badge">VIEWER</span></div>
+                <p class="section__hint">Watch live video, playback recordings and browse events. No access to Settings.</p>
+              </div>
+            </div>
+            <div class="card__foot"><span class="section__hint">The last remaining administrator cannot be disabled or deleted.</span></div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/dev-cache.mjs prepare-dev",
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
+    "prebuild": "node scripts/dev-cache.mjs before-build",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3000",
     "lint": "eslint .",

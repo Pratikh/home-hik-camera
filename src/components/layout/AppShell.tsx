@@ -2,35 +2,75 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { DvrStatusResponse } from "@/lib/api-types";
-import { navigate } from "@/lib/client-api";
+import { api, navigate } from "@/lib/client-api";
 import { eventTitle, type CctvEvent } from "@/lib/events";
 import { faceNotificationOptions, type LiveFaceNotification } from "@/lib/faces";
 import { Messages } from "@/lib/messages";
-import { formatKolkataClock } from "@/lib/time-kolkata";
+import { formatKolkataClock, formatKolkataDate, todayInKolkata } from "@/lib/time-kolkata";
 import { usePoll } from "@/components/hooks/usePoll";
 import { CameraFocusProvider, useCameraFocus } from "@/components/hooks/useCameraFocus";
 import { NotificationPermissionButton } from "@/components/events/NotificationPermissionButton";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { Mark } from "@/components/ui/Mark";
-import { StatusLamp } from "@/components/ui/StatusLamp";
+import { SystemHealthProvider, useSystemHealth } from "@/components/hooks/useSystemHealth";
+import { useFocusTrap } from "@/components/hooks/useFocusTrap";
 
-/**
- * `short` is the label used by the mobile bottom bar, where a 7-column grid
- * leaves roughly 46-61px per item and the full words collide. The desktop
- * sidebar always uses the full `label`.
- */
-const NAV = [
-  { href: "/", label: "Dashboard", short: "Home" },
-  // This page configures cameras; the live view is the dashboard.
-  { href: "/cameras", label: "Camera setup", short: "Cameras" },
-  { href: "/playback", label: "Playback", short: "Playback" },
-  { href: "/events", label: "Events", short: "Events" },
-  { href: "/faces", label: "Faces", short: "Faces" },
-  { href: "/notifications", label: "Notifications", short: "Alerts" },
-  { href: "/device", label: "Device", short: "Device" },
-  { href: "/settings", label: "Settings", short: "Settings" },
+type NavItem = { href: string; label: string; short: string; icon: IconName; badge?: number };
+
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Monitor",
+    items: [
+      { href: "/", label: "Dashboard", short: "Home", icon: "dashboard" },
+      { href: "/playback", label: "Playback", short: "Playback", icon: "playback" },
+    ],
+  },
+  {
+    label: "Security",
+    items: [
+      { href: "/events", label: "Events", short: "Events", icon: "events" },
+      { href: "/faces", label: "Faces", short: "Faces", icon: "faces" },
+      { href: "/notifications", label: "Notifications", short: "Alerts", icon: "bell" },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      // This page configures cameras; the live view is the dashboard.
+      { href: "/cameras", label: "Camera setup", short: "Cameras", icon: "camera" },
+      { href: "/device", label: "Device", short: "Device", icon: "device" },
+      { href: "/settings", label: "Settings", short: "Settings", icon: "settings" },
+    ],
+  },
 ];
+
+const MOBILE_NAV: NavItem[] = [
+  { href: "/", label: "Dashboard", short: "Dashboard", icon: "dashboard" },
+  { href: "/playback", label: "Playback", short: "Playback", icon: "playback" },
+  { href: "/events", label: "Events", short: "Events", icon: "events" },
+  { href: "/notifications", label: "Notifications", short: "Alerts", icon: "bell" },
+];
+
+/** Path prefix -> section name shown in the app bar breadcrumb. */
+const SECTIONS: [string, string][] = [
+  ["/events", "Investigate"],
+  ["/faces", "Investigate"],
+  ["/notifications", "Investigate"],
+  ["/playback", "Monitor"],
+  ["/cameras", "Configure"],
+  ["/device", "Configure"],
+  ["/account", "Account"],
+  ["/settings", "Administration"],
+];
+
+function sectionFor(pathname: string): string {
+  for (const [prefix, label] of SECTIONS) {
+    if (pathname === prefix || pathname.startsWith(`${prefix}/`)) return label;
+  }
+  return "Monitor";
+}
 
 function Clock() {
   const [now, setNow] = useState<Date | null>(null);
@@ -40,17 +80,56 @@ function Clock() {
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, []);
-  if (!now) return <span className="font-mono text-sm text-muted">--:--:--</span>;
+  if (!now) {
+    return (
+      <div className="clock" aria-hidden="true">
+        <span className="clock__time">--:--:--</span>
+        <span className="clock__date">Asia/Kolkata</span>
+      </div>
+    );
+  }
+  /*
+   * 24-hour Asia/Kolkata, matching every other timestamp in the console and the
+   * design system's stated time format (13:54:19, 04 Nov 2026).
+   */
   return (
-    <time dateTime={now.toISOString()} className="hidden font-mono text-sm tabular-nums sm:inline">
-      {now.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-    </time>
+    <div className="clock">
+      <time dateTime={now.toISOString()} className="clock__time">
+        {formatKolkataClock(now)}
+      </time>
+      <span className="clock__date">{formatKolkataDate(now)}</span>
+    </div>
   );
 }
 
 function navActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/** Live unread count for the Events badge. Uses an existing filter only. */
+function useUnreadCount(): number | null {
+  const [unread, setUnread] = useState<number | null>(null);
+  useEffect(() => {
+    let ignore = false;
+    const load = () => {
+      void api<{ total?: unknown }>(`/api/events?date=${todayInKolkata()}&read=false&pageSize=1`)
+        .then((body) => {
+          if (!ignore && typeof body.total === "number") setUnread(body.total);
+        })
+        .catch(() => undefined);
+    };
+    load();
+    const timer = setInterval(load, 60_000);
+    const onEvent = () => load();
+    window.addEventListener("cctv-event", onEvent);
+    return () => {
+      ignore = true;
+      clearInterval(timer);
+      window.removeEventListener("cctv-event", onEvent);
+    };
+  }, []);
+  return unread;
 }
 
 function EventNotifier() {
@@ -114,101 +193,173 @@ function toneFor(status: DvrStatusResponse | null, error: string | null) {
   return { tone: "offline" as const, label: status.message };
 }
 
+function gatewayTone(status: DvrStatusResponse | null) {
+  if (!status) return { tone: "idle" as const, label: Messages.checking };
+  if (status.videoGateway === "connected") return { tone: "online" as const, label: Messages.gatewayUp };
+  return { tone: "offline" as const, label: Messages.gatewayDown };
+}
+
 /**
  * Wraps the shell in the camera-focus provider so a page can hide the app chrome
  * while one camera fills the viewport.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  role,
+}: {
+  children: React.ReactNode;
+  role: "ADMIN" | "VIEWER";
+}) {
   return (
-    <CameraFocusProvider>
-      <AppShellInner>{children}</AppShellInner>
-    </CameraFocusProvider>
+    <SystemHealthProvider role={role}>
+      <CameraFocusProvider>
+        <AppShellInner role={role}>{children}</AppShellInner>
+      </CameraFocusProvider>
+    </SystemHealthProvider>
   );
 }
 
-function AppShellInner({ children }: { children: React.ReactNode }) {
+function AppShellInner({ children, role }: { children: React.ReactNode; role: "ADMIN" | "VIEWER" }) {
   const pathname = usePathname();
   const { isFocused } = useCameraFocus();
-  const [role, setRole] = useState<"ADMIN" | "VIEWER" | null>(null);
-  useEffect(() => {
-    void fetch("/api/auth/session", { credentials: "same-origin" })
-      .then((response) => response.json())
-      .then((body: { role?: unknown }) => setRole(body.role === "VIEWER" ? "VIEWER" : body.role === "ADMIN" ? "ADMIN" : null))
-      .catch(() => undefined);
-  }, []);
-  const nav = NAV.filter((item) => item.href !== "/settings" || role === "ADMIN");
+  const { health } = useSystemHealth();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+  useFocusTrap(moreOpen, sheetRef, closeMore);
+  const unread = useUnreadCount();
+  const nav = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items
+      .filter((item) => item.href !== "/settings" || role === "ADMIN")
+      .map((item) => (item.href === "/events" && unread && unread > 0 ? { ...item, badge: unread } : item)),
+  })).filter((group) => group.items.length > 0);
   const { data, error } = usePoll<DvrStatusResponse>("/api/dvr/status");
   const lamp = toneFor(data, error);
+  const gateway = gatewayTone(data);
+  const streamNominal = lamp.tone === "online" && gateway.tone === "online";
+  /*
+   * The app-bar pill must never be a scoped check presented as a whole-system
+   * verdict. For ADMINs it uses the aggregated /api/system/health status; for
+   * VIEWERs (who cannot read that endpoint) it explicitly scopes itself to the
+   * DVR and video gateway.
+   */
+  const healthTone: "online" | "warn" | "offline" | null =
+    health === null ? null : health.status === "healthy" ? "online" : health.status === "degraded" ? "warn" : "offline";
+  const pillTone = healthTone ?? (streamNominal ? "online" : "warn");
+  const pillLabel =
+    healthTone === null
+      ? streamNominal
+        ? "DVR & streams online"
+        : lamp.label
+      : healthTone === "online"
+        ? "All systems nominal"
+        : healthTone === "warn"
+          ? "System degraded"
+          : "System unhealthy";
+  const section = sectionFor(pathname);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     navigate("/login");
   }
 
+  const initials = "home".slice(0, 1).toUpperCase();
+
   return (
-    <div className="min-h-dvh bg-bg text-ink">
-      <div className="md:grid md:h-dvh md:grid-cols-[220px_minmax(0,1fr)]">
-        {/*
-          Sticky sidebar: the logout control must stay reachable on tall pages
-          instead of being pushed to the bottom of the document.
-        */}
-        <aside className={`${isFocused ? "hidden" : "hidden md:sticky md:top-0 md:flex"} border-r border-line bg-panel md:h-dvh md:flex-col`}>
-          <div className="flex items-center gap-3 px-4 py-5">
-            <Mark />
+    <div className="shell">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
+      <div className="shell__body" inert={moreOpen ? true : undefined} aria-hidden={moreOpen ? true : undefined}>
+        <aside className={`sidebar${isFocused ? " hidden" : ""}`}>
+          <div className="brand">
+            <Mark className="brand__mark" />
             <div>
-              <p className="text-sm font-semibold">Home CCTV</p>
-              <p className="text-xs text-muted">Local hub</p>
+              <div className="brand__name">Home CCTV</div>
+              <div className="brand__sub">Local hub</div>
             </div>
           </div>
-          <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3" aria-label="Primary">
-            {nav.map((item) => {
-              const active = navActive(pathname, item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={`rounded-lg px-3 py-2 text-sm ${active ? "bg-white/10 text-teal" : "text-ink hover:bg-white/5"}`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+          <nav className="nav" aria-label="Primary">
+            {nav.map((group) => (
+              <div className="nav__group" key={group.label}>
+                <div className="nav__label">{group.label}</div>
+                {group.items.map((item) => {
+                  const active = navActive(pathname, item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      className="nav__item"
+                    >
+                      <Icon name={item.icon} />
+                      <span>{item.label}</span>
+                      {item.badge ? <span className="nav__badge">{item.badge > 99 ? "99+" : item.badge}</span> : null}
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </nav>
-          <div className="border-t border-line p-3">
-            <Link href="/account" className="block rounded-lg px-3 py-2 text-sm text-muted hover:bg-white/5 hover:text-ink">
-              Account
+          <div className="sidebar__foot">
+            <div className="shell-status">
+              <div className="shell-status__head">
+                <span>System</span>
+                <Icon name="shield" className="icon icon-sm" />
+              </div>
+              <div className="shell-status__rows">
+                <div className="shell-status__row">
+                  <span className={`dot ${lamp.tone === "online" ? "dot--online" : lamp.tone === "offline" ? "dot--offline" : "dot--idle"}`} />
+                  <span>DVR</span>
+                  <span>{lamp.tone === "online" ? "Online" : lamp.label}</span>
+                </div>
+                <div className="shell-status__row">
+                  <span className={`dot ${gateway.tone === "online" ? "dot--online" : gateway.tone === "offline" ? "dot--offline" : "dot--idle"}`} />
+                  <span>Video gateway</span>
+                  <span>{gateway.tone === "online" ? "Live" : "Down"}</span>
+                </div>
+                <div className="shell-status__row">
+                  <span className="dot dot--idle" />
+                  <span>Database</span>
+                  <span>Local</span>
+                </div>
+              </div>
+            </div>
+            <Link href="/account" className="sidebar__account">
+              <span className="avatar">{initials}</span>
+              <span>home</span>
+              {role ? <span className="badge" style={{ marginLeft: "auto" }}>{role === "ADMIN" ? "Admin" : "Viewer"}</span> : null}
             </Link>
-            <button type="button" onClick={() => void logout()} className="h-10 w-full rounded-lg px-3 text-left text-sm text-muted hover:bg-white/5 hover:text-ink">
-              Log out
+            <button type="button" onClick={() => void logout()} className="logout-btn">
+              <Icon name="logout" />
+              <span>Log out</span>
             </button>
           </div>
         </aside>
-        <div className="flex min-w-0 flex-col md:h-dvh">
-          <header className={`${isFocused ? "hidden" : "sticky top-0 z-30 flex"} items-center justify-between gap-2 border-b border-line bg-bg px-3 py-3 md:px-6`}>
-            <div className="flex min-w-0 items-center gap-2">
-              <Mark className="h-7 w-7 shrink-0 md:hidden" />
-              <p className="truncate text-sm font-semibold md:text-base">Home CCTV</p>
+
+        <div className="content flex min-w-0 flex-col md:h-dvh">
+          <header className={`appbar${isFocused ? " hidden" : " flex"}`}>
+            <div className="mobile-brand">
+              <Mark className="brand__mark" />
+              <span className="mobile-brand__name">Home CCTV</span>
             </div>
-            {/* shrink-0 + nowrap keeps every action on one line; the status lamp is
-                the only element allowed to compress. */}
-            <div className="flex shrink-0 items-center gap-2 md:gap-3">
-              <StatusLamp tone={lamp.tone} label={lamp.label} compact />
-              <Clock />
+            <div className="appbar__crumb">
+              <strong>Home CCTV</strong>
+              <span className="sep">/</span>
+              <span>{section}</span>
+            </div>
+            <div className="appbar__spacer" />
+            <div className="appbar__actions">
+              <span className={`pill pill--hide-sm${pillTone === "online" ? "" : " pill--warn"}`}>
+                <span className={`dot ${pillTone === "online" ? "dot--online" : pillTone === "offline" ? "dot--offline" : "dot--warn"}`} />
+                {pillLabel}
+              </span>
               <NotificationPermissionButton />
-              <Link
-                href="/account"
-                className="h-9 shrink-0 whitespace-nowrap rounded-lg border border-line px-2 text-xs leading-9 text-muted hover:bg-white/5 hover:text-ink md:hidden"
-              >
-                Account
+              <Clock />
+              <Link href="/account" className="icon-btn" aria-label="Account">
+                <span className="avatar">{initials}</span>
               </Link>
-              <button
-                type="button"
-                onClick={() => void logout()}
-                className="h-9 shrink-0 whitespace-nowrap rounded-lg border border-line px-3 text-xs text-muted hover:bg-white/5 hover:text-ink md:hidden"
-              >
-                Log out
-              </button>
             </div>
           </header>
           <EventNotifier />
@@ -217,33 +368,86 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             `md:flex-1` makes it take the remaining viewport height so a page can
             size itself to the screen instead of the document.
           */}
-          <main className={isFocused ? "min-h-0" : "min-h-0 px-3 pb-28 pt-4 md:flex-1 md:overflow-y-auto md:px-6 md:pb-6"}>{children}</main>
+          <main
+            id="main"
+            className={isFocused ? "min-h-0" : "min-h-0 px-3 pt-4 md:flex-1 md:overflow-y-auto md:px-6"}
+          >
+            {children}
+          </main>
         </div>
       </div>
-      {/*
-        Mobile bottom bar: min-w-0 + truncate means a long label can never
-        overlap its neighbour. Eight items now that Faces is part of the nav.
-      */}
-      <nav
-        className={`${isFocused ? "hidden" : "fixed inset-x-0 bottom-0 z-40 grid"} grid-cols-8 border-t border-line bg-panel md:hidden`}
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-        aria-label="Primary"
-      >
-        {nav.map((item) => {
+
+      {/* Mobile navigation: one Primary nav per viewport; this one is display:none on desktop. */}
+      <nav className={`mobile-nav${isFocused ? " hidden" : ""}`} aria-label="Primary" inert={moreOpen ? true : undefined} aria-hidden={moreOpen ? true : undefined}>
+        {MOBILE_NAV.map((item) => {
           const active = navActive(pathname, item.href);
+          const count = item.href === "/events" ? unread : null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              title={item.label}
-              className={`min-w-0 truncate px-0.5 py-3 text-center text-[11px] leading-tight ${active ? "text-teal" : "text-muted"}`}
-            >
-              {item.short}
+            <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} className="mobile-nav__item">
+              <Icon name={item.icon} />
+              <span>{item.short}</span>
+              {count && count > 0 ? (
+                <span className="mobile-nav__badge" aria-label={`${count > 99 ? "99+" : count} unread today`}>
+                  {count > 99 ? "99+" : count}
+                </span>
+              ) : null}
             </Link>
           );
         })}
+        <button type="button" className="mobile-nav__more" onClick={() => setMoreOpen(true)} aria-expanded={moreOpen}>
+          <Icon name="more" />
+          <span>More</span>
+        </button>
       </nav>
+
+      <div className="sheet-backdrop" data-open={moreOpen ? "true" : "false"} onClick={closeMore} />
+      <div
+        ref={sheetRef}
+        className="sheet"
+        data-open={moreOpen ? "true" : "false"}
+        aria-hidden={!moreOpen}
+        role="dialog"
+        aria-modal={moreOpen ? "true" : undefined}
+        aria-label="More navigation"
+        tabIndex={-1}
+      >
+        <div className="sheet__handle" />
+        <div className="sheet__head">
+          <span className="sheet__title">More</span>
+          <button type="button" className="icon-btn" aria-label="Close navigation" onClick={closeMore}>
+            <Icon name="close" className="icon icon-sm" />
+          </button>
+        </div>
+        <div className="sheet__grid">
+          <Link href="/faces" className="sheet__item" onClick={() => setMoreOpen(false)}>
+            <Icon name="faces" /> Faces
+          </Link>
+          <Link href="/cameras" className="sheet__item" onClick={() => setMoreOpen(false)}>
+            <Icon name="camera" /> Camera setup
+          </Link>
+          <Link href="/device" className="sheet__item" onClick={() => setMoreOpen(false)}>
+            <Icon name="device" /> Device
+          </Link>
+          {role === "ADMIN" ? (
+            <Link href="/settings" className="sheet__item" onClick={() => setMoreOpen(false)}>
+              <Icon name="settings" /> Settings
+            </Link>
+          ) : null}
+          <Link href="/account" className="sheet__item" onClick={() => setMoreOpen(false)}>
+            <Icon name="user" /> Account
+          </Link>
+          <button
+            type="button"
+            className="sheet__item"
+            onClick={() => {
+              setMoreOpen(false);
+              void logout();
+            }}
+          >
+            <Icon name="logout" /> Log out
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

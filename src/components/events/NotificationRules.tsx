@@ -21,10 +21,11 @@ import {
   type RuleEventType,
   type Weekday,
 } from "@/lib/events";
-import { EVENT_PRIORITIES, type EventPriority } from "@/lib/priority";
+import { EVENT_PRIORITIES, priorityLabel, type EventPriority } from "@/lib/priority";
 import { Messages } from "@/lib/messages";
-import { PageIntro } from "@/components/ui/States";
-import { PriorityBadge } from "@/components/events/PriorityBadge";
+import { EmptyState } from "@/components/ui/States";
+import { Icon } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { TelegramTestButton } from "@/components/events/TelegramTestButton";
 
 const RETENTION = ["7", "14", "30", "60", "90", "0"];
@@ -77,6 +78,13 @@ function withSelection(rule: NotificationRule, cameraIds: number[], eventTypes: 
 
 function editableRule(rule: NotificationRule): NotificationRule {
   return withSelection(rule, cameraSelection(rule), eventSelection(rule));
+}
+
+/** Priority pill for a rule's minimum-priority floor (colour is never the only cue). */
+function PriorityFloorBadge({ priority }: { priority: EventPriority }) {
+  const tone =
+    priority === "CRITICAL" ? "badge badge--critical" : priority === "HIGH" ? "badge badge--warn" : "badge";
+  return <span className={tone}>{priorityLabel(priority)}</span>;
 }
 
 export function NotificationRules() {
@@ -199,116 +207,217 @@ export function NotificationRules() {
     });
   }
 
+  const enabledCount = rules.filter((rule) => rule.enabled).length;
+
   return (
-    <div className="min-w-0 max-w-3xl">
-      <PageIntro
+    <div className="min-w-0">
+      <PageHeader
+        eyebrow="Administration"
         title="Notification rules"
         detail="Events are always stored. A rule only decides whether the browser is notified."
+        actions={
+          <>
+            <button type="button" onClick={allowNotifications} className="btn">
+              <Icon name="bell" className="icon icon-sm" />
+              {Messages.enableNotifications}
+            </button>
+            <button type="button" onClick={() => setDraft(blankRule())} className="btn btn--primary">
+              <Icon name="plus" className="icon icon-sm" />
+              New rule
+            </button>
+          </>
+        }
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <button type="button" onClick={allowNotifications} className="h-11 rounded-lg border border-line px-3 text-sm">
-          {Messages.enableNotifications}
-        </button>
-        <button
-          type="button"
-          onClick={() => setDraft(blankRule())}
-          className="h-11 rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f]"
-        >
-          New rule
-        </button>
-        {/* Server-side Telegram check. ADMIN-only page; no credentials in the browser. */}
-        <TelegramTestButton />
-      </div>
-
-      {error ? <p className="mb-3 text-sm text-warn" role="alert">{error}</p> : null}
-      {message ? <p className="mb-3 text-sm text-muted" role="status">{message}</p> : null}
-      {loading && rules.length === 0 ? <p className="text-sm text-muted">Loading...</p> : null}
-
-      <ul className="flex flex-col gap-2">
-        {rules.map((rule) => (
-          <li key={rule.id} className={`rounded-xl border px-4 py-3 ${rule.enabled ? "border-line bg-card" : "border-line bg-card/50"}`}>
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-semibold">{rule.name}</h2>
-              {rule.minimumPriority ? <PriorityBadge priority={rule.minimumPriority} /> : null}
-              <span className={`ml-auto text-xs uppercase ${rule.enabled ? "text-online" : "text-muted"}`}>
-                {rule.enabled ? "Enabled" : "Disabled"}
-              </span>
-            </div>
-            <p className="mt-1 text-xs text-muted">
-              {describeCameras(rule, names)} · {describeEvent(rule)} ·{" "}
-              {rule.scheduleStart && rule.scheduleEnd ? `${rule.scheduleStart}–${rule.scheduleEnd}` : "Any time"} ·
-              Cooldown {formatCooldown(rule.cooldownSeconds)}
-            </p>
-            <p className="mt-0.5 text-xs text-muted">
-              Quiet hours {rule.quietHoursStart && rule.quietHoursEnd ? `${rule.quietHoursStart}–${rule.quietHoursEnd}` : "off"}
-              {" · "}
-              {BEHAVIOR_LABEL[rule.quietHoursBehavior]}
-              {rule.daysOfWeek.length > 0 ? ` · ${rule.daysOfWeek.join(", ")}` : ""}
-            </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" onClick={() => void toggleEnabled(rule)} className="h-9 rounded-lg border border-line px-3 text-xs">
-                {rule.enabled ? "Disable" : "Enable"}
-              </button>
-              <button type="button" onClick={() => setDraft(editableRule(rule))} className="h-9 rounded-lg border border-line px-3 text-xs">
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(rule)}
-                className="h-9 rounded-lg border border-line px-3 text-xs text-warn"
-              >
-                Delete
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {confirmDelete ? (
-        <div className="mt-4 rounded-xl border border-warn/50 bg-card p-4" role="alertdialog" aria-label="Confirm delete rule">
-          <p className="text-sm">Delete rule <span className="font-medium">{confirmDelete.name}</span>? This cannot be undone.</p>
-          <div className="mt-3 flex gap-2">
-            <button type="button" onClick={() => setConfirmDelete(null)} className="h-10 rounded-lg border border-line px-4 text-sm">Cancel</button>
-            <button type="button" onClick={() => void remove(confirmDelete)} className="h-10 rounded-lg bg-warn px-4 text-sm font-semibold text-black">Delete</button>
-          </div>
+      {error ? (
+        <div className="notice notice--danger" role="alert">
+          <Icon name="alert" />
+          <span>{error}</span>
+        </div>
+      ) : null}
+      {message ? (
+        <div className="notice notice--accent" role="status">
+          <Icon name="check" />
+          <span>{message}</span>
         </div>
       ) : null}
 
-      {draft ? (
-        <RuleForm
-          rule={draft}
-          names={names}
-          onChange={setDraft}
-          onSubmit={(event) => void saveRule(draft, event)}
-          onCancel={() => setDraft(null)}
-        />
-      ) : null}
+      <div className="split" style={{ marginTop: 16 }}>
+        <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+          <section aria-labelledby="rules-title">
+            <div className="section__head">
+              <h2 className="section__title" id="rules-title">
+                Rules
+              </h2>
+              <span className="section__hint">
+                {rules.length} rule{rules.length === 1 ? "" : "s"} · {enabledCount} enabled
+              </span>
+            </div>
 
-      <section className="mt-6 rounded-xl border border-line bg-card p-4">
-        <h2 className="text-sm font-semibold">Keep events</h2>
-        <p className="mt-1 text-xs text-muted">
-          Retention deletes this hub&apos;s own event rows, snapshots, and notification history only. It never
-          deletes recordings on the DVR or MediaMTX, and never deletes user accounts.
-        </p>
-        <label className="mt-3 block max-w-xs text-sm">
-          <span className="mb-1 block text-muted">Retention</span>
-          <select
-            value={retention}
-            onChange={(event) => void saveRetention(event.target.value)}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-            aria-label="Event retention"
-          >
-            {RETENTION.map((days) => (
-              <option key={days} value={days}>
-                {days === "0" ? "Forever" : `${days} days`}
-              </option>
-            ))}
-          </select>
-        </label>
-      </section>
+            {loading && rules.length === 0 ? <p className="section__hint">Loading rules…</p> : null}
 
-      <RuleTester names={names} onResult={setTestResult} result={testResult} />
+            {!loading && rules.length === 0 ? (
+              <EmptyState
+                icon="bell"
+                title="No notification rules yet."
+                detail="Events are still stored. Use the New rule button above to decide when the browser is notified."
+              />
+            ) : null}
+
+            <ul className="rule-list">
+              {rules.map((rule) => (
+                <li key={rule.id}>
+                  <article className="rule" data-enabled={rule.enabled ? "true" : "false"}>
+                    <div className="rule__head">
+                      <span className="rule__name">{rule.name}</span>
+                      {rule.minimumPriority ? <PriorityFloorBadge priority={rule.minimumPriority} /> : null}
+                      <div className="rule__toggle">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={rule.enabled}
+                          aria-label={`${rule.enabled ? "Disable" : "Enable"} rule ${rule.name}`}
+                          onClick={() => void toggleEnabled(rule)}
+                          className="switch"
+                        />
+                        <span>{rule.enabled ? "Enabled" : "Disabled"}</span>
+                      </div>
+                    </div>
+
+                    <div className="rule__summary">
+                      <span className="chip chip--teal">{describeEvent(rule)}</span>
+                      <span className="chip">{describeCameras(rule, names)}</span>
+                      <span className="chip chip--mono">
+                        {rule.scheduleStart && rule.scheduleEnd
+                          ? `${rule.scheduleStart}–${rule.scheduleEnd}`
+                          : "Any time"}
+                      </span>
+                      <span className="chip">Cooldown {formatCooldown(rule.cooldownSeconds)}</span>
+                    </div>
+
+                    <p className="rule__detail">
+                      Quiet hours{" "}
+                      {rule.quietHoursStart && rule.quietHoursEnd
+                        ? `${rule.quietHoursStart}–${rule.quietHoursEnd}`
+                        : "off"}
+                      <span className="sep">·</span>
+                      {BEHAVIOR_LABEL[rule.quietHoursBehavior]}
+                      {rule.daysOfWeek.length > 0 ? (
+                        <>
+                          <span className="sep">·</span>
+                          {rule.daysOfWeek.join(", ")}
+                        </>
+                      ) : null}
+                    </p>
+
+                    <div className="rule__foot">
+                      <button type="button" onClick={() => void toggleEnabled(rule)} className="btn btn--sm">
+                        {rule.enabled ? "Disable" : "Enable"}
+                      </button>
+                      <button type="button" onClick={() => setDraft(editableRule(rule))} className="btn btn--sm">
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(rule)}
+                        className="btn btn--sm btn--danger"
+                        style={{ marginLeft: "auto" }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </article>
+                </li>
+              ))}
+            </ul>
+
+            {confirmDelete ? (
+              <div className="card card--pad" role="alertdialog" aria-label="Confirm delete rule" style={{ marginTop: 12 }}>
+                <p>
+                  Delete rule <strong>{confirmDelete.name}</strong>? This cannot be undone.
+                </p>
+                <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                  <button type="button" onClick={() => setConfirmDelete(null)} className="btn btn--sm">
+                    Cancel
+                  </button>
+                  <button type="button" onClick={() => void remove(confirmDelete)} className="btn btn--sm btn--danger">
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="card">
+            <div className="card__head">
+              <div className="card__title">
+                <Icon name="database" className="icon icon-sm" />
+                Keep events
+              </div>
+              <span className="badge badge--mono">{retention === "0" ? "Forever" : `${retention} days`}</span>
+            </div>
+            <div className="card__body" style={{ display: "grid", gap: 14 }}>
+              <p className="section__hint" style={{ maxWidth: "74ch" }}>
+                Retention deletes this hub&apos;s own event rows, snapshots, and notification history only. It never
+                deletes recordings on the DVR or MediaMTX, and never deletes user accounts.
+              </p>
+              <label className="field" style={{ maxWidth: 280 }}>
+                <span className="field__label">Retention</span>
+                <select
+                  value={retention}
+                  onChange={(event) => void saveRetention(event.target.value)}
+                  className="select"
+                  aria-label="Event retention"
+                >
+                  {RETENTION.map((days) => (
+                    <option key={days} value={days}>
+                      {days === "0" ? "Forever" : `${days} days`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <RuleTester names={names} onResult={setTestResult} result={testResult} />
+        </div>
+
+        <div style={{ display: "grid", gap: 16, minWidth: 0, alignContent: "start" }}>
+          {draft ? (
+            <RuleForm
+              rule={draft}
+              names={names}
+              onChange={setDraft}
+              onSubmit={(event) => void saveRule(draft, event)}
+              onCancel={() => setDraft(null)}
+            />
+          ) : (
+            <section className="card card--pad">
+              <div className="card__title" style={{ marginBottom: 6 }}>
+                <Icon name="sliders" className="icon icon-sm" />
+                Rule editor
+              </div>
+              <p className="section__hint">
+                Select <strong>Edit</strong> on a rule, or use the New rule button above to shape its camera and event
+                scope, active window, quiet hours and cooldown.
+              </p>
+            </section>
+          )}
+
+          <section className="card" aria-labelledby="telegram-title">
+            <div className="card__head">
+              <div className="card__title" id="telegram-title">
+                <Icon name="send" className="icon icon-sm" />
+                Telegram
+              </div>
+            </div>
+            <div className="card__body">
+              {/* Server-side Telegram check. ADMIN-only page; no credentials in the browser. */}
+              <TelegramTestButton />
+            </div>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }
@@ -378,198 +487,199 @@ function RuleForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-4 space-y-3 rounded-xl border border-teal/40 bg-card p-4">
-      <h2 className="text-sm font-semibold">{rule.id ? "Edit rule" : "New rule"}</h2>
+    <form onSubmit={onSubmit} className="rule-editor">
+      <div className="rule-editor__head">
+        <div className="card__title">{rule.id ? "Edit rule" : "New rule"}</div>
+        <span className="badge badge--accent">{rule.id ? "Editing" : "Draft"}</span>
+      </div>
 
-      <label className="block text-sm">
-        <span className="mb-1 block text-muted">Name</span>
-        <input
-          value={rule.name}
-          onChange={(event) => set("name", event.target.value)}
-          placeholder="Camera 2 Person Night Alert"
-          className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-        />
-      </label>
+      <div className="rule-editor__body">
+        <label className="field" htmlFor="rule-name">
+          <span className="field__label">Name</span>
+          <input
+            id="rule-name"
+            value={rule.name}
+            onChange={(event) => set("name", event.target.value)}
+            placeholder="Camera 2 Person Night Alert"
+            className="input"
+            autoComplete="off"
+          />
+        </label>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <fieldset className="min-w-0 text-sm">
-          <legend className="mb-1 block text-muted">Camera</legend>
-          <div className="max-h-48 overflow-y-auto rounded-lg border border-line bg-bg p-2">
-            <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 hover:bg-white/5 focus-within:bg-white/5">
-              <input
-                type="checkbox"
-                checked={allCameras}
-                onChange={toggleAllCameras}
-                className="h-4 w-4 shrink-0 accent-teal"
-              />
-              <span className="font-medium">All cameras</span>
+        <div className="field" role="group" aria-label="Camera">
+          <span className="field__label">Camera</span>
+          <div className="check-card" style={{ maxHeight: "none" }}>
+            <label className="check">
+              <input type="checkbox" checked={allCameras} onChange={toggleAllCameras} />
+              All cameras
             </label>
-            <div className="my-1 border-t border-line" />
+            <div style={{ height: 1, background: "var(--line)", margin: "3px 2px" }} />
             {CAMERA_IDS.map((id) => (
-              <label
-                key={id}
-                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 hover:bg-white/5 focus-within:bg-white/5"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedCameras.includes(id)}
-                  onChange={() => toggleCamera(id)}
-                  className="h-4 w-4 shrink-0 accent-teal"
-                />
-                <span className="min-w-0 truncate">{cameraName(names, id)}</span>
+              <label key={id} className="check" title={cameraName(names, id)}>
+                <input type="checkbox" checked={selectedCameras.includes(id)} onChange={() => toggleCamera(id)} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {cameraName(names, id)}
+                </span>
               </label>
             ))}
           </div>
-        </fieldset>
-        <fieldset className="min-w-0 text-sm">
-          <legend className="mb-1 block text-muted">Event</legend>
-          <div className="rounded-lg border border-line bg-bg p-2">
-            {RULE_EVENT_TYPES.map((type) => (
-              <label
-                key={type}
-                className="flex cursor-pointer items-center gap-2 rounded px-1 py-1.5 hover:bg-white/5 focus-within:bg-white/5"
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedEvents.includes(type)}
-                  onChange={() => toggleEventType(type)}
-                  className="h-4 w-4 shrink-0 accent-teal"
-                />
-                <span>{RULE_EVENT_TYPE_LABELS[type]}</span>
-              </label>
-            ))}
-          </div>
-          <p className="mt-1 text-xs text-muted">Motion means unclassified motion. Person and vehicle are DVR classifications.</p>
-        </fieldset>
-      </div>
-      {selectedCameras.length === 0 ? (
-        <p className="text-sm text-warn" role="alert">Select at least one camera.</p>
-      ) : null}
-      {selectedEvents.length === 0 ? (
-        <p className="text-sm text-warn" role="alert">Select at least one event.</p>
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Minimum priority</span>
-          <select
-            value={rule.minimumPriority ?? "none"}
-            onChange={(event) =>
-              set("minimumPriority", event.target.value === "none" ? null : (event.target.value as EventPriority))
-            }
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          >
-            <option value="none">Any priority</option>
-            {EVENT_PRIORITIES.map((priority) => (
-              <option key={priority} value={priority}>{priority}</option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Active from</span>
-          <input
-            type="time"
-            value={rule.scheduleStart ?? ""}
-            onChange={(event) => set("scheduleStart", event.target.value || null)}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">To</span>
-          <input
-            type="time"
-            value={rule.scheduleEnd ?? ""}
-            onChange={(event) => set("scheduleEnd", event.target.value || null)}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          />
-        </label>
-      </div>
-      <p className="text-xs text-muted">
-        Leave both times empty for any time. A window such as 22:00–06:00 spans midnight.
-      </p>
-
-      <fieldset>
-        <legend className="mb-1 text-sm text-muted">Days (none selected means every day)</legend>
-        <div className="flex flex-wrap gap-2">
-          {WEEKDAYS.map((day) => (
-            <button
-              key={day}
-              type="button"
-              aria-pressed={rule.daysOfWeek.includes(day)}
-              onClick={() => toggleDay(day)}
-              className={`h-9 rounded-lg border px-3 text-xs uppercase ${
-                rule.daysOfWeek.includes(day) ? "border-teal text-teal" : "border-line text-muted"
-              }`}
-            >
-              {day}
-            </button>
-          ))}
         </div>
-      </fieldset>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Quiet hours from</span>
-          <input
-            type="time"
-            value={rule.quietHoursStart ?? ""}
-            onChange={(event) => set("quietHoursStart", event.target.value || null)}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">To</span>
-          <input
-            type="time"
-            value={rule.quietHoursEnd ?? ""}
-            onChange={(event) => set("quietHoursEnd", event.target.value || null)}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          />
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">During quiet hours</span>
-          <select
-            value={rule.quietHoursBehavior}
-            onChange={(event) => set("quietHoursBehavior", event.target.value as QuietHoursBehavior)}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          >
-            {QUIET_BEHAVIORS.map((behavior) => (
-              <option key={behavior} value={behavior}>{BEHAVIOR_LABEL[behavior]}</option>
+        <div className="field" role="group" aria-label="Event">
+          <span className="field__label">Event</span>
+          <div className="check-card">
+            {RULE_EVENT_TYPES.map((type) => (
+              <label key={type} className="check">
+                <input type="checkbox" checked={selectedEvents.includes(type)} onChange={() => toggleEventType(type)} />
+                {RULE_EVENT_TYPE_LABELS[type]}
+              </label>
             ))}
-          </select>
-        </label>
-      </div>
+            <p className="field__hint" style={{ padding: "6px 4px 2px" }}>
+              Motion means unclassified motion. Person and vehicle are DVR classifications.
+            </p>
+          </div>
+        </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Cooldown (seconds)</span>
-          <input
-            type="number"
-            min={0}
-            max={MAX_COOLDOWN_SECONDS}
-            step={30}
-            value={rule.cooldownSeconds}
-            onChange={(event) => set("cooldownSeconds", Number(event.target.value) || 0)}
-            className="h-11 w-full rounded-lg border border-line bg-bg px-3"
-          />
-        </label>
-        <label className="flex items-end gap-2 pb-3 text-sm">
-          <input type="checkbox" checked={rule.enabled} onChange={(event) => set("enabled", event.target.checked)} />
-          Enabled
-        </label>
-      </div>
-      <p className="text-xs text-muted">
-        A cooldown of {formatCooldown(rule.cooldownSeconds)} allows about one notification for this rule in that
-        period, however many events arrive.
-      </p>
+        {selectedCameras.length === 0 ? (
+          <p className="field__hint" role="alert" style={{ color: "var(--warn)" }}>
+            Select at least one camera.
+          </p>
+        ) : null}
+        {selectedEvents.length === 0 ? (
+          <p className="field__hint" role="alert" style={{ color: "var(--warn)" }}>
+            Select at least one event.
+          </p>
+        ) : null}
 
-      <div className="flex gap-2">
-        <button type="submit" className="h-11 rounded-lg bg-teal px-4 text-sm font-semibold text-[#08110f]">
-          Save rule
-        </button>
-        <button type="button" onClick={onCancel} className="h-11 rounded-lg border border-line px-4 text-sm">
-          Cancel
-        </button>
+        <div className="form-grid form-grid--3">
+          <label className="field" htmlFor="rule-priority">
+            <span className="field__label">Minimum priority</span>
+            <select
+              id="rule-priority"
+              value={rule.minimumPriority ?? "none"}
+              onChange={(event) =>
+                set("minimumPriority", event.target.value === "none" ? null : (event.target.value as EventPriority))
+              }
+              className="select"
+            >
+              <option value="none">Any priority</option>
+              {EVENT_PRIORITIES.map((priority) => (
+                <option key={priority} value={priority}>
+                  {priority}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field" htmlFor="rule-from">
+            <span className="field__label">Active from</span>
+            <input
+              id="rule-from"
+              type="time"
+              value={rule.scheduleStart ?? ""}
+              onChange={(event) => set("scheduleStart", event.target.value || null)}
+              className="input input--mono"
+            />
+          </label>
+          <label className="field" htmlFor="rule-to">
+            <span className="field__label">To</span>
+            <input
+              id="rule-to"
+              type="time"
+              value={rule.scheduleEnd ?? ""}
+              onChange={(event) => set("scheduleEnd", event.target.value || null)}
+              className="input input--mono"
+            />
+          </label>
+        </div>
+        <p className="field__hint">Leave both times empty for any time. A window such as 22:00–06:00 spans midnight.</p>
+
+        <div className="field">
+          <span className="field__label">Days (none selected means every day)</span>
+          <div className="day-row">
+            {WEEKDAYS.map((day) => (
+              <button
+                key={day}
+                type="button"
+                aria-pressed={rule.daysOfWeek.includes(day)}
+                onClick={() => toggleDay(day)}
+                className="day"
+              >
+                {day.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-grid form-grid--3">
+          <label className="field" htmlFor="quiet-from">
+            <span className="field__label">Quiet hours from</span>
+            <input
+              id="quiet-from"
+              type="time"
+              value={rule.quietHoursStart ?? ""}
+              onChange={(event) => set("quietHoursStart", event.target.value || null)}
+              className="input input--mono"
+            />
+          </label>
+          <label className="field" htmlFor="quiet-to">
+            <span className="field__label">To</span>
+            <input
+              id="quiet-to"
+              type="time"
+              value={rule.quietHoursEnd ?? ""}
+              onChange={(event) => set("quietHoursEnd", event.target.value || null)}
+              className="input input--mono"
+            />
+          </label>
+          <label className="field" htmlFor="quiet-behaviour">
+            <span className="field__label">During quiet hours</span>
+            <select
+              id="quiet-behaviour"
+              value={rule.quietHoursBehavior}
+              onChange={(event) => set("quietHoursBehavior", event.target.value as QuietHoursBehavior)}
+              className="select"
+            >
+              {QUIET_BEHAVIORS.map((behavior) => (
+                <option key={behavior} value={behavior}>
+                  {BEHAVIOR_LABEL[behavior]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="form-grid">
+          <label className="field" htmlFor="rule-cooldown">
+            <span className="field__label">Cooldown (seconds)</span>
+            <input
+              id="rule-cooldown"
+              type="number"
+              min={0}
+              max={MAX_COOLDOWN_SECONDS}
+              step={30}
+              value={rule.cooldownSeconds}
+              onChange={(event) => set("cooldownSeconds", Number(event.target.value) || 0)}
+              className="input input--mono"
+            />
+          </label>
+          <label className="check" style={{ alignSelf: "end", height: 38 }}>
+            <input type="checkbox" checked={rule.enabled} onChange={(event) => set("enabled", event.target.checked)} />
+            Enabled
+          </label>
+        </div>
+        <p className="field__hint">
+          A cooldown of {formatCooldown(rule.cooldownSeconds)} allows about one notification for this rule in that
+          period, however many events arrive.
+        </p>
+
+        <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+          <button type="submit" className="btn btn--primary">
+            Save rule
+          </button>
+          <button type="button" onClick={onCancel} className="btn btn--ghost">
+            Cancel
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -612,56 +722,99 @@ function RuleTester({
   }
 
   return (
-    <section className="mt-6 rounded-xl border border-line bg-card p-4">
-      <h2 className="text-sm font-semibold">Test a rule</h2>
-      <p className="mt-1 text-xs text-muted">
-        Checks which rules would match an event. Nothing is stored and no notification is sent.
-      </p>
-      <form onSubmit={(event) => void run(event)} className="mt-3 grid gap-3 sm:grid-cols-4">
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Camera</span>
-          <select value={cameraId} onChange={(event) => setCameraId(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-bg px-3">
-            {CAMERA_IDS.map((id) => <option key={id} value={id}>{cameraName(names, id)}</option>)}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Event</span>
-          <select value={classification} onChange={(event) => setClassification(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-bg px-3">
-            <option value="person">Person</option>
-            <option value="vehicle">Vehicle</option>
-            <option value="none">Unclassified motion</option>
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="mb-1 block text-muted">Time</span>
-          <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className="h-11 w-full rounded-lg border border-line bg-bg px-3" />
-        </label>
-        <div className="flex items-end">
-          <button type="submit" className="h-11 w-full rounded-lg border border-line px-3 text-sm">Test</button>
+    <section className="card">
+      <div className="card__head">
+        <div className="card__title">
+          <Icon name="zap" className="icon icon-sm" />
+          Test a rule
         </div>
-      </form>
-      {error ? <p className="mt-2 text-sm text-warn" role="alert">{error}</p> : null}
-      {result ? (
-        <div className="mt-3 rounded-lg border border-line bg-bg p-3 text-sm">
-          <p>{result.message}</p>
-          <p className="mt-1 text-xs text-muted">
-            Effective priority {result.priority} · {result.ruleCount} rule(s) configured
-          </p>
-          {result.decisions.length > 0 ? (
-            <ul className="mt-2 flex flex-col gap-1 text-xs">
-              {result.decisions.map((decision) => (
-                <li key={decision.ruleId} className="flex flex-wrap gap-2">
-                  <span className="font-medium">{decision.ruleName}</span>
-                  <span className={decision.notify ? "text-online" : "text-muted"}>
-                    {decision.notify ? "would notify" : "would not notify"}
-                  </span>
-                  {decision.reason ? <span className="text-muted">{decision.reason}</span> : null}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
+        <span className="section__hint">Dry run — nothing is stored</span>
+      </div>
+      <div className="card__body" style={{ display: "grid", gap: 12 }}>
+        <p className="section__hint" style={{ maxWidth: "74ch" }}>
+          Checks which rules would match an event. Nothing is stored and no notification is sent.
+        </p>
+        <form onSubmit={(event) => void run(event)} style={{ display: "grid", gap: 12 }}>
+          <div className="form-grid form-grid--3">
+            <label className="field" htmlFor="test-camera">
+              <span className="field__label">Camera</span>
+              <select
+                id="test-camera"
+                value={cameraId}
+                onChange={(event) => setCameraId(event.target.value)}
+                className="select"
+              >
+                {CAMERA_IDS.map((id) => (
+                  <option key={id} value={id}>
+                    {cameraName(names, id)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field" htmlFor="test-event">
+              <span className="field__label">Event</span>
+              <select
+                id="test-event"
+                value={classification}
+                onChange={(event) => setClassification(event.target.value)}
+                className="select"
+              >
+                <option value="person">Person</option>
+                <option value="vehicle">Vehicle</option>
+                <option value="none">Unclassified motion</option>
+              </select>
+            </label>
+            <label className="field" htmlFor="test-time">
+              <span className="field__label">Time</span>
+              <input
+                id="test-time"
+                type="time"
+                value={time}
+                onChange={(event) => setTime(event.target.value)}
+                className="input input--mono"
+              />
+            </label>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+            <button type="submit" className="btn">
+              Test
+            </button>
+            <span className="section__hint">Uses today&apos;s date, India time</span>
+          </div>
+        </form>
+
+        {error ? (
+          <div className="notice notice--danger" role="alert">
+            <Icon name="alert" />
+            <span>{error}</span>
+          </div>
+        ) : null}
+
+        {result ? (
+          <div className="notice notice--accent">
+            <Icon name="check" />
+            <div>
+              <p>{result.message}</p>
+              <p className="section__hint" style={{ marginTop: 4 }}>
+                Effective priority {result.priority} · {result.ruleCount} rule(s) configured
+              </p>
+              {result.decisions.length > 0 ? (
+                <ul style={{ marginTop: 8, display: "grid", gap: 4 }}>
+                  {result.decisions.map((decision) => (
+                    <li key={decision.ruleId} style={{ fontSize: "var(--fs-12)", display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <strong>{decision.ruleName}</strong>
+                      <span style={{ color: decision.notify ? "var(--online)" : "var(--muted)" }}>
+                        {decision.notify ? "would notify" : "would not notify"}
+                      </span>
+                      {decision.reason ? <span style={{ color: "var(--muted)" }}>{decision.reason}</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import "server-only";
 import { getConfig } from "@/lib/config";
+import { mediamtxAuthHeaders } from "@/server/video/mediamtx-auth";
 import { describePlaybackPath } from "@/server/cameras/channels";
 
 const tails = new Map<string, Promise<unknown>>();
@@ -24,7 +25,7 @@ async function mediamtx(pathName: string, method: "DELETE" | "POST", body?: stri
   return fetch(`${config.mediamtxApiUrl}/v3/config/paths/${method === "DELETE" ? "delete" : "add"}/${pathName}`, {
     method,
     cache: "no-store",
-    headers: body ? { "Content-Type": "application/json" } : undefined,
+    headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...mediamtxAuthHeaders() },
     body,
     signal: AbortSignal.timeout(8000),
   });
@@ -35,6 +36,7 @@ async function pathHasMedia(pathName: string): Promise<boolean> {
   try {
     const response = await fetch(`${config.mediamtxApiUrl}/v3/paths/get/${pathName}`, {
       cache: "no-store",
+      headers: mediamtxAuthHeaders(),
       signal: AbortSignal.timeout(2000),
     });
     if (!response.ok) return false;

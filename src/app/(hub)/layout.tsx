@@ -10,5 +10,5 @@ export default async function HubLayout({ children }: { children: React.ReactNod
   if (!config.appConfigured) redirect("/login");
   const session = await currentSession();
   if (!session) redirect("/login");
-  return <AppShell>{children}</AppShell>;
+  return <AppShell role={session.role}>{children}</AppShell>;
 }
