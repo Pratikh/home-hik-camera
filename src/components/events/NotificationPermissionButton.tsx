@@ -9,6 +9,7 @@ import {
   SERVER_SNAPSHOT,
   type NotificationPermission,
 } from "@/lib/notification-permission";
+import { Icon } from "@/components/ui/Icon";
 
 /** The browser permission is external, mutable state. */
 function subscribe(onChange: () => void): () => void {
@@ -29,6 +30,10 @@ function subscribe(onChange: () => void): () => void {
  * The server snapshot is a fixed constant, so the HTML rendered on the server
  * matches the client's hydration render. Reading `Notification.permission`
  * during the initial render instead would cause a hydration mismatch.
+ *
+ * The app bar renders this control; the accessible name stays "Enable
+ * notifications" even when the label is hidden on narrow viewports, so the
+ * role/name contract is identical at every breakpoint.
  */
 export function NotificationPermissionButton() {
   const permission: NotificationPermission = useSyncExternalStore(
@@ -48,25 +53,48 @@ export function NotificationPermissionButton() {
   const view = permissionView(permission);
 
   if (view === "unsupported") {
-    return <span className="text-xs text-muted">{Messages.notificationsUnsupported}</span>;
+    return <span className="section__hint">{Messages.notificationsUnsupported}</span>;
   }
 
   if (view === "on") {
-    return <span className="text-xs text-online">Notifications on</span>;
+    return (
+      <span className="pill" title={Messages.notificationsGranted}>
+        <span className="dot dot--online" />
+        Notifications on
+      </span>
+    );
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div style={{ position: "relative", display: "inline-flex" }}>
       <button
         type="button"
         onClick={() => void request()}
         disabled={!canRequestPermission(permission)}
-        className="h-9 rounded-lg border border-line px-3 text-xs text-muted hover:bg-white/5 hover:text-ink"
+        className="btn btn--sm"
+        aria-label={Messages.enableNotifications}
         title="Allow this browser to show CCTV event notifications"
       >
-        {Messages.enableNotifications}
+        <Icon name="bell" className="icon icon-sm" />
+        <span>{Messages.enableNotifications}</span>
       </button>
-      {message ? <span className="text-[11px] text-muted" role="status">{message}</span> : null}
+      {message ? (
+        <span
+          role="status"
+          className="notice notice--accent"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 8px)",
+            right: 0,
+            zIndex: 60,
+            whiteSpace: "nowrap",
+            padding: "8px 10px",
+            fontSize: "var(--fs-12)",
+          }}
+        >
+          {message}
+        </span>
+      ) : null}
     </div>
   );
 }

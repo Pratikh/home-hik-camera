@@ -1,0 +1,133 @@
+[
+  {
+    "check": "login",
+    "status": 200,
+    "secureCookie": false,
+    "httpOnly": true,
+    "sameSite": true,
+    "maxAge": "604800"
+  },
+  {
+    "check": "route",
+    "route": "/",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Dashboard"
+  },
+  {
+    "check": "route",
+    "route": "/cameras",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Camera setup"
+  },
+  {
+    "check": "route",
+    "route": "/events",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Events"
+  },
+  {
+    "check": "route",
+    "route": "/playback",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "CCTV Playback"
+  },
+  {
+    "check": "route",
+    "route": "/faces",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Detected Faces"
+  },
+  {
+    "check": "route",
+    "route": "/notifications",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Notification history"
+  },
+  {
+    "check": "route",
+    "route": "/device",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Device"
+  },
+  {
+    "check": "route",
+    "route": "/account",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Account"
+  },
+  {
+    "check": "route",
+    "route": "/settings",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Settings"
+  },
+  {
+    "check": "route",
+    "route": "/settings/users",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Users"
+  },
+  {
+    "check": "route",
+    "route": "/settings/notifications",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Notification rules"
+  },
+  {
+    "check": "route",
+    "route": "/settings/detection",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Object detection"
+  },
+  {
+    "check": "route",
+    "route": "/settings/audit-log",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "Audit log"
+  },
+  {
+    "check": "route",
+    "route": "/settings/system",
+    "documentLoads": 1,
+    "horizontalOverflow": 0,
+    "h1": "System"
+  },
+  {
+    "check": "sustained-idle-30s",
+    "documentLoads": 0,
+    "url": "http://localhost:3000/",
+    "title": "Home CCTV",
+    "visible": "visible"
+  },
+  {
+    "check": "logout",
+    "pathname": "/login",
+    "sessionStatus": 401
+  },
+  {
+    "check": "tampered-cookie",
+    "finalPath": "/login",
+    "documentLoads": 2
+  }
+]
+
+FAILURES: [
+  {
+    "check": "tampered-cookie",
+    "finalPath": "/login",
+    "documentLoads": 2
+  }
+]

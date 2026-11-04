@@ -1,0 +1,11 @@
+import { chromium } from "@playwright/test";
+import { readFileSync } from "node:fs";
+const env=Object.fromEntries(readFileSync(".env","utf8").split(/\r?\n/).filter(l=>l.includes("=")&&!l.trim().startsWith("#")).map(l=>{const i=l.indexOf("=");let v=l.slice(i+1).trim();if((v.startsWith('"')&&v.endsWith('"'))||(v.startsWith("'")&&v.endsWith("'")))v=v.slice(1,-1);return [l.slice(0,i).trim(),v]}));
+const b=await chromium.launch();
+const ctx=await b.newContext({baseURL:"http://localhost:3000",viewport:{width:390,height:844}});
+await ctx.request.post("/api/auth/login",{data:{username:env.APP_USERNAME,password:env.APP_PASSWORD,next:"/"}});
+const p=await ctx.newPage();
+await p.goto("/events",{waitUntil:"domcontentloaded"}); await p.waitForTimeout(5000);
+await p.locator("li button").first().click(); await p.waitForTimeout(900);
+await p.screenshot({path:"design/impl-check/events-sheet-mobile-fixed.png"});
+await b.close();

@@ -929,6 +929,17 @@ export class EventStore {
     return Number(result.changes) > 0;
   }
 
+  /**
+   * Mark every unread event in a time window read. Used by the explicit
+   * "Mark all read" action; the window is one calendar day in India time.
+   */
+  markAllRead(start: string, end: string, readAt: string): number {
+    const result = this.db
+      .prepare("UPDATE events SET read_at = ? WHERE read_at IS NULL AND timestamp >= ? AND timestamp <= ?")
+      .run(readAt, start, end);
+    return Number(result.changes);
+  }
+
   setSnapshotPath(id: string, relativePath: string): void {
     this.db.prepare("UPDATE events SET snapshot_path = ? WHERE id = ?").run(relativePath, id);
   }

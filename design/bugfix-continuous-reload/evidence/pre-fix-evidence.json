@@ -1,0 +1,42 @@
+{
+  "capturedAt": "2026-11-04T16:40+05:30",
+  "sequence": [
+    "clean .next",
+    "next dev",
+    "visit all 15 routes",
+    "stop dev",
+    "next build",
+    "next dev",
+    "observe"
+  ],
+  "before": {
+    "documentRequests": 138,
+    "navigations": 274,
+    "seconds": 12,
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "serverLogCompiledLines": 125,
+    "serverLogGetRootLines": 138,
+    "hmrMessagesObserved": [
+      "{\"type\":\"building\"}",
+      "{\"type\":\"reloadPage\",\"data\":\"HMR hash mismatch\"}",
+      "{\"type\":\"turbopack-message\", ... \"type\":\"restart\"}"
+    ],
+    "reloadInitiatorStack": [
+      "restart (turbopack client)",
+      "handleApply",
+      "triggerUpdate",
+      "handleSocketMessage (turbopack-hmr-client)"
+    ]
+  },
+  "afterClearingOnlyNextDev": {
+    "documentRequests": 1,
+    "navigations": 2,
+    "seconds": 10,
+    "consoleErrors": 0,
+    "pageErrors": 0,
+    "serverLogCompiledLines": 0
+  },
+  "rootCause": "next build and next dev share .next. A build run after dev compiled routes leaves .next/dev's Turbopack incremental state inconsistent; the next dev start serves documents whose embedded HMR version/chunks no longer match the server, so Next sends reloadPage 'HMR hash mismatch', each reload recompiles and bumps the version, and the page reloads forever.",
+  "notes": "Deleting only .next/dev (keeping production .next) resolves the loop, proving the stale dev cache is the corrupt artifact, not the CSP, auth, cookies or proxy."
+}

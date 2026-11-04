@@ -138,3 +138,41 @@ export function parseKolkataIso(value: string): Date | null {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
+
+/** "04 Nov 2026" in India time. */
+export function formatKolkataDate(date: Date): string {
+  const parts = kolkataParts(date);
+  const month = MONTHS[Number(parts.month) - 1] ?? parts.month;
+  return `${parts.day} ${month} ${parts.year}`;
+}
+
+/** "04 Nov 2026, 17:41:30" from an ISO timestamp (or the raw value when invalid). */
+export function formatKolkataShortDateTimeFromIso(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return formatKolkataDateTime(date);
+}
+
+/** Compact human duration, e.g. "13.9 days", "3 hours", "42 minutes". */
+export function formatDurationSeconds(seconds: number | null | undefined): string | null {
+  if (seconds === null || seconds === undefined || !Number.isFinite(seconds) || seconds < 0) return null;
+  if (seconds < 60) return `${Math.round(seconds)} seconds`;
+  const minutes = seconds / 60;
+  if (minutes < 60) return `${Math.round(minutes)} minute${Math.round(minutes) === 1 ? "" : "s"}`;
+  const hours = minutes / 60;
+  if (hours < 36) return `${Math.round(hours)} hour${Math.round(hours) === 1 ? "" : "s"}`;
+  const days = hours / 24;
+  return `${days.toFixed(1)} days`;
+}
+
+/**
+ * Replace raw "N seconds" counts inside server-provided sentences with a
+ * human-readable duration ("13.9 days"). The server keeps its exact warning
+ * strings (contract-tested); only the rendered copy is humanised.
+ */
+export function humanizeSecondsInText(text: string): string {
+  return text.replace(/\b(\d{2,})\s+seconds?\b/g, (match, raw: string) => {
+    const human = formatDurationSeconds(Number(raw));
+    return human ?? match;
+  });
+}

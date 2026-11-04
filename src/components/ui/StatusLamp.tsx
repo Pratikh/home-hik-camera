@@ -13,6 +13,20 @@ function compactLabel(label: string): string {
   return COMPACT_LABEL[label] ?? label;
 }
 
+const DOT_CLASS = {
+  online: "dot--online",
+  offline: "dot--offline",
+  warn: "dot--warn",
+  idle: "dot--idle",
+} as const;
+
+/**
+ * Status indicator: a coloured dot, a visible word, and the full label exposed
+ * to assistive technology. Status is never communicated by colour alone.
+ *
+ * The API is unchanged from the previous implementation so existing call sites
+ * keep working; only the presentation moved to the Sentinel design system.
+ */
 export function StatusLamp({
   tone,
   label,
@@ -20,20 +34,16 @@ export function StatusLamp({
 }: {
   tone: "online" | "offline" | "warn" | "idle";
   label: string;
-  /** Render a shorter label (with the full text kept for screen readers). */
+  /** Render a shorter label on small screens (with the full text kept for screen readers). */
   compact?: boolean;
 }) {
-  const color =
-    tone === "online" ? "bg-online" : tone === "offline" ? "bg-offline" : tone === "warn" ? "bg-warn" : "bg-muted";
   return (
-    <span className="inline-flex min-w-0 items-center gap-2 text-sm" title={label}>
-      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${color}`} aria-hidden="true" />
-      {/*
-        The accessible name is always the full label, so the abbreviation never
-        hides the real DVR state from assistive technology.
-      */}
+    <span className="status" title={label}>
+      <span className={`dot ${DOT_CLASS[tone]}`} aria-hidden="true" />
+      {/* The accessible name is always the full label, so the abbreviation never
+          hides the real DVR state from assistive technology. */}
       <span className="sr-only">{label}</span>
-      <span aria-hidden="true" className="truncate whitespace-nowrap">
+      <span aria-hidden="true" className="status__text">
         {compact ? (
           <>
             <span className="md:hidden">{compactLabel(label)}</span>

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+
+<style>
+/* Page-level responsive fixes for the settings screens (ds.css is shared and untouched). */
+@media (max-width: 720px) {
+  .setting-row { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
+  .setting-row__control { flex: 1 1 100%; width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .setting-row__control .input { flex: 0 1 120px; }
+  .card__head, .card__foot { flex-wrap: wrap; }
+  .settings-nav__item { white-space: nowrap; }
+}
+</style>
+<style>
+/* Mobile table/list polish (settings pages only). */
+@media (max-width: 720px) {
+  .pagination { flex-wrap: wrap; row-gap: 8px; }
+  .pagination__count { flex: 1 1 100%; }
+}
+
+</style>
+</head>
+<body data-nav="settings" data-crumb="Administration">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Administration</div>
+      <h1>Settings</h1>
+      <p class="page-head__sub">Read-only view of the server environment. Change values in the .env file, then restart the hub.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="pill"><span class="dot dot--online"></span>All checks passing</span>
+      <a class="btn" href="settings-system.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>System health</a>
+    </div>
+  </div>
+
+  <div class="settings-shell">
+    <nav class="settings-nav" aria-label="Settings">
+      <div class="settings-nav__label">Settings</div>
+      <a class="settings-nav__item" href="settings.html" aria-current="page"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-sliders"/></svg>Overview</a>
+      <a class="settings-nav__item" href="settings-users.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-users"/></svg>Users</a>
+      <a class="settings-nav__item" href="notification-rules.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-bell"/></svg>Notification rules</a>
+      <a class="settings-nav__item" href="settings-detection.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-scan"/></svg>Object detection</a>
+      <a class="settings-nav__item" href="settings-audit.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"/></svg>Audit log</a>
+      <a class="settings-nav__item" href="settings-system.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>System</a>
+      <a class="settings-nav__item" href="dashboard.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronLeft"/></svg>Back to dashboard</a>
+    </nav>
+
+    <div class="settings-body">
+      <div class="health-grid" style="display:flex;flex-wrap:wrap;gap:10px">
+        <div class="health-card" style="flex:1 1 30%;min-width:220px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-database"/></svg>Backend<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">Connected</span> · API answered in 12 ms</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:220px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-device"/></svg>DVR<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">Connected</span> · 192.168.1.200:80</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:220px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-wifi"/></svg>Video gateway<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">Online</span> · WebRTC via MediaMTX</div>
+        </div>
+      </div>
+
+      <div class="notice notice--accent">
+        <svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>
+        <div><strong>Read-only.</strong> These values come from the server's .env file at boot and are never written back by the hub. Change the file, then restart the hub. The DVR password is held server-side and is only ever shown masked.</div>
+      </div>
+
+      <section class="card">
+        <div class="card__head">
+          <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-settings"/></svg>Environment</h2>
+          <span class="chip chip--mono">.env</span>
+        </div>
+        <div class="card__body">
+          <dl class="kv-grid">
+            <div class="kv"><dt>DVR host</dt><dd class="mono">192.168.1.200</dd></div>
+            <div class="kv"><dt>HTTP port</dt><dd class="mono">80</dd></div>
+            <div class="kv"><dt>RTSP port</dt><dd class="mono">554</dd></div>
+            <div class="kv"><dt>Username</dt><dd class="mono">admin</dd></div>
+            <div class="kv"><dt>Password</dt><dd class="mono" aria-label="Password hidden">********</dd></div>
+            <div class="kv"><dt>WebRTC host</dt><dd class="mono">192.168.1.24</dd></div>
+            <div class="kv" style="grid-column:1/-1"><dt>Video placeholder</dt><dd>Off <span class="section__hint">— development-only fallback for the video gateway, disabled on this hub.</span></dd></div>
+          </dl>
+        </div>
+        <div class="card__foot" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span class="section__hint">DVR credentials stay on the hub; the browser never receives them.</span>
+          <a class="btn btn--sm btn--ghost" href="settings-system.html">Open diagnostics<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </section>
+
+      <div>
+        <div class="section__head">
+          <div class="section__title">Manage</div>
+          <span class="section__hint">5 settings sections · 3 accounts</span>
+        </div>
+        <div class="link-cards">
+          <a class="link-card" href="settings-users.html">
+            <span class="link-card__icon"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-users"/></svg></span>
+            <span style="display:grid;gap:1px;min-width:0">
+              <span class="link-card__title">Users</span>
+              <span class="link-card__desc">Accounts, roles and sessions</span>
+            </span>
+          </a>
+          <a class="link-card" href="notification-rules.html">
+            <span class="link-card__icon"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-bell"/></svg></span>
+            <span style="display:grid;gap:1px;min-width:0">
+              <span class="link-card__title">Notification rules</span>
+              <span class="link-card__desc">Conditions, quiet hours and cooldowns</span>
+            </span>
+          </a>
+          <a class="link-card" href="settings-detection.html">
+            <span class="link-card__icon"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-scan"/></svg></span>
+            <span style="display:grid;gap:1px;min-width:0">
+              <span class="link-card__title">Object detection</span>
+              <span class="link-card__desc">Worker, thresholds and per-camera overrides</span>
+            </span>
+          </a>
+          <a class="link-card" href="settings-audit.html">
+            <span class="link-card__icon"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"/></svg></span>
+            <span style="display:grid;gap:1px;min-width:0">
+              <span class="link-card__title">Audit log</span>
+              <span class="link-card__desc">Sign-ins and account changes</span>
+            </span>
+          </a>
+          <a class="link-card" href="settings-system.html">
+            <span class="link-card__icon"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg></span>
+            <span style="display:grid;gap:1px;min-width:0">
+              <span class="link-card__title">System</span>
+              <span class="link-card__desc">Health, MediaMTX paths and active sessions</span>
+            </span>
+          </a>
+          <a class="link-card" href="account.html">
+            <span class="link-card__icon"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-user"/></svg></span>
+            <span style="display:grid;gap:1px;min-width:0">
+              <span class="link-card__title">Account</span>
+              <span class="link-card__desc">Signed in as home · password and sessions</span>
+            </span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

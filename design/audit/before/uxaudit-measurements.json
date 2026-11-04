@@ -1,0 +1,2701 @@
+{
+  "pages": {
+    "dashboard": {
+      "title": "Home CCTV",
+      "h1": [
+        "Dashboard"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 5
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Statistics",
+          "w": 55,
+          "h": 20
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "All events",
+          "w": 62,
+          "h": 20
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Person detectedHighCamera 37 minutes ago",
+          "w": 1298,
+          "h": 30
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Person detectedHighCamera 43 hours ago",
+          "w": 1298,
+          "h": 30
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Person detectedHighCamera 43 hours ago",
+          "w": 1298,
+          "h": 30
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Person detectedHighCamera 43 hours ago",
+          "w": 1298,
+          "h": 30
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Person detectedHighCamera 44 hours ago",
+          "w": 1298,
+          "h": 30
+        }
+      ],
+      "smallTargetCount": 18,
+      "interactiveCount": 36,
+      "fontSizes": {
+        "14px": 42,
+        "12px": 21,
+        "16px": 1,
+        "20px": 1,
+        "11px": 17
+      },
+      "elementsWithInlineStyle": 4,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "events": {
+      "title": "Home CCTV",
+      "h1": [
+        "Events"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 2
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "All",
+          "w": 43,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Person",
+          "w": 69,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Vehicle",
+          "w": 72,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Motion",
+          "w": 72,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Important",
+          "w": 89,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Previous",
+          "w": 79,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Next",
+          "w": 56,
+          "h": 40
+        }
+      ],
+      "smallTargetCount": 18,
+      "interactiveCount": 59,
+      "fontSizes": {
+        "14px": 70,
+        "12px": 45,
+        "16px": 2,
+        "20px": 1,
+        "11px": 48
+      },
+      "elementsWithInlineStyle": 7,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "cameras": {
+      "title": "Camera setup · Home CCTV",
+      "h1": [
+        "Camera setup"
+      ],
+      "headings": {
+        "H1": 1
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        }
+      ],
+      "smallTargetCount": 11,
+      "interactiveCount": 33,
+      "fontSizes": {
+        "14px": 50,
+        "12px": 24,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 8,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "faces": {
+      "title": "Detected Faces · Home CCTV",
+      "h1": [
+        "Detected Faces"
+      ],
+      "headings": {
+        "H1": 1
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "View event",
+          "w": 298,
+          "h": 16
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Previous",
+          "w": 79,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Next",
+          "w": 56,
+          "h": 40
+        }
+      ],
+      "smallTargetCount": 37,
+      "interactiveCount": 52,
+      "fontSizes": {
+        "14px": 48,
+        "12px": 101,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 5,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "playback": {
+      "title": "Home CCTV",
+      "h1": [
+        "CCTV Playback"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 1
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "input",
+          "type": "range",
+          "name": "Volume",
+          "w": 952,
+          "h": 16
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "24h",
+          "w": 43,
+          "h": 32
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "6h",
+          "w": 36,
+          "h": 32
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "1h",
+          "w": 36,
+          "h": 32
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Person detected, 04:45:02, High priority, 2 even",
+          "w": 30,
+          "h": 30
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Person detected, 07:54:28, High priority, 5 even",
+          "w": 30,
+          "h": 30
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Person detected, 08:19:14, High priority, 35 eve",
+          "w": 30,
+          "h": 30
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Person detected, 08:37:02, High priority, 5 even",
+          "w": 30,
+          "h": 30
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Person detected, 09:11:56, High priority, 10 eve",
+          "w": 30,
+          "h": 30
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Person detected, 09:31:33, High priority, 23 eve",
+          "w": 30,
+          "h": 30
+        }
+      ],
+      "smallTargetCount": 21,
+      "interactiveCount": 42,
+      "fontSizes": {
+        "14px": 27,
+        "12px": 10,
+        "16px": 3,
+        "10px": 7,
+        "9px": 6,
+        "11px": 10
+      },
+      "elementsWithInlineStyle": 28,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 1,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "notifications": {
+      "title": "Home CCTV",
+      "h1": [
+        "Notification history"
+      ],
+      "headings": {
+        "H1": 1
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Open event",
+          "w": 65,
+          "h": 16
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Previous",
+          "w": 79,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Next",
+          "w": 56,
+          "h": 40
+        }
+      ],
+      "smallTargetCount": 38,
+      "interactiveCount": 53,
+      "fontSizes": {
+        "14px": 51,
+        "12px": 105,
+        "16px": 1,
+        "20px": 1,
+        "11px": 83
+      },
+      "elementsWithInlineStyle": 5,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "device": {
+      "title": "Device · Home CCTV",
+      "h1": [
+        "Device"
+      ],
+      "headings": {
+        "H1": 1
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        }
+      ],
+      "smallTargetCount": 11,
+      "interactiveCount": 21,
+      "fontSizes": {
+        "14px": 29,
+        "12px": 15,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 4,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "account": {
+      "title": "Home CCTV",
+      "h1": [
+        "Account"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 2
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Sign out other sessions",
+          "w": 152,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Sign out everywhere",
+          "w": 138,
+          "h": 40
+        }
+      ],
+      "smallTargetCount": 13,
+      "interactiveCount": 27,
+      "fontSizes": {
+        "14px": 21,
+        "12px": 65,
+        "16px": 1,
+        "20px": 1,
+        "11px": 25
+      },
+      "elementsWithInlineStyle": 7,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "settings": {
+      "title": "Settings · Home CCTV",
+      "h1": [
+        "Settings"
+      ],
+      "headings": {
+        "H1": 1
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Users",
+          "w": 35,
+          "h": 19
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notification rules",
+          "w": 108,
+          "h": 19
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Object detection",
+          "w": 108,
+          "h": 19
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Audit log",
+          "w": 59,
+          "h": 19
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "System",
+          "w": 46,
+          "h": 19
+        }
+      ],
+      "smallTargetCount": 16,
+      "interactiveCount": 26,
+      "fontSizes": {
+        "14px": 38,
+        "12px": 11,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 4,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "settings-users": {
+      "title": "Home CCTV",
+      "h1": [
+        "Users"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 1
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Disable",
+          "w": 74,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Switch role",
+          "w": 96,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Reset password",
+          "w": 126,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Sign out sessions",
+          "w": 136,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Delete",
+          "w": 69,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Disable",
+          "w": 74,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Switch role",
+          "w": 96,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Reset password",
+          "w": 126,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Sign out sessions",
+          "w": 136,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Delete",
+          "w": 69,
+          "h": 40
+        }
+      ],
+      "smallTargetCount": 21,
+      "interactiveCount": 35,
+      "fontSizes": {
+        "14px": 34,
+        "12px": 4,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 6,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "settings-notifications": {
+      "title": "Home CCTV",
+      "h1": [
+        "Notification rules"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 3
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Disable",
+          "w": 67,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Edit",
+          "w": 48,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Delete",
+          "w": 63,
+          "h": 36
+        }
+      ],
+      "smallTargetCount": 14,
+      "interactiveCount": 32,
+      "fontSizes": {
+        "14px": 27,
+        "12px": 14,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 5,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "settings-detection": {
+      "title": "Object detection · Home CCTV",
+      "h1": [
+        "Object detection"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 7
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "range",
+          "name": "Global person confidence threshold",
+          "w": 620,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "number",
+          "name": "Global person confidence threshold percentage",
+          "w": 80,
+          "h": 40
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "range",
+          "name": "Global vehicle confidence threshold",
+          "w": 620,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "number",
+          "name": "Global vehicle confidence threshold percentage",
+          "w": 80,
+          "h": 40
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 16,
+          "h": 16
+        },
+        {
+          "tag": "select",
+          "type": "",
+          "name": "0.5 FPS1 FPS2 FPS3 FPS5 FPS",
+          "w": 237,
+          "h": 40
+        },
+        {
+          "tag": "select",
+          "type": "",
+          "name": "0.5 FPS1 FPS2 FPS3 FPS5 FPS",
+          "w": 237,
+          "h": 40
+        },
+        {
+          "tag": "select",
+          "type": "",
+          "name": "3 FPS5 FPS",
+          "w": 237,
+          "h": 40
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "",
+          "w": 20,
+          "h": 20
+        },
+        {
+          "tag": "input",
+          "type": "number",
+          "name": "",
+          "w": 96,
+          "h": 40
+        },
+        {
+          "tag": "input",
+          "type": "number",
+          "name": "",
+          "w": 96,
+          "h": 40
+        },
+        {
+          "tag": "input",
+          "type": "number",
+          "name": "",
+          "w": 96,
+          "h": 40
+        },
+        {
+          "tag": "input",
+          "type": "number",
+          "name": "",
+          "w": 96,
+          "h": 40
+        },
+        {
+          "tag": "input",
+          "type": "number",
+          "name": "",
+          "w": 96,
+          "h": 40
+        },
+        {
+          "tag": "select",
+          "type": "",
+          "name": "AI onlyDVR onlyAI + DVR",
+          "w": 734,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Run detection test",
+          "w": 142,
+          "h": 40
+        }
+      ],
+      "smallTargetCount": 49,
+      "interactiveCount": 60,
+      "fontSizes": {
+        "14px": 58,
+        "12px": 36,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 37,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "settings-audit": {
+      "title": "Home CCTV",
+      "h1": [
+        "Audit log"
+      ],
+      "headings": {
+        "H1": 1
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Previous",
+          "w": 79,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Next",
+          "w": 56,
+          "h": 40
+        }
+      ],
+      "smallTargetCount": 13,
+      "interactiveCount": 27,
+      "fontSizes": {
+        "14px": 69,
+        "12px": 30,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 7,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "settings-system": {
+      "title": "Home CCTV",
+      "h1": [
+        "System"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 4
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        }
+      ],
+      "smallTargetCount": 11,
+      "interactiveCount": 21,
+      "fontSizes": {
+        "14px": 48,
+        "12px": 4,
+        "16px": 1,
+        "20px": 1,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 4,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 2,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    },
+    "event-stats": {
+      "title": "Event statistics · Home CCTV",
+      "h1": [
+        "Event statistics"
+      ],
+      "headings": {
+        "H1": 1,
+        "H2": 2
+      },
+      "smallTargets": [
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Dashboard",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Camera setup",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Playback",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Events",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Faces",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Notifications",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Device",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Settings",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "a",
+          "type": "",
+          "name": "Account",
+          "w": 195,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Log out",
+          "w": 195,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Enable notifications",
+          "w": 133,
+          "h": 36
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Today",
+          "w": 64,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Yesterday",
+          "w": 88,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Last 7 days",
+          "w": 96,
+          "h": 40
+        },
+        {
+          "tag": "button",
+          "type": "button",
+          "name": "Last 30 days",
+          "w": 104,
+          "h": 40
+        }
+      ],
+      "smallTargetCount": 15,
+      "interactiveCount": 25,
+      "fontSizes": {
+        "14px": 30,
+        "12px": 11,
+        "16px": 1,
+        "20px": 7,
+        "11px": 8
+      },
+      "elementsWithInlineStyle": 8,
+      "imagesWithoutAlt": 0,
+      "unlabeledInputs": 0,
+      "liveRegions": 0,
+      "bodyScrollHeight": 1000,
+      "viewportHeight": 1000
+    }
+  },
+  "mobile": {
+    "dashboard": {
+      "title": "Home CCTV",
+      "interactive": 36,
+      "smallTargets": 18,
+      "under24": 2,
+      "navHeight": 0,
+      "navItem": "0x0",
+      "navItemFont": "14px",
+      "horizontalOverflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    },
+    "events": {
+      "title": "Home CCTV",
+      "interactive": 59,
+      "smallTargets": 18,
+      "under24": 0,
+      "navHeight": 0,
+      "navItem": "0x0",
+      "navItemFont": "14px",
+      "horizontalOverflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    },
+    "settings-detection": {
+      "title": "Object detection · Home CCTV",
+      "interactive": 60,
+      "smallTargets": 49,
+      "under24": 26,
+      "navHeight": 0,
+      "navItem": "0x0",
+      "navItemFont": "14px",
+      "horizontalOverflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    },
+    "settings-notifications": {
+      "title": "Home CCTV",
+      "interactive": 32,
+      "smallTargets": 14,
+      "under24": 0,
+      "navHeight": 0,
+      "navItem": "0x0",
+      "navItemFont": "14px",
+      "horizontalOverflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    },
+    "playback": {
+      "title": "Home CCTV",
+      "interactive": 39,
+      "smallTargets": 18,
+      "under24": 1,
+      "navHeight": 0,
+      "navItem": "0x0",
+      "navItemFont": "14px",
+      "horizontalOverflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    },
+    "settings-users": {
+      "title": "Home CCTV",
+      "interactive": 35,
+      "smallTargets": 21,
+      "under24": 0,
+      "navHeight": 0,
+      "navItem": "0x0",
+      "navItemFont": "14px",
+      "horizontalOverflow": false,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    }
+  },
+  "consoleErrors": [],
+  "eventCount": 0,
+  "focusProbe": {
+    "tag": "A",
+    "text": "Faces",
+    "outline": "solid 2px rgb(62, 224, 199)",
+    "box": "195x36"
+  },
+  "headerSamples": [
+    "Home CCTV Connected Connected 01:52:42 PM Enable notifications",
+    "Home CCTV Connected Connected 01:52:44 PM Enable notifications",
+    "Home CCTV Connected Connected 01:52:47 PM Enable notifications",
+    "Home CCTV Connected Connected 01:52:49 PM Enable notifications",
+    "Home CCTV Connected Connected 01:52:52 PM Enable notifications"
+  ],
+  "saveBarGeometryMobile": null,
+  "saveBarGeometryDesktop": {
+    "bar": {
+      "top": 931,
+      "bottom": 1000,
+      "left": 0,
+      "right": 1600
+    },
+    "logout": {
+      "top": 948,
+      "bottom": 988,
+      "left": 12,
+      "right": 207
+    },
+    "overlap": true,
+    "barLeft": 0,
+    "sidebarWidth": 220
+  },
+  "unsavedChanges": {
+    "before": false,
+    "after": true,
+    "reloaded": false,
+    "lost": true
+  },
+  "login": {
+    "h1": [
+      "Home CCTV"
+    ],
+    "inputs": [
+      {
+        "name": "username",
+        "type": null,
+        "height": 38,
+        "ariaLabel": null,
+        "hasLabel": true,
+        "autocomplete": "username",
+        "autofocus": false
+      },
+      {
+        "name": "password",
+        "type": "password",
+        "height": 38,
+        "ariaLabel": null,
+        "hasLabel": true,
+        "autocomplete": "current-password",
+        "autofocus": false
+      },
+      {
+        "name": "next",
+        "type": "hidden",
+        "height": 0,
+        "ariaLabel": null,
+        "hasLabel": false,
+        "autocomplete": null,
+        "autofocus": false
+      }
+    ],
+    "buttonHeight": 36,
+    "focusedOnLoad": "BODY"
+  },
+  "inputStyle": {
+    "border": "1px solid rgba(232, 237, 245, 0.1)",
+    "background": "rgb(8, 11, 16)",
+    "height": 44,
+    "fontSize": "16px"
+  }
+}

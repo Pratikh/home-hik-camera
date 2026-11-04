@@ -1,0 +1,722 @@
+[
+  {
+    "size": "desktop",
+    "route": "dashboard",
+    "h1": [
+      "Dashboard"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "cameras",
+    "h1": [
+      "Camera setup"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "events",
+    "h1": [
+      "Events"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "events-stats",
+    "h1": [
+      "Event statistics"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "faces",
+    "h1": [
+      "Detected Faces"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 24,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "playback",
+    "h1": [
+      "CCTV Playback"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 1,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "notifications",
+    "h1": [
+      "Notification history"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 25,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "device",
+    "h1": [
+      "Device"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "account",
+    "h1": [
+      "Account"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "settings",
+    "h1": [
+      "Settings"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "settings-users",
+    "h1": [
+      "Users"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "settings-notifications",
+    "h1": [
+      "Notification rules"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 1,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "settings-detection",
+    "h1": [
+      "Object detection"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 26,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "settings-audit",
+    "h1": [
+      "Audit log"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "desktop",
+    "route": "settings-system",
+    "h1": [
+      "System"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1080,
+    "viewportHeight": 1080,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "dashboard",
+    "h1": [
+      "Dashboard"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "cameras",
+    "h1": [
+      "Camera setup"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 947,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "events",
+    "h1": [
+      "Events"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "events-stats",
+    "h1": [
+      "Event statistics"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "faces",
+    "h1": [
+      "Detected Faces"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 24,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "playback",
+    "h1": [
+      "CCTV Playback"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 1,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "notifications",
+    "h1": [
+      "Notification history"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 25,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "device",
+    "h1": [
+      "Device"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "account",
+    "h1": [
+      "Account"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "settings",
+    "h1": [
+      "Settings"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "settings-users",
+    "h1": [
+      "Users"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "settings-notifications",
+    "h1": [
+      "Notification rules"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 1,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "settings-detection",
+    "h1": [
+      "Object detection"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 26,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "settings-audit",
+    "h1": [
+      "Audit log"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "laptop",
+    "route": "settings-system",
+    "h1": [
+      "System"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 900,
+    "viewportHeight": 900,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "dashboard",
+    "h1": [
+      "Dashboard"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "cameras",
+    "h1": [
+      "Camera setup"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "events",
+    "h1": [
+      "Events"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "events-stats",
+    "h1": [
+      "Event statistics"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "faces",
+    "h1": [
+      "Detected Faces"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 24,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "playback",
+    "h1": [
+      "CCTV Playback"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 1,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "notifications",
+    "h1": [
+      "Notification history"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 25,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "device",
+    "h1": [
+      "Device"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "account",
+    "h1": [
+      "Account"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "settings",
+    "h1": [
+      "Settings"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "settings-users",
+    "h1": [
+      "Users"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "settings-notifications",
+    "h1": [
+      "Notification rules"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 1,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "settings-detection",
+    "h1": [
+      "Object detection"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 26,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "settings-audit",
+    "h1": [
+      "Audit log"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "tablet",
+    "route": "settings-system",
+    "h1": [
+      "System"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1112,
+    "viewportHeight": 1112,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "dashboard",
+    "h1": [
+      "Dashboard"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 2865,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "cameras",
+    "h1": [
+      "Camera setup"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 3058,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "events",
+    "h1": [
+      "Events"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1987,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "events-stats",
+    "h1": [
+      "Event statistics"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1057,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "faces",
+    "h1": [
+      "Detected Faces"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 4748,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 24,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "playback",
+    "h1": [
+      "CCTV Playback"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1273,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 1,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "notifications",
+    "h1": [
+      "Notification history"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 4518,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 25,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "device",
+    "h1": [
+      "Device"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1115,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "account",
+    "h1": [
+      "Account"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 20846,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "settings",
+    "h1": [
+      "Settings"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 2062,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "settings-users",
+    "h1": [
+      "Users"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1706,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "settings-notifications",
+    "h1": [
+      "Notification rules"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 1717,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 1,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "settings-detection",
+    "h1": [
+      "Object detection"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 4124,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 26,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "settings-audit",
+    "h1": [
+      "Audit log"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 2894,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  },
+  {
+    "size": "mobile",
+    "route": "settings-system",
+    "h1": [
+      "System"
+    ],
+    "horizontalOverflow": 0,
+    "scrollHeight": 3914,
+    "viewportHeight": 844,
+    "smallTargetsUnder24": 0,
+    "issues": []
+  }
+]

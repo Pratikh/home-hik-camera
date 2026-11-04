@@ -1,28 +1,71 @@
+import type { ReactNode } from "react";
+import { Icon, type IconName } from "@/components/ui/Icon";
+
 export function MessagePanel({ message }: { message: string }) {
   return (
-    <div className="flex h-full w-full items-center justify-center bg-black px-4 text-center" role="status">
-      <p className="max-w-xs text-sm leading-5 text-white/90">{message}</p>
+    <div className="message-panel" role="status">
+      <p>{message}</p>
     </div>
   );
 }
 
 export function FrameSkeleton() {
-  return <div className="h-full w-full animate-pulse bg-[#151b24]" aria-hidden="true" />;
+  return <div className="skeleton h-full w-full" aria-hidden="true" />;
 }
 
 export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="rounded-xl border border-line bg-card px-4 py-8 text-center" role="alert">
-      <p className="text-sm">{message}</p>
+    <div className="card card--pad" role="alert">
+      <div className="notice notice--danger">
+        <Icon name="alert" />
+        <span>{message}</span>
+      </div>
       {onRetry ? (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="mt-4 rounded-lg border border-line bg-white/5 px-3 py-2 text-sm hover:bg-white/10"
-        >
+        <button type="button" onClick={onRetry} className="btn btn--sm" style={{ marginTop: 12 }}>
           Try again
         </button>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Empty state for a list/card with no rows.
+ *
+ * `title` names the state ("No events match your filters."), `detail` explains
+ * what to do next, and `action` is an optional control. An empty state is never
+ * just a bare sentence.
+ */
+export function EmptyState({
+  icon = "info",
+  title,
+  detail,
+  action,
+}: {
+  icon?: IconName;
+  title: string;
+  detail?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="empty">
+      <span className="empty__icon">
+        <Icon name={icon} />
+      </span>
+      <p className="empty__title">{title}</p>
+      {detail ? <p className="empty__text">{detail}</p> : null}
+      {action}
+    </div>
+  );
+}
+
+/** Shimmering placeholder lines for a list that is still loading. */
+export function SkeletonRows({ rows = 3 }: { rows?: number }) {
+  return (
+    <div aria-hidden="true" style={{ display: "grid", gap: 8 }}>
+      {Array.from({ length: rows }, (_, index) => (
+        <div key={index} className="skeleton" style={{ height: 48, opacity: 1 - index * 0.12 }} />
+      ))}
     </div>
   );
 }
@@ -33,6 +76,9 @@ export function ErrorBanner({ message, onRetry }: { message: string; onRetry?: (
  * `compact` drops the bottom margin (for a parent that already applies `gap`)
  * and tightens the type, so a page that must fit the viewport does not spend
  * ~30px on a double gap plus oversized text.
+ *
+ * NOTE: the exact class tokens in both variants are asserted by
+ * `playback-layout.test.ts`; change them only together with that test.
  */
 export function PageIntro({ title, detail, compact = false }: { title: string; detail: string; compact?: boolean }) {
   if (compact) {

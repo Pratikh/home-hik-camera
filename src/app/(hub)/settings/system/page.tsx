@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import type { SystemHealthBody } from "@/lib/api-types";
 import { ApiError, api } from "@/lib/client-api";
 import { Messages } from "@/lib/messages";
-import { PageIntro } from "@/components/ui/States";
+import { formatKolkataDateTimeFromIso, humanizeSecondsInText } from "@/lib/time-kolkata";
+import { Icon, type IconName } from "@/components/ui/Icon";
+import { PageHeader } from "@/components/ui/PageHeader";
 
 type Health = { application: string; database: string; dvr: string; mediamtx: string; events: string; videoGateway: string };
 type Sessions = {
@@ -12,6 +14,8 @@ type Sessions = {
   liveViewers: number;
   cameras: Array<{ id: number; appViewers: number; mediamtxReaders: number | null }>;
 };
+
+type Tone = "online" | "offline" | "warn" | "idle";
 
 function bytes(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "unknown";
@@ -31,6 +35,60 @@ function age(seconds: number | null): string {
   if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
   return `${Math.round(seconds / 86400)}d ago`;
+}
+
+/** India-time stamp for an ISO string; raw UTC is never shown in the UI. */
+function when(value: string | null | undefined): string {
+  if (!value) return "unknown";
+  return formatKolkataDateTimeFromIso(value);
+}
+
+function badge(tone: Tone): string {
+  if (tone === "online") return "badge--online";
+  if (tone === "offline") return "badge--danger";
+  if (tone === "warn") return "badge--warn";
+  return "";
+}
+
+function dot(tone: Tone): string {
+  if (tone === "online") return "dot--online";
+  if (tone === "offline") return "dot--offline";
+  if (tone === "warn") return "dot--warn";
+  return "dot--idle";
+}
+
+function HealthCard({
+  icon,
+  label,
+  tone,
+  value,
+  detail,
+}: {
+  icon: IconName;
+  label: string;
+  tone: Tone;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="health-card">
+      <div className="health-card__head">
+        <Icon name={icon} className="icon icon-sm" />
+        {label}:
+        <span className={`dot ${dot(tone)}`} />
+      </div>
+      <div className="health-card__value">
+        <span className={`badge ${badge(tone)}`}>{value}</span> · {detail}
+      </div>
+    </div>
+  );
+}
+
+function statusTone(value: string | boolean | null | undefined, good: string): Tone {
+  if (value === null || value === undefined) return "idle";
+  if (value === good) return "online";
+  if (typeof value === "boolean") return value ? "online" : "offline";
+  return value === "unknown" ? "idle" : "warn";
 }
 
 export default function SystemPage() {
@@ -67,137 +125,391 @@ export default function SystemPage() {
 
   const face = detailed?.faceDetection;
   const faceProblem = Boolean(face?.enabled && face.worker !== "running");
+  const faceAlreadyWarned = Boolean(
+    detailed?.warnings.some((warning) => /face/i.test(warning)),
+  );
+  const overallTone: Tone =
+    detailed?.status === "healthy" ? "online" : detailed?.status === "degraded" ? "warn" : detailed ? "offline" : "idle";
 
   return (
-    <div className="min-w-0">
-      <PageIntro
+    <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+      <PageHeader
+        eyebrow="Administration"
         title="System"
         detail="Live status from this hub, the DVR, MediaMTX, and the background workers. Anything the hub cannot determine is reported as unknown."
+        actions={
+          <>
+            <span className={`pill${overallTone === "online" ? "" : overallTone === "idle" ? "" : " pill--warn"}`}>
+              <span className={`dot ${dot(overallTone)}`} />
+              {detailed
+                ? `${detailed.status === "healthy" ? "Healthy" : detailed.status === "degraded" ? "Degraded" : "Unhealthy"} · checked ${when(detailed.checkedAt).split(", ").pop()}`
+                : Messages.checking}
+            </span>
+            <button type="button" className="btn" onClick={() => void load()} disabled={loading}>
+              <Icon name="refresh" className="icon icon-sm" />
+              Refresh
+            </button>
+          </>
+        }
       />
 
-      {loading && !health && !detailed && !sessions ? <p className="text-sm text-muted">Loading system status...</p> : null}
+      {loading && !health && !detailed && !sessions ? <p className="section__hint">Loading system status...</p> : null}
       {error ? (
-        <div className="mb-4 flex items-center gap-3 text-sm text-warn" role="alert">
+        <div className="notice notice--danger" role="alert" style={{ alignItems: "center" }}>
+          <Icon name="alert" />
           <span>Unable to load system status.</span>
-          <button type="button" onClick={() => void load()} className="rounded-lg border border-line px-3 py-1">Retry</button>
+          <button type="button" onClick={() => void load()} className="btn btn--sm" style={{ marginLeft: "auto" }}>
+            Retry
+          </button>
         </div>
       ) : null}
-      {!loading && !error && !health && !detailed && !sessions ? <p className="text-sm text-muted">No status available.</p> : null}
+      {!loading && !error && !health && !detailed && !sessions ? (
+        <p className="section__hint">No status available.</p>
+      ) : null}
 
       {detailed && detailed.warnings.length > 0 ? (
-        <div className="mb-4 rounded-xl border border-warn/50 bg-card p-4 text-sm" role="status">
-          <p className="font-semibold text-warn">Needs attention ({detailed.status})</p>
-          <ul className="mt-2 list-disc space-y-1 pl-5">
-            {detailed.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
+        <div className="notice notice--warn" role="status">
+          <Icon name="alert" />
+          <div style={{ minWidth: 0 }}>
+            <strong>Needs attention ({detailed.status})</strong>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18, listStyle: "disc", display: "grid", gap: 3, fontSize: "var(--fs-12)" }}>
+              {detailed.warnings.map((warning) => (
+                <li key={warning}>{humanizeSecondsInText(warning)}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       ) : null}
 
-      {faceProblem ? (
-        <div className="mb-4 rounded-xl border border-warn/50 bg-card p-4 text-sm" role="alert">
-          <p className="font-semibold text-warn">Face detection is enabled but its worker is not processing jobs.</p>
-          <p className="mt-1 text-muted">
-            {face?.warning ??
-              "Start the local worker (face-worker or the home-cctv-face-worker systemd service) and check its logs."}
-          </p>
+      {faceProblem && !faceAlreadyWarned ? (
+        <div className="notice notice--warn" role="alert">
+          <Icon name="alert" />
+          <div>
+            <strong>Face detection is enabled but its worker is not processing jobs.</strong>
+            <p className="section__hint" style={{ marginTop: 4 }}>
+              {face?.warning ? humanizeSecondsInText(face.warning) :
+                "Start the local worker (face-worker or the home-cctv-face-worker systemd service) and check its logs."}
+            </p>
+          </div>
         </div>
       ) : null}
 
-      {health ? (
-        <dl className="mb-4 grid gap-2 rounded-xl border border-line bg-card p-4 text-sm sm:grid-cols-2">
-          <div>Application: {health.application}</div>
-          <div>Database: {health.database}</div>
-          <div>DVR: {health.dvr}</div>
-          <div>MediaMTX: {health.mediamtx}</div>
-          <div>Events: {health.events}</div>
-          {detailed ? <div>Overall: {detailed.status}</div> : null}
-        </dl>
-      ) : null}
+      {(health || detailed) && (
+        <div className="health-grid">
+          <HealthCard
+            icon="zap"
+            label="Application"
+            tone={statusTone(health?.application, "ok")}
+            value={health?.application ?? "unknown"}
+            detail="the hub answered this request"
+          />
+          <HealthCard
+            icon="database"
+            label="Database"
+            tone={statusTone(detailed?.database.status ?? health?.database, "ok")}
+            value={detailed?.database.status ?? health?.database ?? "unknown"}
+            detail={
+              detailed?.database.events !== null && detailed?.database.events !== undefined
+                ? `${detailed.database.events.toLocaleString("en-IN")} events`
+                : "local store"
+            }
+          />
+          <HealthCard
+            icon="device"
+            label="DVR"
+            tone={statusTone(health?.dvr, "connected")}
+            value={health?.dvr ?? "unknown"}
+            detail="local network recorder"
+          />
+          <HealthCard
+            icon="wifi"
+            label="MediaMTX"
+            tone={statusTone(detailed?.mediamtx.status ?? health?.mediamtx, "ok")}
+            value={detailed?.mediamtx.status ?? health?.mediamtx ?? "unknown"}
+            detail={
+              detailed
+                ? `${detailed.mediamtx.paths.length} path${detailed.mediamtx.paths.length === 1 ? "" : "s"}${
+                    detailed.mediamtx.drift ? " · DVR address drift" : ""
+                  }`
+                : "video gateway"
+            }
+          />
+          <HealthCard
+            icon="activity"
+            label="Events ingestion"
+            tone={statusTone(detailed?.events.ingestion ?? health?.events, "running")}
+            value={detailed?.events.ingestion ?? health?.events ?? "unknown"}
+            detail={detailed?.events.lastPoll ? `last poll ${when(detailed.events.lastPoll)}` : "no poll recorded"}
+          />
+          <HealthCard
+            icon="faces"
+            label="Face worker"
+            tone={face ? (face.worker === "running" ? "online" : face.worker === "disabled" ? "idle" : "warn") : "idle"}
+            value={face?.worker ?? "unknown"}
+            detail={face?.queue ? `${face.queue.pending} pending · ${face.queue.failed} failed` : "no queue"}
+          />
+          <HealthCard
+            icon="image"
+            label="Thumbnails"
+            tone={
+              detailed
+                ? detailed.thumbnails.worker === "running"
+                  ? "online"
+                  : detailed.thumbnails.worker === "disabled"
+                    ? "idle"
+                    : "warn"
+                : "idle"
+            }
+            value={detailed?.thumbnails.worker ?? "unknown"}
+            detail={detailed ? `${detailed.thumbnails.queued ?? 0} queued · ${bytes(detailed.thumbnails.diskBytes)}` : "previews"}
+          />
+          <HealthCard
+            icon="database"
+            label="Storage"
+            tone={detailed ? (detailed.storage.status === "ok" ? "online" : detailed.storage.status === "unknown" ? "idle" : "warn") : "idle"}
+            value={detailed?.storage.usedPercent !== null && detailed?.storage.usedPercent !== undefined ? `${detailed.storage.usedPercent}%` : "unknown"}
+            detail={
+              detailed && detailed.storage.freeBytes !== null && detailed.storage.totalBytes !== null
+                ? `${bytes(detailed.storage.freeBytes)} free of ${bytes(detailed.storage.totalBytes)}`
+                : "data volume"
+            }
+          />
+        </div>
+      )}
 
-      {detailed ? (
-        <div className="mb-4 grid gap-3 md:grid-cols-2">
-          <section className="rounded-xl border border-line bg-card p-4 text-sm">
-            <h2 className="mb-2 text-sm font-semibold">Face detection</h2>
-            {face?.enabled ? (
-              <ul className="space-y-1">
-                <li>Worker: <span className={face.worker === "running" ? "text-online" : "text-warn"}>{face.worker}</span></li>
-                <li>Last heartbeat: {face.lastHeartbeat ? `${age(face.heartbeatAgeSeconds)}` : "never"}</li>
-                {face.queue ? (
-                  <li>
-                    Queue: {face.queue.pending} pending, {face.queue.processing} processing, {face.queue.failed} failed,{" "}
-                    {face.queue.completed} completed
-                  </li>
-                ) : (
-                  <li>Queue: unknown</li>
-                )}
-                {face.detail ? <li className="text-muted">Last worker note: {face.detail}</li> : null}
-              </ul>
-            ) : (
-              <p className="text-muted">Face detection is disabled. No worker is expected to run.</p>
-            )}
+      <div className="split" style={{ minWidth: 0 }}>
+        <div style={{ display: "grid", gap: 14, minWidth: 0 }}>
+          <section className="card" style={{ minWidth: 0 }}>
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="wifi" className="icon icon-sm" />
+                MediaMTX paths
+              </h2>
+              <span className="status">
+                <span className={`dot ${statusTone(detailed?.mediamtx.status, "ok") === "online" ? "dot--online" : "dot--idle"}`} aria-hidden="true" />
+                <span className="status__text">
+                  {detailed ? `${detailed.mediamtx.paths.length} configured` : "checking"}
+                </span>
+              </span>
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="table table--stack" style={{ minWidth: 560 }}>
+                <thead>
+                  <tr>
+                    <th>Path</th>
+                    <th>Tracks</th>
+                    <th>Inbound</th>
+                    <th>State</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(detailed?.mediamtx.paths ?? []).map((path) => (
+                    <tr key={path.path}>
+                      <td className="num" data-label="Path">
+                        {path.path}
+                      </td>
+                      <td className="num" data-label="Tracks">
+                        {path.tracks}
+                      </td>
+                      <td className="num" data-label="Inbound">
+                        {bytes(path.bytesReceived)}
+                      </td>
+                      <td data-label="State">
+                        <span className="status">
+                          <span className={`dot ${path.ready ? "dot--online" : "dot--idle"}`} aria-hidden="true" />
+                          <span className="status__text">{path.ready ? "Ready" : "Idle"}</span>
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {detailed && detailed.mediamtx.paths.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="section__hint" data-label="Paths">
+                        MediaMTX is not reporting any camera paths.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <div className="card__foot">
+              <span className="section__hint">
+                Main streams stay on the LAN and are only opened for playback. Sub streams feed the live grid and the
+                detection worker.
+              </span>
+            </div>
           </section>
 
-          <section className="rounded-xl border border-line bg-card p-4 text-sm">
-            <h2 className="mb-2 text-sm font-semibold">Thumbnails</h2>
-            <ul className="space-y-1">
-              <li>Enabled: {detailed.thumbnails.enabled ? "yes" : "no"}</li>
-              <li>Worker: {detailed.thumbnails.worker}</li>
-              <li>Queued camera/day jobs: {detailed.thumbnails.queued ?? "unknown"}</li>
-              <li>Last run: {detailed.thumbnails.lastRunAt ?? "not yet"}</li>
-              <li>Generated data: {bytes(detailed.thumbnails.diskBytes)}</li>
-              {detailed.thumbnails.lastError ? <li className="text-warn">Last error: {detailed.thumbnails.lastError}</li> : null}
-            </ul>
-          </section>
-
-          <section className="rounded-xl border border-line bg-card p-4 text-sm">
-            <h2 className="mb-2 text-sm font-semibold">Storage and backups</h2>
-            <ul className="space-y-1">
-              <li>
-                Data volume: {detailed.storage.status === "ok"
-                  ? `${bytes(detailed.storage.freeBytes)} free of ${bytes(detailed.storage.totalBytes)} (${detailed.storage.usedPercent}% used)`
-                  : "unknown"}
-              </li>
-              <li>Last successful backup: {detailed.backups.lastSuccessAt ?? "unknown"} ({age(detailed.backups.ageSeconds)})</li>
-              <li>Backup status: {detailed.backups.status}</li>
-              {detailed.backups.detail ? <li className="text-warn">Backup note: {detailed.backups.detail}</li> : null}
-            </ul>
-          </section>
-
-          <section className="rounded-xl border border-line bg-card p-4 text-sm">
-            <h2 className="mb-2 text-sm font-semibold">Retention and MediaMTX</h2>
-            <ul className="space-y-1">
-              <li>Retention: {detailed.retention.status}{detailed.retention.lastRunAt ? ` (last run ${detailed.retention.lastRunAt})` : ""}</li>
-              {detailed.retention.removed ? (
-                <li>
-                  Last pass removed {detailed.retention.removed.events} events, {detailed.retention.removed.snapshots} snapshots,{" "}
-                  {detailed.retention.removed.orphanedSnapshots} orphan snapshots, {detailed.retention.removed.crops} crops.
-                </li>
-              ) : null}
-              {detailed.retention.lastError ? <li className="text-warn">Retention error: {detailed.retention.lastError}</li> : null}
-              <li>MediaMTX reachable: {detailed.mediamtx.reachable === null ? "unknown" : detailed.mediamtx.reachable ? "yes" : "no"}</li>
-              <li>Camera paths reporting: {detailed.mediamtx.paths.length}</li>
-              {detailed.mediamtx.drift ? <li className="text-warn">MediaMTX is using a different DVR address.</li> : null}
-            </ul>
+          <section className="card" style={{ minWidth: 0 }}>
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="activity" className="icon icon-sm" />
+                Event ingestion
+              </h2>
+              <span className={`badge ${badge(statusTone(detailed?.events.ingestion, "running"))}`}>
+                {detailed?.events.ingestion ?? health?.events ?? "unknown"}
+              </span>
+            </div>
+            <div className="card__body">
+              <dl className="prop-list">
+                <dt>Last poll</dt>
+                <dd className="mono">{when(detailed?.events.lastPoll)}</dd>
+                <dt>Last error</dt>
+                <dd>{detailed?.events.lastError ?? "none reported"}</dd>
+              </dl>
+            </div>
           </section>
         </div>
-      ) : null}
 
-      {sessions ? (
-        <section className="rounded-xl border border-line bg-card p-4 text-sm">
-          <p>Active sessions: {sessions.activeSessions}</p>
-          <p>Live viewers reported by the app: {sessions.liveViewers}</p>
-          <ul className="mt-3 space-y-1">
-            {sessions.cameras.map((camera) => (
-              <li key={camera.id}>
-                Camera {camera.id}: {camera.appViewers} app viewer{camera.appViewers === 1 ? "" : "s"}
-                {camera.mediamtxReaders === null ? "" : `, ${camera.mediamtxReaders} MediaMTX reader${camera.mediamtxReaders === 1 ? "" : "s"}`}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        <aside style={{ display: "grid", gap: 14, minWidth: 0 }}>
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="activity" className="icon icon-sm" />
+                Active sessions
+              </h2>
+              <span className="badge badge--mono">{sessions ? `${sessions.liveViewers} live viewer${sessions.liveViewers === 1 ? "" : "s"}` : "checking"}</span>
+            </div>
+            <div className="card__body" style={{ display: "grid", gap: 12 }}>
+              <dl className="prop-list">
+                <dt>Active sessions:</dt>
+                <dd className="mono">{sessions ? sessions.activeSessions : "unknown"}</dd>
+                <dt>Live viewers:</dt>
+                <dd className="mono">{sessions ? sessions.liveViewers : "unknown"}</dd>
+              </dl>
+              <div style={{ overflowX: "auto" }}>
+                <table className="table table--stack" style={{ minWidth: 280 }}>
+                  <thead>
+                    <tr>
+                      <th>Camera</th>
+                      <th>App viewers</th>
+                      <th>MediaMTX readers</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(sessions?.cameras ?? []).map((camera) => (
+                      <tr key={camera.id}>
+                        <td data-label="Camera">Camera {camera.id}</td>
+                        <td className="num" data-label="App viewers">
+                          {camera.appViewers}
+                        </td>
+                        <td className="num" data-label="MediaMTX readers">
+                          {camera.mediamtxReaders === null ? "unknown" : camera.mediamtxReaders}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="faces" className="icon icon-sm" />
+                Face detection
+              </h2>
+              <span className={`badge ${face?.enabled ? (face.worker === "running" ? "badge--online" : "badge--warn") : ""}`}>
+                {face?.enabled ? face.worker : "disabled"}
+              </span>
+            </div>
+            <div className="card__body">
+              {face?.enabled ? (
+                <dl className="prop-list">
+                  <dt>Worker</dt>
+                  <dd className="mono">{face.worker}</dd>
+                  <dt>Last heartbeat</dt>
+                  <dd>{face.lastHeartbeat ? age(face.heartbeatAgeSeconds) : "never"}</dd>
+                  <dt>Queue</dt>
+                  <dd className="mono">
+                    {face.queue
+                      ? `${face.queue.pending} pending · ${face.queue.processing} processing · ${face.queue.failed} failed · ${face.queue.completed} completed`
+                      : "unknown"}
+                  </dd>
+                  {face.detail ? (
+                    <>
+                      <dt>Last note</dt>
+                      <dd className="section__hint">{face.detail}</dd>
+                    </>
+                  ) : null}
+                </dl>
+              ) : (
+                <p className="section__hint">Face detection is disabled. No worker is expected to run.</p>
+              )}
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="image" className="icon icon-sm" />
+                Thumbnails
+              </h2>
+              <span className={`badge ${detailed?.thumbnails.enabled ? "badge--online" : ""}`}>
+                {detailed ? (detailed.thumbnails.enabled ? "enabled" : "off") : "checking"}
+              </span>
+            </div>
+            <div className="card__body">
+              <dl className="prop-list">
+                <dt>Worker</dt>
+                <dd className="mono">{detailed?.thumbnails.worker ?? "unknown"}</dd>
+                <dt>Queued jobs</dt>
+                <dd className="mono">{detailed?.thumbnails.queued ?? "unknown"}</dd>
+                <dt>Last run</dt>
+                <dd>{when(detailed?.thumbnails.lastRunAt)}</dd>
+                <dt>Generated data</dt>
+                <dd className="mono">{bytes(detailed?.thumbnails.diskBytes ?? null)}</dd>
+                {detailed?.thumbnails.lastError ? (
+                  <>
+                    <dt>Last error</dt>
+                    <dd className="section__hint">{detailed.thumbnails.lastError}</dd>
+                  </>
+                ) : null}
+              </dl>
+            </div>
+          </section>
+
+          <section className="card">
+            <div className="card__head">
+              <h2 className="card__title">
+                <Icon name="database" className="icon icon-sm" />
+                Storage and retention
+              </h2>
+              <span className={`badge ${badge(statusTone(detailed?.storage.status, "ok"))}`}>
+                {detailed?.storage.status ?? "unknown"}
+              </span>
+            </div>
+            <div className="card__body">
+              <dl className="prop-list">
+                <dt>Data volume</dt>
+                <dd className="mono">
+                  {detailed && detailed.storage.freeBytes !== null && detailed.storage.totalBytes !== null
+                    ? `${bytes(detailed.storage.freeBytes)} free of ${bytes(detailed.storage.totalBytes)}`
+                    : "unknown"}
+                </dd>
+                <dt>Used</dt>
+                <dd className="mono">{detailed?.storage.usedPercent !== null && detailed?.storage.usedPercent !== undefined ? `${detailed.storage.usedPercent}%` : "unknown"}</dd>
+                <dt>Backup status</dt>
+                <dd className="mono">{detailed?.backups.status ?? "unknown"}</dd>
+                <dt>Last backup</dt>
+                <dd>{when(detailed?.backups.lastSuccessAt)}</dd>
+                <dt>Backup age</dt>
+                <dd>{age(detailed?.backups.ageSeconds ?? null)}</dd>
+                <dt>Retention</dt>
+                <dd className="mono">{detailed?.retention.status ?? "unknown"}</dd>
+                <dt>Last retention run</dt>
+                <dd>{when(detailed?.retention.lastRunAt)}</dd>
+              </dl>
+              {detailed?.backups.detail ? <p className="section__hint" style={{ marginTop: 8 }}>{detailed.backups.detail}</p> : null}
+              {detailed?.retention.lastError ? <p className="section__hint" style={{ marginTop: 8 }}>{detailed.retention.lastError}</p> : null}
+            </div>
+            <div className="card__foot">
+              <span className="section__hint">Retention deletes this hub&apos;s own rows and snapshots; DVR recordings are untouched.</span>
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,19 @@
+/events loads: 1 h1: Events
+/cameras loads: 1 h1: Camera setup
+/faces loads: 1 h1: Detected Faces
+/settings loads: 1 h1: Settings
+/settings/system loads: 1 h1: System
+{
+  "afterLogin": {
+    "url": "http://localhost:3100/",
+    "documentLoads": 2,
+    "h1": "Dashboard"
+  },
+  "idle": {
+    "documentLoads": 0,
+    "url": "http://localhost:3100/"
+  },
+  "consoleErrors": [],
+  "cspViolations": [],
+  "production": true
+}

@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Events · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+<style>
+  /* Page-local affordance only (ds.css untouched): the advanced filter panel is
+     expanded on desktop and collapsed behind the "Filters" toggle on tablet and
+     mobile, so the event list stays near the fold on small screens. */
+  .filters-advanced { display: none; }
+  .filters-count { display: inline-flex; }
+  .pagination-showing { display: none; }
+  @media (min-width: 1025px) {
+    .filters-advanced { display: block; }
+    .filters-count { display: none; }
+    .filters-chevron { transform: rotate(180deg); }
+    .pagination-showing { display: inline; }
+  }
+</style>
+</head>
+<body data-nav="events" data-crumb="Investigate">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Investigate</div>
+      <h1>Events</h1>
+      <p class="page-head__sub">Motion events from the DVR, including person and vehicle labels when the DVR sends them.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="pill"><span class="dot dot--online"></span>297 events today</span>
+      <a class="btn" href="events/stats"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>Statistics</a>
+    </div>
+  </div>
+
+  <!-- Toolbox: day navigator, quick filters, filter-panel toggle ----------- -->
+  <div class="toolbar">
+    <div class="datenav">
+      <button class="icon-btn" type="button" aria-label="Previous day" style="width:26px;height:26px;border:0;background:transparent"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronLeft"/></svg></button>
+      <input class="input" type="text" value="2026-11-04" aria-label="Date" readonly>
+      <button class="icon-btn" type="button" aria-label="Next day" style="width:26px;height:26px;border:0;background:transparent"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></button>
+    </div>
+    <button class="btn btn--sm" type="button">Today</button>
+
+    <div class="seg" role="group" aria-label="Quick filters">
+      <button class="seg__item" type="button" aria-pressed="true">All</button>
+      <button class="seg__item" type="button" aria-pressed="false">Person</button>
+      <button class="seg__item" type="button" aria-pressed="false">Vehicle</button>
+      <button class="seg__item" type="button" aria-pressed="false">Motion</button>
+      <button class="seg__item" type="button" aria-pressed="false">Important</button>
+    </div>
+
+    <div class="toolbar__spacer"></div>
+    <button class="btn" type="button" aria-expanded="false" aria-controls="event-filters">
+      <svg class="icon icon-sm" aria-hidden="true"><use href="#i-filter"/></svg>Filters
+      <span class="chip chip--mono filters-count" title="No advanced filters applied">0</span>
+      <svg class="icon icon-sm filters-chevron" aria-hidden="true"><use href="#i-chevronDown"/></svg>
+    </button>
+  </div>
+
+  <!-- Filter panel --------------------------------------------------------- -->
+  <section class="filter-panel filters-advanced" id="event-filters" aria-label="Filters">
+    <div class="filter-grid">
+      <label class="field">
+        <span class="field__label">Camera</span>
+        <select class="select">
+          <option>All cameras</option>
+          <option>Parking</option>
+          <option>Right Side Outside Camera</option>
+          <option>First Floor Passage</option>
+          <option>Left Side Outside</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Classification</span>
+        <select class="select">
+          <option>All</option>
+          <option>Person</option>
+          <option>Vehicle</option>
+          <option>Unclassified</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Date</span>
+        <span style="position:relative;display:block">
+          <input class="input input--mono" type="text" value="2026-11-04" aria-label="Date" readonly style="padding-right:34px">
+          <svg class="icon icon-sm" aria-hidden="true" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none"><use href="#i-calendar"/></svg>
+        </span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Priority</span>
+        <select class="select">
+          <option>All</option>
+          <option>Low</option>
+          <option>Normal</option>
+          <option>High</option>
+          <option>Critical</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Start time</span>
+        <input class="input input--mono" type="text" value="00:00" aria-label="Start time" readonly>
+      </label>
+
+      <label class="field">
+        <span class="field__label">End time</span>
+        <input class="input input--mono" type="text" value="23:59" aria-label="End time" readonly>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Read state</span>
+        <select class="select">
+          <option>Any</option>
+          <option>Unread</option>
+          <option>Read</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">Notification state</span>
+        <select class="select">
+          <option>Any</option>
+          <option>Notification sent</option>
+          <option>Notification not sent</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="filter-panel__foot">
+      <button class="btn btn--primary" type="button"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-search"/></svg>Search</button>
+      <button class="btn btn--ghost" type="button">Clear filters</button>
+      <span class="toolbar__spacer"></span>
+      <span class="section__hint">Times use the hub's Asia/Kolkata clock.</span>
+    </div>
+  </section>
+
+  <!-- Event list + inspector ---------------------------------------------- -->
+  <div class="events">
+    <section class="events__list" aria-label="Event list">
+      <div class="section__head">
+        <h2 class="section__title">Event list</h2>
+        <span class="section__hint">Newest first · 609 events in range</span>
+      </div>
+
+      <div class="day-group">
+        <div class="day-group__head">
+          <span>Today · 04 Nov</span>
+          <span class="chip chip--mono">297 events</span>
+        </div>
+        <ul class="event-list">
+          <li>
+            <button class="event-row" type="button" aria-pressed="true">
+              <span class="event-row__time">13:54</span>
+              <span class="event-row__thumb"><img src="assets/frames/event-hero.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span><span class="chip chip--teal">New</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Left Side Outside</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">9 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">13:43</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam3.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">First Floor Passage</span><span class="sep">·</span><span style="color:var(--online);white-space:nowrap">Notified 13:43</span><span class="sep hide-sm">·</span><span class="hide-sm">12 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">09:59</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam4.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span><span class="chip chip--teal">New</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Left Side Outside</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">6 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">09:56</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam4.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Left Side Outside</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">8 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">09:52</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam4.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span><span class="chip chip--teal">New</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Left Side Outside</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">5 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">09:51</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam2.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Vehicle detected</span><span class="badge">Normal</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Right Side Outside Camera</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">14 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">09:51</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam4.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Left Side Outside</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">4 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">09:50</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam1.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Motion detected</span><span class="badge">Normal</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Parking</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">3 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="day-group">
+        <div class="day-group__head">
+          <span>Yesterday · 03 Nov</span>
+          <span class="chip chip--mono">312 events</span>
+        </div>
+        <ul class="event-list">
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">18:42</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam4.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span><span class="chip chip--teal">New</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Left Side Outside</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">11 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">17:05</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam2.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Vehicle detected</span><span class="badge">Normal</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Right Side Outside Camera</span><span class="sep">·</span><span style="color:var(--online);white-space:nowrap">Notified 17:05</span><span class="sep hide-sm">·</span><span class="hide-sm">21 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+          <li>
+            <button class="event-row" type="button" aria-pressed="false">
+              <span class="event-row__time">08:14</span>
+              <span class="event-row__thumb"><img src="assets/frames/cam3.jpg" alt=""></span>
+              <span class="event-row__main">
+                <span class="event-row__title"><span>Person detected</span><span class="badge badge--danger">High</span></span>
+                <span class="event-row__meta"><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">First Floor Passage</span><span class="sep">·</span><span style="white-space:nowrap">Not sent</span><span class="sep hide-sm">·</span><span class="hide-sm">7 s</span></span>
+              </span>
+              <span class="event-row__state"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="pagination">
+        <button class="btn btn--sm" type="button" disabled><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronLeft"/></svg>Previous</button>
+        <span class="pagination__count" style="white-space:nowrap">Page 1 of 31</span>
+        <button class="btn btn--sm" type="button">Next<svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronRight"/></svg></button>
+        <span class="toolbar__spacer"></span>
+        <span class="section__hint pagination-showing" style="white-space:nowrap">Showing 11 of 609</span>
+      </div>
+    </section>
+
+    <!-- Sticky inspector rail --------------------------------------------- -->
+    <div class="inspector" style="display:grid;gap:12px">
+
+      <article class="card" aria-label="Event details" style="overflow:hidden">
+        <div class="inspector__img">
+          <img src="assets/frames/event-hero.jpg" alt="Snapshot for Person detected on Left Side Outside at 13:54">
+          <div class="inspector__badges">
+            <span class="badge badge--danger">High</span>
+            <span class="badge badge--info">Unread</span>
+          </div>
+        </div>
+        <div class="inspector__body" style="padding:12px 16px">
+          <div class="inspector__title">
+            <h2>Person detected</h2>
+            <span class="badge badge--mono">13:54:19</span>
+          </div>
+          <div class="inspector__meta">
+            <span>Left Side Outside</span><span class="sep">·</span><span>04 Nov 2026</span><span class="sep">·</span><span>9 seconds</span>
+          </div>
+          <div class="inspector__props">
+            <dl class="prop-list" style="row-gap:7px">
+              <dt>Camera</dt><dd>Left Side Outside</dd>
+              <dt>Time</dt><dd class="mono">13:54:19</dd>
+              <dt>Duration</dt><dd>9 seconds</dd>
+              <dt>Type</dt><dd>Motion</dd>
+              <dt>Classification</dt><dd>Person</dd>
+              <dt>Confidence</dt><dd>92%</dd>
+              <dt>Notified</dt><dd>No</dd>
+            </dl>
+          </div>
+          <div class="inspector__actions">
+            <a class="btn btn--primary" href="playback.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-playback"/></svg>View recording</a>
+            <a class="btn" href="event-detail.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg>Open details</a>
+          </div>
+        </div>
+      </article>
+
+      <section class="card" aria-label="Detected faces" style="padding:10px 12px;display:flex;align-items:center;gap:10px">
+        <div class="face-thumb__img" style="width:44px;height:44px;flex:none"><img src="assets/faces/face2.jpg" alt="Detected face, 72% confidence"></div>
+        <div style="min-width:0;flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:600">Detected faces</span>
+            <span class="badge badge--accent">1 face detected</span>
+          </div>
+          <div class="section__hint" style="margin-top:2px">Confidence: 72% · Unassigned · 13:54:19</div>
+        </div>
+        <a class="btn btn--sm btn--ghost" href="event-detail.html" style="flex:none">View event<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

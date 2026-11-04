@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System · Settings · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+
+<style>
+/* Page-level responsive fixes for the settings screens (ds.css is shared and untouched). */
+@media (max-width: 720px) {
+  .setting-row { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
+  .setting-row__control { flex: 1 1 100%; width: 100%; justify-content: flex-start; flex-wrap: wrap; }
+  .setting-row__control .input { flex: 0 1 120px; }
+  .card__head, .card__foot { flex-wrap: wrap; }
+  .settings-nav__item { white-space: nowrap; }
+}
+@media (max-width: 720px) {
+  .table--paths { min-width: 0 !important; }
+  .table--paths thead { display: none; }
+  .table--paths, .table--paths tbody, .table--paths tr, .table--paths td { display: block; width: 100%; }
+  .table--paths tr { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-bottom: 8px; overflow: hidden; }
+  .table--paths tr:last-child { margin-bottom: 0; }
+  .table--paths td { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--line); }
+  .table--paths td:last-child { border-bottom: 0; }
+  .table--paths td::before { content: ""; flex: none; font-size: 10px; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); text-align: left; }
+  .table--paths td:nth-child(2)::before { content: "Camera"; }
+  .table--paths td:nth-child(3)::before { content: "Used by"; }
+  .table--paths td:nth-child(4)::before { content: "Tracks"; }
+  .table--paths td:nth-child(5)::before { content: "Inbound"; }
+  .table--paths td:nth-child(6)::before { content: "State"; }
+}
+@media (max-width: 720px) {
+  .table--sessions { min-width: 0 !important; }
+  .table--sessions thead { display: none; }
+  .table--sessions, .table--sessions tbody, .table--sessions tr, .table--sessions td { display: block; width: 100%; }
+  .table--sessions tr { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface); margin-bottom: 8px; overflow: hidden; }
+  .table--sessions tr:last-child { margin-bottom: 0; }
+  .table--sessions td { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; text-align: right; border-bottom: 1px solid var(--line); }
+  .table--sessions td:last-child { border-bottom: 0; }
+  .table--sessions td::before { content: ""; flex: none; font-size: 10px; font-weight: 650; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); text-align: left; }
+  .table--sessions td:nth-child(2)::before { content: "App viewers"; }
+  .table--sessions td:nth-child(3)::before { content: "MediaMTX readers"; }
+}
+</style>
+<style>
+/* Mobile table/list polish (settings pages only). */
+@media (max-width: 720px) {
+  .pagination { flex-wrap: wrap; row-gap: 8px; }
+  .pagination__count { flex: 1 1 100%; }
+}
+
+</style>
+<style>
+@media (max-width: 720px) {
+  .table--paths td:nth-child(1), .table--sessions td:nth-child(1) { display: block; text-align: left; font-weight: 600; }
+  .table--paths td:nth-child(1)::before, .table--sessions td:nth-child(1)::before { display: none; }
+}
+
+</style>
+</head>
+<body data-nav="settings" data-crumb="Administration">
+
+<main class="page">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Administration</div>
+      <h1>System</h1>
+      <p class="page-head__sub">Live status from this hub, the DVR, MediaMTX, and the background workers. Anything the hub cannot determine is reported as unknown.</p>
+    </div>
+    <div class="page-head__actions">
+      <span class="pill"><span class="dot dot--warn"></span>Degraded · checked 13:47:58</span>
+      <a class="btn" href="settings.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-settings"/></svg>Environment</a>
+    </div>
+  </div>
+
+  <div class="settings-shell">
+    <nav class="settings-nav" aria-label="Settings">
+      <div class="settings-nav__label">Settings</div>
+      <a class="settings-nav__item" href="settings.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-sliders"/></svg>Overview</a>
+      <a class="settings-nav__item" href="settings-users.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-users"/></svg>Users</a>
+      <a class="settings-nav__item" href="notification-rules.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-bell"/></svg>Notification rules</a>
+      <a class="settings-nav__item" href="settings-detection.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-scan"/></svg>Object detection</a>
+      <a class="settings-nav__item" href="settings-audit.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"/></svg>Audit log</a>
+      <a class="settings-nav__item" href="settings-system.html" aria-current="page"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>System</a>
+      <a class="settings-nav__item" href="settings.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronLeft"/></svg>Back to settings</a>
+    </nav>
+
+    <div class="settings-body">
+      <div class="notice notice--warn" role="status">
+        <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+        <div>
+          <strong>Needs attention (degraded)</strong>
+          <ul style="margin-top:6px;padding-left:18px;list-style:disc;display:grid;gap:3px;font-size:var(--fs-12)">
+            <li>Thumbnails: 14 camera/day jobs queued — the worker has not run since 12:40.</li>
+            <li>Storage: 81% used on the data volume. Retention keeps 30 days of events and snapshots.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="health-grid" style="display:flex;flex-wrap:wrap;gap:10px">
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-zap"/></svg>Application:<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">ok</span> · API responding in 12 ms</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-database"/></svg>Database<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">ok</span> · 7,571 events · 3 users</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-device"/></svg>DVR<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">Connected</span> · 192.168.1.200:80</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-wifi"/></svg>MediaMTX<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">ok</span> · 8 paths · no DVR drift</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-refresh"/></svg>Events ingestion<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">Running</span> · last poll 4 s ago</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-faces"/></svg>Face worker<span class="dot dot--idle"></span></div>
+          <div class="health-card__value"><span class="badge">Stopped</span> · face detection disabled</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-scan"/></svg>Object worker<span class="dot dot--online"></span></div>
+          <div class="health-card__value"><span class="badge badge--online">Running</span> · 3 cameras · 1 FPS</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-image"/></svg>Thumbnails<span class="dot dot--warn"></span></div>
+          <div class="health-card__value"><span class="badge badge--warn">Idle</span> · 14 jobs queued · last run 12:40</div>
+        </div>
+        <div class="health-card" style="flex:1 1 30%;min-width:210px">
+          <div class="health-card__head"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-database"/></svg>Storage<span class="dot dot--warn"></span></div>
+          <div class="health-card__value"><span class="badge badge--warn">81%</span> used · 18.4 GB free of 96 GB</div>
+        </div>
+      </div>
+
+      <div class="split" style="min-width:0">
+        <section class="card" style="min-width:0">
+          <div class="card__head">
+            <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-wifi"/></svg>MediaMTX paths</h2>
+            <span class="status"><span class="dot dot--online"></span><span class="status__text">8 paths configured</span></span>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="table table--paths" style="min-width:640px">
+              <thead>
+                <tr>
+                  <th>Path</th>
+                  <th>Camera</th>
+                  <th>Used by</th>
+                  <th>Tracks</th>
+                  <th>Inbound</th>
+                  <th>State</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="num">cam1_sub</td>
+                  <td>Parking</td>
+                  <td><span class="chip">Object worker</span></td>
+                  <td class="num">2</td>
+                  <td class="num">2.4 MB</td>
+                  <td><span class="status"><span class="dot dot--online"></span>Ready</span></td>
+                </tr>
+                <tr>
+                  <td class="num">cam2_sub</td>
+                  <td>Right Side Outside Camera</td>
+                  <td><span class="chip">Object worker</span></td>
+                  <td class="num">2</td>
+                  <td class="num">1.9 MB</td>
+                  <td><span class="status"><span class="dot dot--online"></span>Ready</span></td>
+                </tr>
+                <tr>
+                  <td class="num">cam3_sub</td>
+                  <td>First Floor Passage</td>
+                  <td><span class="chip">Object worker</span></td>
+                  <td class="num">2</td>
+                  <td class="num">1.1 MB</td>
+                  <td><span class="status"><span class="dot dot--online"></span>Ready</span></td>
+                </tr>
+                <tr>
+                  <td class="num">cam4_sub</td>
+                  <td>Left Side Outside</td>
+                  <td><span class="section__hint">—</span></td>
+                  <td class="num">0</td>
+                  <td class="num">0 B</td>
+                  <td><span class="status"><span class="dot dot--idle"></span>Idle</span></td>
+                </tr>
+                <tr>
+                  <td class="num">cam1_main</td>
+                  <td>Parking</td>
+                  <td><span class="section__hint">Playback</span></td>
+                  <td class="num">0</td>
+                  <td class="num">0 B</td>
+                  <td><span class="status"><span class="dot dot--idle"></span>Idle</span></td>
+                </tr>
+                <tr>
+                  <td class="num">cam2_main</td>
+                  <td>Right Side Outside Camera</td>
+                  <td><span class="section__hint">Playback</span></td>
+                  <td class="num">0</td>
+                  <td class="num">0 B</td>
+                  <td><span class="status"><span class="dot dot--idle"></span>Idle</span></td>
+                </tr>
+                <tr>
+                  <td class="num">cam3_main</td>
+                  <td>First Floor Passage</td>
+                  <td><span class="section__hint">Playback</span></td>
+                  <td class="num">0</td>
+                  <td class="num">0 B</td>
+                  <td><span class="status"><span class="dot dot--idle"></span>Idle</span></td>
+                </tr>
+                <tr>
+                  <td class="num">cam4_main</td>
+                  <td>Left Side Outside</td>
+                  <td><span class="section__hint">Playback</span></td>
+                  <td class="num">0</td>
+                  <td class="num">0 B</td>
+                  <td><span class="status"><span class="dot dot--idle"></span>Idle</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card__foot">
+            <span class="section__hint">Main streams stay on the LAN and are only opened for playback. Sub streams feed the grid and the AI worker.</span>
+          </div>
+        </section>
+
+        <aside style="display:grid;gap:14px;min-width:0">
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-activity"/></svg>Active sessions</h2>
+              <span class="badge badge--online">1 live viewer</span>
+            </div>
+            <div class="card__body" style="display:grid;gap:12px">
+              <div style="display:flex;align-items:baseline;gap:8px">
+                <span style="font-family:var(--font-mono);font-size:var(--fs-20);font-weight:650;color:var(--ink)">2</span>
+                <span class="section__hint">Active sessions: 2 · live viewers reported by the app: 1</span>
+              </div>
+              <div style="overflow-x:auto">
+                <table class="table table--sessions" style="min-width:280px">
+                  <thead>
+                    <tr><th>Camera</th><th>App</th><th>MediaMTX</th></tr>
+                  </thead>
+                  <tbody>
+                    <tr><td>Parking</td><td class="num">1</td><td class="num">1</td></tr>
+                    <tr><td>Right Side Outside</td><td class="num">0</td><td class="num">1</td></tr>
+                    <tr><td>First Floor Passage</td><td class="num">0</td><td class="num">1</td></tr>
+                    <tr><td>Left Side Outside</td><td class="num">0</td><td class="num">0</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div style="height:1px;background:var(--line)"></div>
+              <div style="display:grid;gap:8px">
+                <div class="status" style="justify-content:space-between"><span><span class="dot dot--online"></span> home · this device</span><span class="badge badge--mono">13:48</span></div>
+                <div class="status" style="justify-content:space-between"><span><span class="dot dot--idle"></span> piyu · 192.168.1.31</span><span class="badge badge--mono">21:12</span></div>
+              </div>
+            </div>
+            <div class="card__foot">
+              <span class="section__hint">Sessions expire automatically. Sign out of a user's sessions from the Users page.</span>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card__head">
+              <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-clock"/></svg>Backups and retention</h2>
+            </div>
+            <div class="card__body">
+              <dl class="prop-list">
+                <dt>Retention</dt><dd>30 days · last pass 03 Nov 23:00</dd>
+                <dt>Last backup</dt><dd>02 Nov 2026 · 23:00</dd>
+                <dt>Backup status</dt><dd><span class="badge badge--warn">Stale</span> 2 days old</dd>
+                <dt>Data volume</dt><dd class="mono">78.4 GB used · 18.4 GB free</dd>
+              </dl>
+            </div>
+            <div class="card__foot">
+              <span class="section__hint">A successful backup keeps the SQLite database and camera overrides only — never DVR passwords.</span>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

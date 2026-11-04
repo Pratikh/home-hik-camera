@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notification rules · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+</head>
+<body data-nav="settings" data-crumb="Administration">
+
+<main class="page" style="max-width:1240px">
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Administration</div>
+      <h1>Notification rules</h1>
+      <p class="page-head__sub">Events are always stored. A rule only decides whether the browser is notified.</p>
+    </div>
+    <div class="page-head__actions">
+      <button class="btn" type="button"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-send"/></svg>Send Telegram Test</button>
+      <button class="btn btn--primary" type="button"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-plus"/></svg>New rule</button>
+    </div>
+  </div>
+
+  <div class="detail-hero">
+    <div style="display:grid;gap:16px;min-width:0">
+
+      <section aria-labelledby="rules-title">
+        <div class="section__head" style="margin-bottom:4px">
+          <h2 class="section__title" id="rules-title">Rules</h2>
+        </div>
+        <p class="section__hint" style="margin-bottom:10px">2 rules · 1 enabled · schedules, quiet hours and cooldowns are evaluated in India time.</p>
+
+        <ul class="rule-list">
+          <li>
+            <article class="rule" data-enabled="true">
+              <div class="rule__head">
+                <span class="rule__name">Person at night</span>
+                <span class="badge badge--danger">High</span>
+                <div class="rule__toggle">
+                  <span class="switch" aria-checked="true" role="switch" tabindex="0"></span>
+                  <span>Enabled</span>
+                </div>
+              </div>
+              <div class="rule__summary">
+                <span class="chip chip--teal">Person</span>
+                <span class="chip">All cameras</span>
+                <span class="chip chip--mono">22:00–06:00</span>
+                <span class="chip">Cooldown 5 min</span>
+              </div>
+              <div class="rule__detail">
+                Quiet hours off<span class="sep">·</span>Every day<span class="sep">·</span>Browser notification
+              </div>
+              <div class="rule__foot">
+                <button class="btn btn--sm" type="button">Disable</button>
+                <button class="btn btn--sm" type="button">Edit</button>
+                <button class="btn btn--sm btn--danger" type="button" style="margin-left:auto">Delete</button>
+              </div>
+            </article>
+          </li>
+          <li>
+            <article class="rule" data-enabled="false">
+              <div class="rule__head">
+                <span class="rule__name">Driveway vehicles</span>
+                <div class="rule__toggle">
+                  <span class="switch" aria-checked="false" role="switch" tabindex="0"></span>
+                  <span>Disabled</span>
+                </div>
+              </div>
+              <div class="rule__summary">
+                <span class="chip chip--teal">Vehicle</span>
+                <span class="chip">2 of 4 cameras</span>
+                <span class="chip chip--mono">07:00–19:00</span>
+                <span class="chip">Cooldown 2 min</span>
+              </div>
+              <div class="rule__detail">
+                Right Side Outside Camera, Left Side Outside<span class="sep">·</span>Quiet hours 23:00–07:00<span class="sep">·</span>Suppress the notification<span class="sep">·</span>Mon–Fri
+              </div>
+              <div class="rule__foot">
+                <button class="btn btn--sm" type="button">Enable</button>
+                <button class="btn btn--sm" type="button">Edit</button>
+                <button class="btn btn--sm btn--danger" type="button" style="margin-left:auto">Delete</button>
+              </div>
+            </article>
+          </li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-database"/></svg>Keep events</div>
+          <span class="badge badge--mono">30 days</span>
+        </div>
+        <div class="card__body" style="display:grid;gap:14px">
+          <p class="section__hint" style="max-width:74ch">Retention deletes this hub’s own event rows, snapshots and notification history only. It never deletes recordings on the DVR or MediaMTX, and never deletes user accounts.</p>
+          <div class="form-grid">
+            <label class="field" for="retention">
+              <span class="field__label">Retention</span>
+              <select class="select" id="retention">
+                <option>Forever</option>
+                <option>7 days</option>
+                <option>14 days</option>
+                <option selected>30 days</option>
+                <option>60 days</option>
+                <option>90 days</option>
+              </select>
+              <span class="field__hint">Saved as soon as you change it.</span>
+            </label>
+            <div class="kv-grid" style="grid-template-columns:repeat(2,minmax(0,1fr));align-self:end">
+              <div class="kv"><dt>Events stored</dt><dd class="mono">7,571</dd></div>
+              <div class="kv"><dt>Oldest event</dt><dd class="mono">05 Oct 2026</dd></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card__head">
+          <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-zap"/></svg>Test a rule</div>
+          <span class="section__hint">Dry run — nothing is stored</span>
+        </div>
+        <div class="card__body" style="display:grid;gap:12px">
+          <p class="section__hint" style="max-width:74ch">Checks which rules would match an event. Nothing is stored and no notification is sent.</p>
+          <div class="form-grid form-grid--3">
+            <label class="field" for="test-camera">
+              <span class="field__label">Camera</span>
+              <select class="select" id="test-camera">
+                <option>Parking</option>
+                <option selected>Right Side Outside Camera</option>
+                <option>First Floor Passage</option>
+                <option>Left Side Outside</option>
+              </select>
+            </label>
+            <label class="field" for="test-event">
+              <span class="field__label">Event</span>
+              <select class="select" id="test-event">
+                <option selected>Person</option>
+                <option>Vehicle</option>
+                <option>Unclassified motion</option>
+              </select>
+            </label>
+            <label class="field" for="test-time">
+              <span class="field__label">Time</span>
+              <input class="input input--mono" id="test-time" type="text" value="23:30" inputmode="numeric" autocomplete="off">
+            </label>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+            <button class="btn" type="button">Test</button>
+            <span class="section__hint">Uses today’s date, India time</span>
+          </div>
+          <div class="notice notice--accent"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span>A browser notification would be raised — <strong>Person at night</strong> would notify.</span></div>
+          <p class="section__hint">Effective priority High · 2 rules configured · nothing was stored</p>
+        </div>
+      </section>
+
+    </div>
+
+    <div style="display:grid;gap:16px;min-width:0">
+
+      <form class="rule-editor">
+        <div class="rule-editor__head">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="card__title">New rule</span>
+            <span class="badge badge--accent">Draft</span>
+          </div>
+          <span style="display:flex;align-items:center;gap:8px"><span class="switch" aria-checked="true" role="switch" tabindex="0"></span><span class="section__hint">Enabled</span></span>
+        </div>
+        <div class="rule-editor__body" style="gap:8px;padding:14px">
+
+          <label class="field" for="rule-name">
+            <span class="field__label">Name</span>
+            <input class="input" id="rule-name" placeholder="Camera 2 Person Night Alert" autocomplete="off">
+          </label>
+
+          <div class="field" role="group" aria-label="Camera">
+            <span class="field__label">Camera</span>
+            <div class="check-card" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 8px;max-height:none;padding:6px">
+              <label class="check" style="grid-column:1/-1"><input type="checkbox" checked>All cameras</label>
+              <div style="grid-column:1/-1;height:1px;background:var(--line);margin:3px 2px"></div>
+              <label class="check" title="Parking"><input type="checkbox" checked><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Parking</span></label>
+              <label class="check" title="Right Side Outside Camera"><input type="checkbox" checked><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Right Side Outside Camera</span></label>
+              <label class="check" title="First Floor Passage"><input type="checkbox" checked><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">First Floor Passage</span></label>
+              <label class="check" title="Left Side Outside"><input type="checkbox" checked><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Left Side Outside</span></label>
+            </div>
+          </div>
+
+          <div class="field" role="group" aria-label="Event">
+            <span class="field__label">Event</span>
+            <div class="check-card" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 8px;max-height:none;padding:6px">
+              <label class="check"><input type="checkbox" checked>Person</label>
+              <label class="check"><input type="checkbox">Vehicle</label>
+              <label class="check"><input type="checkbox">Motion</label>
+              <p class="field__hint" style="grid-column:1/-1;padding:5px 4px 2px">Motion means unclassified motion.</p>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <label class="field" for="rule-priority">
+              <span class="field__label">Minimum priority</span>
+              <select class="select" id="rule-priority">
+                <option>Any priority</option>
+                <option>Low</option>
+                <option>Normal</option>
+                <option>High</option>
+                <option>Critical</option>
+              </select>
+            </label>
+            <label class="field" for="rule-cooldown">
+              <span class="field__label">Cooldown (seconds)</span>
+              <input class="input input--mono" id="rule-cooldown" type="number" min="0" max="86400" step="30" value="300">
+            </label>
+          </div>
+
+          <div class="form-grid">
+            <label class="field" for="rule-from">
+              <span class="field__label">Active from</span>
+              <input class="input input--mono" id="rule-from" type="text" value="22:00" inputmode="numeric" autocomplete="off">
+            </label>
+            <label class="field" for="rule-to">
+              <span class="field__label">To</span>
+              <input class="input input--mono" id="rule-to" type="text" value="06:00" inputmode="numeric" autocomplete="off">
+            </label>
+          </div>
+          <p class="field__hint" style="margin-top:-6px">Empty means any time; 22:00–06:00 spans midnight.</p>
+
+          <div class="field">
+            <span class="field__label">Days</span>
+            <div class="day-row">
+              <button class="day" type="button" aria-pressed="false">MON</button>
+              <button class="day" type="button" aria-pressed="false">TUE</button>
+              <button class="day" type="button" aria-pressed="false">WED</button>
+              <button class="day" type="button" aria-pressed="false">THU</button>
+              <button class="day" type="button" aria-pressed="false">FRI</button>
+              <button class="day" type="button" aria-pressed="false">SAT</button>
+              <button class="day" type="button" aria-pressed="false">SUN</button>
+            </div>
+            <span class="field__hint">None selected means every day.</span>
+          </div>
+
+          <div class="form-grid">
+            <label class="field" for="quiet-from">
+              <span class="field__label">Quiet hours from</span>
+              <input class="input input--mono" id="quiet-from" type="text" value="23:00" inputmode="numeric" autocomplete="off">
+            </label>
+            <label class="field" for="quiet-to">
+              <span class="field__label">To</span>
+              <input class="input input--mono" id="quiet-to" type="text" value="07:00" inputmode="numeric" autocomplete="off">
+            </label>
+          </div>
+
+          <label class="field" for="quiet-behaviour">
+            <span class="field__label">During quiet hours</span>
+            <select class="select" id="quiet-behaviour">
+              <option>Notify anyway</option>
+              <option selected>Suppress the notification</option>
+              <option>Store the event only</option>
+            </select>
+          </label>
+
+          <div style="display:flex;gap:8px;padding-top:4px;border-top:1px solid var(--line)">
+            <button class="btn btn--primary" type="button" style="flex:1">Save rule</button>
+            <button class="btn btn--ghost" type="button">Cancel</button>
+          </div>
+        </div>
+      </form>
+
+      <section class="card" aria-labelledby="telegram-title">
+        <div class="card__head">
+          <div class="card__title" id="telegram-title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-send"/></svg>Telegram</div>
+          <span class="badge badge--online">Enabled</span>
+        </div>
+        <div class="card__body" style="display:grid;gap:12px">
+          <p class="section__hint" data-testid="telegram-status" style="margin:0;color:var(--ink-2);font-family:var(--font-mono);font-size:11px;line-height:1.6">Telegram: Enabled · Rule events: On · Snapshot: On · Video: On (10s, 5s before) · FFmpeg: found</p>
+          <p class="section__hint">Media only: the snapshot, then a 10-second clip around the event. Bot token and chat id never leave the server.</p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

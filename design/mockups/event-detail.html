@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Person detected · Home CCTV — Sentinel redesign</title>
+<link rel="stylesheet" href="assets/ds.css">
+</head>
+<body data-nav="events" data-crumb="Investigate">
+
+<main class="page">
+  <nav class="breadcrumb" aria-label="Breadcrumb">
+    <a href="events.html">Events</a>
+    <span class="sep">/</span>
+    <span>Person detected</span>
+  </nav>
+
+  <div class="page-head">
+    <div>
+      <div class="page-head__eyebrow">Investigate</div>
+      <h1>Person detected</h1>
+      <p class="page-head__sub">Left Side Outside · 04 Nov 2026 13:54:19 · 9 seconds · HIGH priority · not notified</p>
+    </div>
+    <div class="page-head__actions">
+      <a class="btn" href="events.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronLeft"/></svg>Back to events</a>
+      <a class="btn btn--primary" href="playback.html"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-playback"/></svg>View recording</a>
+    </div>
+  </div>
+
+  <div class="detail-hero">
+    <!-- Snapshot with the detection overlay ------------------------------- -->
+    <div>
+      <section class="detail-media" aria-label="Event snapshot">
+        <div style="position:relative">
+          <img src="assets/frames/event-hero.jpg" alt="Snapshot for Person detected on Left Side Outside at 13:54">
+          <span class="badge badge--mono" style="position:absolute;top:10px;right:10px;background:rgba(4,9,12,0.66);border-color:rgba(255,255,255,0.16)">704 × 576</span>
+          <span class="badge badge--mono" style="position:absolute;left:82.3%;top:calc(62.9% - 28px);transform:translateX(-50%);background:rgba(4,9,12,0.88);border-color:var(--accent-line);color:var(--accent);backdrop-filter:blur(4px)">person · 92%</span>
+          <span style="position:absolute;left:80.4%;top:62.9%;width:3.8%;height:7.2%;border:1.5px solid var(--accent);border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.55),0 0 12px rgba(47,227,198,0.25)"></span>
+        </div>
+        <div class="detail-media__bar">
+          <span>Snapshot · 704×576 · 04 Nov 2026 13:54:19</span>
+          <span style="white-space:nowrap">Camera 4</span>
+        </div>
+      </section>
+
+      <section class="card" style="margin-top:16px">
+        <div class="card__head">
+          <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-playback"/></svg>Recording context</div>
+          <span class="chip chip--mono">9 s</span>
+        </div>
+        <div class="card__body">
+          <div class="timeline-mini">
+            <div class="timeline-mini__row">
+              <span class="timeline-mini__t">13:54:10</span>
+              <span class="timeline-mini__d">Recording segment starts · continuous, Left Side Outside</span>
+            </div>
+            <div class="timeline-mini__row">
+              <span class="timeline-mini__t">13:54:19</span>
+              <span class="timeline-mini__d">Motion event · Person detected · 92% confidence</span>
+            </div>
+            <div class="timeline-mini__row">
+              <span class="timeline-mini__t">13:54:19</span>
+              <span class="timeline-mini__d">Face detected · Yunet · 1 face, 72% confidence</span>
+            </div>
+            <div class="timeline-mini__row">
+              <span class="timeline-mini__t">13:54:28</span>
+              <span class="timeline-mini__d">Event ends · 9 seconds captured</span>
+            </div>
+          </div>
+        </div>
+        <div class="card__foot" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span class="section__hint">H.264 sub stream · 704×576</span>
+          <a class="btn btn--sm" href="playback.html">Open in playback<svg class="icon icon-sm" aria-hidden="true"><use href="#i-arrowRight"/></svg></a>
+        </div>
+      </section>
+    </div>
+
+    <!-- Summary, faces and technical metadata ----------------------------- -->
+    <div class="detail-side">
+      <section class="card" aria-label="Event summary">
+        <div class="card__head">
+          <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-file"/></svg>Event summary</div>
+          <span class="badge badge--danger">High</span>
+        </div>
+        <div class="card__body">
+          <dl class="prop-list">
+            <dt>Camera</dt><dd>Left Side Outside</dd>
+            <dt>Time</dt><dd class="mono">13:54:19</dd>
+            <dt>Date</dt><dd class="mono">04 Nov 2026</dd>
+            <dt>Duration</dt><dd>9 seconds</dd>
+            <dt>Type</dt><dd>Motion</dd>
+            <dt>Classification</dt><dd>Person</dd>
+            <dt>Priority</dt><dd><span class="badge badge--danger">High</span></dd>
+            <dt>Confidence</dt><dd>92%</dd>
+            <dt>Notification</dt><dd>Not sent</dd>
+            <dt>Source</dt><dd class="mono">hikvision</dd>
+          </dl>
+        </div>
+        <div class="card__foot" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <span class="section__hint">Event ID <span class="mono" style="font-family:var(--font-mono);color:var(--ink-2)">evt_01JC9F2K7Q</span></span>
+          <button class="icon-btn" type="button" aria-label="Copy event ID"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-copy"/></svg></button>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Detected faces">
+        <div class="card__head">
+          <h2 class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-faces"/></svg>Face Detection</h2>
+          <span class="chip chip--mono">yunet</span>
+        </div>
+        <div class="card__body">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div class="face-thumb__img" style="width:64px;height:64px;flex:none"><img src="assets/faces/face2.jpg" alt="Detected face, 72% confidence"></div>
+            <div style="min-width:0;display:grid;gap:2px">
+              <span style="font-size:var(--fs-13);font-weight:600">1 face detected</span>
+              <span style="font-size:var(--fs-12);color:var(--muted)">Confidence: 72%</span>
+              <span style="font-size:var(--fs-12);color:var(--muted)">Unassigned</span>
+            </div>
+          </div>
+          <p class="section__hint" style="margin-top:10px">Face crops stay on this hub. Identity assignment arrives in a later phase, so every face stays Unassigned.</p>
+        </div>
+      </section>
+
+      <section class="card" aria-label="Technical details">
+        <div class="card__head">
+          <div class="card__title"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-cpu"/></svg>Technical details</div>
+          <button class="icon-btn" type="button" aria-label="Collapse technical details" aria-expanded="true"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-chevronDown"/></svg></button>
+        </div>
+        <div class="card__body">
+          <dl class="kv-grid">
+            <div class="kv"><dt>Detector</dt><dd>yunet</dd></div>
+            <div class="kv"><dt>Model</dt><dd class="mono">face_detection_yunet_2023mar</dd></div>
+            <div class="kv"><dt>Detection box</dt><dd class="mono">x 553 · y 354 · 39 × 55</dd></div>
+            <div class="kv"><dt>Track</dt><dd class="mono">#118</dd></div>
+          </dl>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<script src="assets/shell.js"></script>
+</body>
+</html>

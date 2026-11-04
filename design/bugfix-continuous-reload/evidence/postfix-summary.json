@@ -1,0 +1,76 @@
+{
+  "capturedAt": "2026-11-04T16:45+05:30",
+  "environment": {
+    "next": "16.4.2 (Turbopack dev)",
+    "node": "24.21.0",
+    "browser": "Chromium (Playwright 1.64.1)",
+    "hub": "http://localhost:3000",
+    "mode": "development + production build"
+  },
+  "failingSequenceRecheck": {
+    "sequence": [
+      "rm -rf .next",
+      "npm run dev",
+      "visit all 14 authenticated routes",
+      "stop dev",
+      "npm run build (prebuild clears .next/dev)",
+      "npm run dev"
+    ],
+    "result": {
+      "documentRequests": 1,
+      "navigations": 2,
+      "windowSeconds": 20,
+      "consoleErrors": 0,
+      "pageErrors": 0
+    }
+  },
+  "sustainedIdle": {
+    "windowSeconds": 60,
+    "documentRequests": 1,
+    "navigations": 2,
+    "compiledLines": 0,
+    "consoleErrors": 0,
+    "pageErrors": 0
+  },
+  "routes": {
+    "checked": 14,
+    "each": {
+      "documentLoads": 1,
+      "horizontalOverflow": 0
+    },
+    "h1sCorrect": true
+  },
+  "login": {
+    "status": 200,
+    "cookieHttpOnly": true,
+    "cookieSameSiteLax": true,
+    "cookieMaxAgeSeconds": 604800,
+    "cookieSecure": false,
+    "note": "Secure=false expected: COOKIE_SECURE=false for plain HTTP on the trusted LAN"
+  },
+  "logout": {
+    "pathname": "/login",
+    "sessionStatus": 401
+  },
+  "tamperedCookie": {
+    "finalPath": "/login",
+    "documentRequests": 2,
+    "note": "2 = the / -> /login redirect hop plus the login document; no repeating reload"
+  },
+  "production": {
+    "csp": "script-src 'self' 'nonce-\u2026' 'strict-dynamic'",
+    "nonceMatchesHtmlInSameRequest": true,
+    "loginSuccess": true,
+    "idleDocumentLoads": 0,
+    "routesDocumentLoads": 1,
+    "cspViolations": 0,
+    "consoleErrors": 0
+  },
+  "suites": {
+    "typecheck": "pass",
+    "lint": "0 errors (8 pre-existing warnings)",
+    "vitest": "82 files / 837 tests passed",
+    "playwright": "101 passed, 10 skipped, 0 failed",
+    "productionBuild": "pass"
+  }
+}
