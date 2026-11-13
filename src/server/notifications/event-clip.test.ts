@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync } from "node:fs";
+import { EventEmitter } from "node:events";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -17,6 +18,8 @@ import {
   pickRecording,
   redactRtspCredentials,
   searchSpans,
+  defaultFfmpegRunner,
+  reapOrphanedClipProcesses,
   type FfmpegRunner,
 } from "@/server/notifications/event-clip";
 
@@ -383,8 +386,14 @@ describe("a generated clip is a usable file", () => {
     expect(result.path.startsWith(clipDir(dataDir))).toBe(true);
     expect(result.recordingStart).toBe("2026-10-10T13:25:00+05:30");
     expect(Buffer.from(await readFile(result.path))).toEqual(MP4);
-    // The DVR playback URL carried the camera's main track.
-    expect(runner.calls[0]!.join(" ")).toContain("/Streaming/tracks/201/");
+    /*
+     * The clip is cut from the camera's H.264 SUB track (202), the same track
+     * browser playback and thumbnails use. The H.265 main track (201) is not a
+     * usable source for a Telegram clip: it is heavy and this DVR will not open
+     * a second HEVC playback session.
+     */
+    expect(runner.calls[0]!.join(" ")).toContain("/Streaming/tracks/202/");
+    expect(runner.calls[0]!.join(" ")).not.toContain("/Streaming/tracks/201/");
   });
 });
 
@@ -605,5 +614,165 @@ describe("TELEGRAM-MEDIA-025 — the DVR URL never reaches Telegram", () => {
     expect(joined).not.toContain("dvr-secret");
     expect(joined).not.toContain("192.168.0.210");
     expect(joined).not.toContain("Streaming/tracks");
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * The FFmpeg runner itself.
+ *
+ * Regression guard for a leaked process: the timeout used to only send SIGKILL
+ * and wait for "close". When the child did not close promptly the promise never
+ * settled, the job was still recorded as done, and the orphan kept the DVR's
+ * single playback session open — making every later clip fail with
+ * "453 Not Enough Bandwidth".
+ * ------------------------------------------------------------------------- */
+
+describe("defaultFfmpegRunner", () => {
+  it("settles as timedOut and kills a child that never exits", async () => {
+    // `sleep` stands in for a hung ffmpeg; it ignores nothing and never exits.
+    const started = Date.now();
+    const run = await defaultFfmpegRunner({ bin: "sleep", args: ["30"], timeoutMs: 120 });
+    const elapsed = Date.now() - started;
+
+    expect(run.ok).toBe(false);
+    expect(run.timedOut).toBe(true);
+    expect(run.code).toBeNull();
+    // It must return promptly on the timeout, not after the child finishes.
+    expect(elapsed).toBeLessThan(5_000);
+  }, 10_000);
+
+  it("reports a missing binary instead of hanging", async () => {
+    const run = await defaultFfmpegRunner({
+      bin: "/nonexistent/definitely-not-ffmpeg",
+      args: ["-version"],
+      timeoutMs: 2_000,
+    });
+    expect(run.ok).toBe(false);
+    expect(run.missing).toBe(true);
+  });
+
+  it("still reports success for a binary that exits zero", async () => {
+    const run = await defaultFfmpegRunner({ bin: "true", args: [], timeoutMs: 5_000 });
+    expect(run.ok).toBe(true);
+    expect(run.timedOut).toBe(false);
+    expect(run.code).toBe(0);
+  });
+});
+
+describe("reapOrphanedClipProcesses", () => {
+  it("does nothing when the clip directory holds no process", () => {
+    // No throw, no crash: the sweep is best-effort by design.
+    expect(() => reapOrphanedClipProcesses(os.tmpdir())).not.toThrow();
+  });
+});
+
+/* ---------------------------------------------------------------------------
+ * The orphan reaper must be surgical.
+ *
+ * `pgrep -f <dir>` matches ANY process whose command line merely contains the
+ * directory — a shell that quoted it, an operator running grep there, a tail -f.
+ * Killing those would be destructive, so the reaper only signals processes whose
+ * own executable is FFmpeg. These tests inject the process reader and the
+ * spawner, so nothing on the host is touched.
+ * ------------------------------------------------------------------------- */
+
+function fakeSpawn(pids: number[]) {
+  const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter };
+  child.stdout = new EventEmitter();
+  setImmediate(() => {
+    child.stdout.emit("data", Buffer.from(pids.join("\n")));
+    child.emit("close", 0);
+  });
+  return (() => child) as unknown as typeof import("node:child_process").spawn;
+}
+
+describe("reapOrphanedClipProcesses", () => {
+  const dataDir = "/tmp/reaper-test";
+  const dir = `${dataDir}/telegram-clips`;
+
+  it("kills a process whose executable is ffmpeg", async () => {
+    const killed: number[] = [];
+    const spy = vi.spyOn(process, "kill").mockImplementation((pid: number) => {
+      killed.push(pid);
+      return true;
+    });
+    reapOrphanedClipProcesses(dataDir, {
+      spawn: fakeSpawn([4242]),
+      execFile: () => "ffmpeg",
+      log: () => undefined,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(killed).toEqual([4242]);
+    spy.mockRestore();
+  });
+
+  it("never kills a shell or other process that merely mentions the directory", async () => {
+    const killed: number[] = [];
+    const spy = vi.spyOn(process, "kill").mockImplementation((pid: number) => {
+      killed.push(pid);
+      return true;
+    });
+    reapOrphanedClipProcesses(dataDir, {
+      spawn: fakeSpawn([11, 12, 13]),
+      // All three matched pgrep, but none is an FFmpeg binary.
+      execFile: (_file, args) => {
+        const pid = Number(args[args.length - 1]);
+        return pid === 11 ? "bash" : pid === 12 ? "sleep" : "grep";
+      },
+      log: () => undefined,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(killed).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it("never kills itself", async () => {
+    const killed: number[] = [];
+    const spy = vi.spyOn(process, "kill").mockImplementation((pid: number) => {
+      killed.push(pid);
+      return true;
+    });
+    reapOrphanedClipProcesses(dataDir, {
+      spawn: fakeSpawn([process.pid]),
+      execFile: () => "ffmpeg",
+      log: () => undefined,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(killed).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it("treats an unreadable process as not ours (fails safe)", async () => {
+    const killed: number[] = [];
+    const spy = vi.spyOn(process, "kill").mockImplementation((pid: number) => {
+      killed.push(pid);
+      return true;
+    });
+    reapOrphanedClipProcesses(dataDir, {
+      spawn: fakeSpawn([77]),
+      execFile: () => {
+        throw new Error("no such process");
+      },
+      log: () => undefined,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(killed).toEqual([]);
+    spy.mockRestore();
+  });
+
+  it("scopes pgrep to this hub's own clip directory", () => {
+    const seen: string[][] = [];
+    reapOrphanedClipProcesses(dataDir, {
+      spawn: ((_bin: string, args: string[]) => {
+        seen.push(args);
+        const child = new EventEmitter() as EventEmitter & { stdout: EventEmitter };
+        child.stdout = new EventEmitter();
+        setImmediate(() => child.emit("close", 1));
+        return child;
+      }) as unknown as typeof import("node:child_process").spawn,
+      execFile: () => "",
+      log: () => undefined,
+    });
+    expect(seen[0]?.[1]).toBe(dir);
   });
 });
