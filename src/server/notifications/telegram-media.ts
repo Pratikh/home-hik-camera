@@ -20,6 +20,7 @@ import {
 } from "@/server/notifications/telegram";
 import {
   cleanupStaleClips,
+  reapOrphanedClipProcesses,
   ffmpegAvailable,
   generateEventClip,
   type ClipDiagnostics,
@@ -341,6 +342,12 @@ export function ensureTelegramMediaWorker(): void {
     const config = getConfig();
     const requeued = openEventStore(config.dataDir).resetStaleTelegramMediaJobs(new Date().toISOString());
     if (requeued > 0) logLine(`requeued ${requeued} media job(s) left by a restart`);
+    /*
+     * Release the DVR's playback session before anything new is attempted. A
+     * clip process orphaned by an earlier run keeps that single session open and
+     * turns every later clip into "453 Not Enough Bandwidth".
+     */
+    reapOrphanedClipProcesses(config.dataDir, { log: (line) => logLine(line) });
   } catch (error) {
     console.error("[telegram-media] recovery", error instanceof Error ? error.name : "error");
   }

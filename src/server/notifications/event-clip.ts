@@ -1,5 +1,5 @@
 import "server-only";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdir, readFile, readdir, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import type { AppConfig } from "@/lib/config";
@@ -7,6 +7,7 @@ import { getConfig } from "@/lib/config";
 import type { Recording } from "@/lib/recording";
 import { kolkataParts } from "@/lib/time-kolkata";
 import { HikvisionClient } from "@/server/hikvision/hikvision-client";
+import { playbackTrack } from "@/server/cameras/channels";
 import {
   buildPlaybackRtsp,
   dedupeRecordings,
@@ -41,6 +42,7 @@ export type ClipFailure =
   | "no_recording"
   | "ffmpeg_missing"
   | "ffmpeg_failed"
+  | "ffmpeg_timeout"
   | "invalid_output"
   | "too_large"
   | "dvr_error"
@@ -199,6 +201,22 @@ export const FFMPEG_PROFILE_VIDEO_ONLY: FfmpegProfile = { crf: 28, maxWidth: CLI
 export const FFMPEG_PROFILE_SMALL: FfmpegProfile = { crf: 32, maxWidth: 640, audio: false };
 
 /**
+ * Which DVR track the clip is cut from.
+ *
+ * The recording itself lives on the H.265 main track (...1), but that stream is
+ * not a good source for a Telegram clip: it is heavy, and this DVR refuses a
+ * second H.265 playback session while anything else is reading. The hub already
+ * solved this for browser playback and for thumbnails by reading the same
+ * recorded window from the H.264 sub track (...2) — time-accurate, and decodable
+ * everywhere. Using the same track here keeps clip generation identical to the
+ * two paths that are known to work, and H.264 in means H.264 out without a
+ * platform-dependent HEVC decoder.
+ */
+export function clipTrack(cameraId: number): number {
+  return playbackTrack(cameraId);
+}
+
+/**
  * Built as an argument array, never a shell string, so nothing in a URL or a
  * path can be interpreted by a shell.
  */
@@ -333,16 +351,42 @@ export const defaultFfmpegRunner: FfmpegRunner = ({ bin, args, timeoutMs }) =>
       });
       return;
     }
+    /*
+     * A timeout MUST both kill the child and settle the promise.
+     *
+     * The previous version only sent SIGKILL and relied on "close" to settle.
+     * When the child was slow to reap (or the signal raced the exit) the promise
+     * never resolved, the caller's job was still marked done, and the process
+     * was orphaned — reparented to init — while STILL holding the DVR's single
+     * playback session. Every later clip then failed with 453 Not Enough
+     * Bandwidth, which is exactly the outage this fixes.
+     */
+    const finish = (run: FfmpegRun): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(run);
+    };
     const timer = setTimeout(() => {
-      if (!settled) child.kill("SIGKILL");
+      if (settled) return;
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // Already gone: the close handler or this resolve still settles us.
+      }
+      finish({
+        ok: false,
+        code: null,
+        stderr: redactRtspCredentials(stderr || `ffmpeg timed out after ${timeoutMs} ms`),
+        missing: false,
+        timedOut: true,
+      });
     }, timeoutMs);
     child.stderr?.on("data", (chunk: Buffer) => {
       if (stderr.length < 4000) stderr += chunk.toString("utf8");
     });
     child.on("error", (error: NodeJS.ErrnoException) => {
-      settled = true;
-      clearTimeout(timer);
-      resolve({
+      finish({
         ok: false,
         code: null,
         stderr: redactRtspCredentials(error.message),
@@ -351,9 +395,7 @@ export const defaultFfmpegRunner: FfmpegRunner = ({ bin, args, timeoutMs }) =>
       });
     });
     child.on("close", (code) => {
-      settled = true;
-      clearTimeout(timer);
-      resolve({ ok: code === 0, code, stderr: redactRtspCredentials(stderr), missing: false, timedOut: false });
+      finish({ ok: code === 0, code, stderr: redactRtspCredentials(stderr), missing: false, timedOut: false });
     });
   });
 
@@ -634,7 +676,7 @@ export async function generateEventClip(input: ClipInput): Promise<ClipResult> {
       port: config.dvrRtspPort,
       username: config.dvrUsername,
       password: config.dvrPassword,
-      track: input.cameraId * 100 + 1,
+      track: clipTrack(input.cameraId),
       start: picked.window.start,
       end: picked.window.end,
     });
@@ -643,7 +685,7 @@ export async function generateEventClip(input: ClipInput): Promise<ClipResult> {
     return fail("dvr_error", code, "source-acquisition");
   }
   // The URL carries the DVR credentials: report only its shape, never the URL.
-  diagnostics.sourceFormat = `rtsp track ${input.cameraId * 100 + 1}, ${durationSeconds}s window`;
+  diagnostics.sourceFormat = `rtsp track ${clipTrack(input.cameraId)}, ${durationSeconds}s window`;
   logger(`source-acquired format="${diagnostics.sourceFormat}"`);
 
   /* ---- ffmpeg ----------------------------------------------------------- */
@@ -703,9 +745,17 @@ export async function generateEventClip(input: ClipInput): Promise<ClipResult> {
         logger("ffmpeg is not installed; skipping the clip");
         return fail("ffmpeg_missing", null, "ffmpeg-run");
       }
-      logger(`ffmpeg failed attempt=${index + 1} code=${run.code ?? "none"}`);
+      logger(
+        `ffmpeg failed attempt=${index + 1} code=${run.code ?? "none"} timedOut=${run.timedOut}`,
+      );
       if (profile.audio) continue; // retry video-only
-      return fail("ffmpeg_failed", detail, "ffmpeg-run");
+      /*
+       * A timeout is reported separately: it usually means the DVR would not
+       * open a playback session at all (453 Not Enough Bandwidth, often a
+       * leaked session or a full disk), which is an operator problem, not a
+       * bad clip request.
+       */
+      return fail(run.timedOut ? "ffmpeg_timeout" : "ffmpeg_failed", detail, "ffmpeg-run");
     }
     logger(`ffmpeg completed attempt=${index + 1} code=${run.code ?? 0}`);
 
@@ -787,4 +837,106 @@ export async function generateEventClip(input: ClipInput): Promise<ClipResult> {
     recordingEnd: picked.recording.endTime,
     diagnostics,
   };
+}
+
+/**
+ * Kill FFmpeg processes still writing into this hub's clip directory.
+ *
+ * Every clip runs with a hard timeout and `-y` into a unique file, so a healthy
+ * run always terminates. A leftover process therefore means a previous run was
+ * orphaned — the failure mode that leaks the DVR's single playback session and
+ * makes every subsequent clip fail with "453 Not Enough Bandwidth".
+ *
+ * This is deliberately narrow: it only matches processes whose command line
+ * contains this hub's own clip directory, so an unrelated FFmpeg on the host
+ * (the user's own transcode, say) is never touched. It runs once at startup.
+ */
+/**
+ * Executable names this reaper is allowed to kill.
+ *
+ * `ps -o comm=` reports the bare name ("ffmpeg") on macOS and may report a full
+ * path on Linux, so both forms must match. A trailing version suffix is allowed
+ * for distro-packaged binaries (ffmpeg-6.1).
+ */
+const FFMPEG_BINARIES = /(^|\/)(ffmpeg|ffprobe)(-[0-9.]+)?$/;
+
+/**
+ * Is this pid an FFmpeg-family process?
+ *
+ * Uses the process's own argv[0] (not just any substring of its command line),
+ * so a shell that happened to mention the directory is never a candidate.
+ * Unreadable pids are treated as "not ours" — failing safe beats killing the
+ * wrong thing.
+ */
+function isFfmpegProcess(
+  pid: number,
+  execImpl: (file: string, args: string[]) => string,
+): boolean {
+  try {
+    const argv0 = execImplIfAvailable(execImpl, pid);
+    if (!argv0) return false;
+    return FFMPEG_BINARIES.test(argv0.trim());
+  } catch {
+    return false;
+  }
+}
+
+function execImplIfAvailable(
+  execImpl: (file: string, args: string[]) => string,
+  pid: number,
+): string | null {
+  // Linux: /proc; macOS/POSIX: ps -o comm=. Either way, argv[0] only.
+  try {
+    return execImpl("ps", ["-o", "comm=", "-p", String(pid)]);
+  } catch {
+    return null;
+  }
+}
+
+export function reapOrphanedClipProcesses(
+  dataDir: string,
+  deps: {
+    spawn?: typeof spawn;
+    log?: (line: string) => void;
+    /** Reads a process's command line; injected so tests never touch the host. */
+    execFile?: (file: string, args: string[]) => string;
+  } = {},
+): number {
+  const dir = clipDir(dataDir);
+  const spawnImpl = deps.spawn ?? spawn;
+  const execImpl: (file: string, args: string[]) => string =
+    deps.execFile ?? ((file, args) => execFileSync(file, args, { encoding: "utf8" }));
+  const logger = deps.log ?? ((line: string) => console.info(`[telegram-video] ${line}`));
+  try {
+    const result = spawnImpl("pgrep", ["-f", dir], { stdio: ["ignore", "pipe", "ignore"] });
+    let output = "";
+    result.stdout?.on("data", (chunk: Buffer) => {
+      if (output.length < 8000) output += chunk.toString("utf8");
+    });
+    result.on("error", () => undefined); // pgrep absent: nothing to do
+    result.on("close", () => {
+      const pids = output
+        .split(/\s+/)
+        .map((value) => Number(value.trim()))
+        .filter((pid) => Number.isInteger(pid) && pid > 0 && pid !== process.pid);
+      for (const pid of pids) {
+        /*
+         * `pgrep -f` matches any process whose command line merely CONTAINS the
+         * directory — a shell that quoted the path, or an operator running grep
+         * there. Killing those would be destructive, so confirm the image is
+         * actually an FFmpeg-family binary before signalling it.
+         */
+        if (!isFfmpegProcess(pid, execImpl)) continue;
+        try {
+          process.kill(pid, "SIGKILL");
+          logger(`reaped orphaned clip process pid=${pid}`);
+        } catch {
+          // Already gone.
+        }
+      }
+    });
+    return 0;
+  } catch {
+    return 0;
+  }
 }
