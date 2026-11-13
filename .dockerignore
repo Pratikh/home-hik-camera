@@ -2,6 +2,10 @@ node_modules
 .next
 .git
 data
+# Backups hold full SQLite copies (CCTV data) and are written by the backup
+# scripts. They are never part of an image, and they are usually not readable by
+# the build user, which made `podman build` fail on an existing install.
+backups
 .env
 .env.*
 !.env.example
