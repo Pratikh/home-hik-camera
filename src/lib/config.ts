@@ -32,6 +32,12 @@ export type AppConfig = {
   videoDevPlaceholder: boolean;
   dataDir: string;
   eventPollIntervalMs: number;
+  /**
+   * How old (in seconds) a DVR event may be and still raise a notification.
+   * Events older than this are still stored, but never notified. This is what
+   * stops a restart from replaying the day's history to Telegram.
+   */
+  dvrNotificationMaxEventAgeSeconds: number;
   eventRetentionDays: number;
   /** Days to keep audit_logs rows. 0 keeps them forever (not recommended). */
   auditLogRetentionDays: number;
@@ -146,6 +152,12 @@ export function readConfig(env: Env): AppConfig {
     videoDevPlaceholder: (env.VIDEO_DEV_PLACEHOLDER ?? "").trim().toLowerCase() === "true",
     dataDir: (env.DATA_DIR ?? "").trim() || "data",
     eventPollIntervalMs: readBoundedInt(env.EVENT_POLL_INTERVAL_MS, 5000, 1000, 300000),
+    dvrNotificationMaxEventAgeSeconds: readBoundedInt(
+      env.DVR_NOTIFICATION_MAX_EVENT_AGE_SECONDS,
+      DEFAULT_DVR_NOTIFICATION_MAX_EVENT_AGE_SECONDS,
+      0,
+      86_400,
+    ),
     eventRetentionDays: readBoundedInt(env.EVENT_RETENTION_DAYS, 30, 0, 3650),
     auditLogRetentionDays: readBoundedInt(env.AUDIT_LOG_RETENTION_DAYS, 365, 0, 3650),
     aiEnabled: (env.AI_ENABLED ?? "").trim().toLowerCase() === "true",
@@ -199,6 +211,12 @@ export function readConfig(env: Env): AppConfig {
 }
 
 export const DEFAULT_TELEGRAM_COOLDOWN_SECONDS = 300;
+/**
+ * Default freshness window for DVR notifications. Two minutes comfortably
+ * covers the 2-minute poll overlap plus processing time, so a genuinely current
+ * event is never missed, while anything recovered after an outage is older.
+ */
+export const DEFAULT_DVR_NOTIFICATION_MAX_EVENT_AGE_SECONDS = 120;
 export const DEFAULT_VIDEO_PRE_SECONDS = 5;
 export const DEFAULT_VIDEO_POST_SECONDS = 5;
 /** Telegram's own bot upload limit for sendVideo is 50 MB; stay under it. */

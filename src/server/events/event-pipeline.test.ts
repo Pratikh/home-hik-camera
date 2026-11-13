@@ -42,7 +42,16 @@ function rule(overrides: Partial<NotificationRule> = {}): NotificationRule {
 }
 
 let sequence = 0;
-function event(source: "hikvision" | "object-detection-worker", classification: "person" | "vehicle" | null, timestamp = "2026-10-23T17:00:00+05:30") {
+/*
+ * These cases cover rule/priority/schedule/cooldown semantics, so both sources
+ * use a timestamp that is current relative to NOW. Freshness has its own suite
+ * (notification-freshness.test.ts); keeping this clock fixed keeps that split
+ * honest instead of accidentally relying on "old means suppressed".
+ */
+const NOW = new Date("2026-10-23T17:00:20+05:30");
+const RECENT = "2026-10-23T17:00:00+05:30";
+
+function event(source: "hikvision" | "object-detection-worker", classification: "person" | "vehicle" | null, timestamp = RECENT) {
   sequence += 1;
   return {
     id: `evt_pipe_${String(sequence).padStart(4, "0")}`,
@@ -74,6 +83,7 @@ function seed(store: ReturnType<typeof memoryEventStore>, item: ReturnType<typeo
 function decisions(store: ReturnType<typeof memoryEventStore>, eventId: string) {
   return store.db.prepare("SELECT * FROM notification_history WHERE event_id = ?").all(eventId) as Array<{
     status: string;
+    reason: string | null;
   }>;
 }
 
@@ -98,6 +108,7 @@ describe("detection source gate", () => {
       // The stored setting can still be "AI only"; it only applies while the
       // detector is enabled. This mirrors event-processor's effective source.
       detectionSource: effectiveDetectionSource({ enabled: false, detectionSource: "ai_only" }),
+      now: NOW,
       cameraName: "Parking",
       snapshotPath: "2026/10/23/1-evt-dvr.jpg",
     });
@@ -122,6 +133,7 @@ describe("detection source gate", () => {
           event: item,
           config: CONFIG,
           detectionSource: effectiveDetectionSource({ enabled: false, detectionSource: "ai_only" }),
+          now: NOW,
           cameraName: "Parking",
           snapshotPath: null,
         }).delivered,
@@ -207,6 +219,7 @@ describe("detection source gate", () => {
         event: ai,
         config: CONFIG,
         detectionSource: "dvr_only",
+        now: NOW,
         cameraName: "Parking",
         snapshotPath: null,
       }).delivered,
@@ -217,6 +230,7 @@ describe("detection source gate", () => {
         event: dvr,
         config: CONFIG,
         detectionSource: "dvr_only",
+        now: NOW,
         cameraName: "Parking",
         snapshotPath: null,
       }).delivered,
@@ -239,6 +253,7 @@ describe("detection source gate", () => {
           event: item,
           config: CONFIG,
           detectionSource: "ai_both",
+        now: NOW,
           cameraName: "Parking",
           snapshotPath: null,
         }).delivered,
@@ -258,6 +273,7 @@ describe("detection source gate", () => {
       event: item,
       config: CONFIG,
       detectionSource: "ai_only",
+      now: NOW,
       cameraName: "Parking",
       snapshotPath: null,
     });
@@ -310,6 +326,7 @@ describe("existing guarantees still apply", () => {
         event: first,
         config: CONFIG,
         detectionSource: "ai_only",
+        now: NOW,
         cameraName: "Parking",
         snapshotPath: null,
       }).delivered,
@@ -320,9 +337,191 @@ describe("existing guarantees still apply", () => {
         event: second,
         config: CONFIG,
         detectionSource: "ai_only",
+        now: NOW,
         cameraName: "Parking",
         snapshotPath: null,
       }).delivered,
     ).toBe(false);
+  });
+});
+
+describe("freshness gate through the pipeline", () => {
+  const NOW_LOCAL = new Date("2026-10-23T17:00:20+05:30");
+  const at = (secondsAgo: number): string =>
+    new Date(NOW_LOCAL.getTime() - secondsAgo * 1000).toISOString();
+
+  function freshStore() {
+    const store = memoryEventStore();
+    for (const existing of store.rules()) store.deleteRule(existing.id);
+    store.saveRule(rule({ cooldownSeconds: 0 }));
+    return store;
+  }
+
+  it("11. a historical DVR event is stored but never notified", () => {
+    const store = freshStore();
+    const item = event("hikvision", "person", at(6 * 3600));
+    seed(store, item);
+
+    const result = processEventNotification({
+      store,
+      event: item,
+      config: CONFIG,
+      detectionSource: "ai_both",
+      now: NOW_LOCAL,
+      cameraName: "Parking",
+      snapshotPath: null,
+    });
+
+    expect(result.delivered).toBe(false);
+    // Stored and visible: only notification eligibility changed.
+    expect(store.get(item.id)).not.toBeNull();
+    expect(decisions(store, item.id)).toHaveLength(0);
+    expect(mediaJobs(store, item.id)).toHaveLength(0);
+  });
+
+  it("12/14. replaying the day after a restart notifies only the recent event", () => {
+    const store = freshStore();
+    const replay = [
+      { seconds: 7 * 3600, classification: "person" as const },
+      { seconds: 5 * 3600, classification: "person" as const },
+      { seconds: 3 * 3600, classification: "person" as const },
+      { seconds: 20, classification: "person" as const },
+    ];
+    const delivered: string[] = [];
+    for (const candidate of replay) {
+      const item = event("hikvision", candidate.classification, at(candidate.seconds));
+      seed(store, item);
+      const result = processEventNotification({
+        store,
+        event: item,
+        config: CONFIG,
+        detectionSource: "ai_both",
+        now: NOW_LOCAL,
+        cameraName: "Parking",
+        snapshotPath: null,
+      });
+      if (result.delivered) delivered.push(item.id);
+    }
+    expect(delivered).toHaveLength(1);
+    // Every recovered event exists in the database regardless.
+    expect(store.count()).toBe(4);
+  });
+
+  it("13. re-polling the same old event never notifies (and never duplicates)", () => {
+    const store = freshStore();
+    const timestamp = at(4 * 3600);
+    const first = event("hikvision", "person", timestamp);
+    seed(store, first);
+    const r1 = processEventNotification({
+      store,
+      event: first,
+      config: CONFIG,
+      detectionSource: "ai_both",
+      now: NOW_LOCAL,
+      cameraName: "Parking",
+      snapshotPath: null,
+    });
+    // A second poll of the same DVR row cannot insert again (unique dedupe_key).
+    const second = { ...first, id: "evt_pipe_replay" };
+    const insertedAgain = store.insertEvent({
+      id: second.id,
+      dedupeKey: `dedupe-${first.id}`,
+      cameraId: second.cameraId,
+      type: second.type,
+      classification: second.classification,
+      timestamp: second.timestamp,
+      endTimestamp: null,
+      source: second.source,
+      metaId: "test",
+      priority: second.priority,
+      confidence: null,
+    });
+    expect(r1.delivered).toBe(false);
+    expect(insertedAgain).toBe(false);
+    expect(store.count()).toBe(1);
+  });
+
+  it("15. a recent object-detection event still notifies (never age-gated)", () => {
+    const store = freshStore();
+    // Deliberately old timestamp: AI events are exempt from the DVR policy.
+    const item = event("object-detection-worker", "person", at(6 * 3600));
+    seed(store, item);
+    const result = processEventNotification({
+      store,
+      event: item,
+      config: CONFIG,
+      detectionSource: "ai_both",
+      now: NOW_LOCAL,
+      cameraName: "Parking",
+      snapshotPath: null,
+    });
+    expect(result.delivered).toBe(true);
+  });
+
+  it("16. a recent DVR event still obeys the notification rules", () => {
+    const store = memoryEventStore();
+    for (const existing of store.rules()) store.deleteRule(existing.id);
+    // Rule selects a different camera, so camera filtering must still apply.
+    store.saveRule(rule({ cameraIds: [4], cameraId: 4, cooldownSeconds: 0 }));
+    const item = event("hikvision", "person", at(25));
+    seed(store, item);
+    const result = processEventNotification({
+      store,
+      event: item,
+      config: CONFIG,
+      detectionSource: "ai_both",
+      now: NOW_LOCAL,
+      cameraName: "Parking",
+      snapshotPath: null,
+    });
+    expect(result.delivered).toBe(false);
+    // The audit row says "no rule matched"; nothing was ever sent.
+    const rows = decisions(store, item.id);
+    expect(rows.every((row) => row.status !== "sent")).toBe(true);
+  });
+
+  it("17. quiet hours and cooldown are unaffected for recent events", () => {
+    const store = memoryEventStore();
+    for (const existing of store.rules()) store.deleteRule(existing.id);
+    store.saveRule(
+      rule({
+        quietHoursStart: "00:00",
+        quietHoursEnd: "23:59",
+        quietHoursBehavior: "store_only",
+        cooldownSeconds: 0,
+      }),
+    );
+    const item = event("hikvision", "person", at(15));
+    seed(store, item);
+    const result = processEventNotification({
+      store,
+      event: item,
+      config: CONFIG,
+      detectionSource: "ai_both",
+      now: NOW_LOCAL,
+      cameraName: "Parking",
+      snapshotPath: null,
+    });
+    expect(result.delivered).toBe(false);
+    const rows = decisions(store, item.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.reason).toContain("store");
+  });
+
+  it("a missing DVR timestamp is stored but not notified", () => {
+    const store = freshStore();
+    const item = event("hikvision", "person", "");
+    seed(store, item);
+    const result = processEventNotification({
+      store,
+      event: item,
+      config: CONFIG,
+      detectionSource: "ai_both",
+      now: NOW_LOCAL,
+      cameraName: "Parking",
+      snapshotPath: null,
+    });
+    expect(result.delivered).toBe(false);
+    expect(store.get(item.id)).not.toBeNull();
   });
 });
