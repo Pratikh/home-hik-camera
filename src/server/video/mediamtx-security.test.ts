@@ -132,11 +132,14 @@ describe("compose network separation matches the rendered MediaMTX constants", (
     expect(compose).toMatch(/media:\s*\n\s+driver: bridge\s*\n\s+internal: true/);
   });
 
-  it("keeps the face worker off every network and gives workers no egress", () => {
-    expect(compose).toContain('network_mode: "none"');
-    const objectWorker = compose.slice(compose.indexOf("  object-worker:"), compose.indexOf("  face-worker:"));
+  it("keeps the object worker on the internal media network only, with no egress", () => {
+    const objectWorker = compose.slice(compose.indexOf("  object-worker:"), compose.indexOf("\nnetworks:"));
     expect(objectWorker).not.toContain("egress");
+    expect(objectWorker).toContain("networks:");
     expect(objectWorker).toContain(`ipv4_address: ${MEDIAMTX_NETWORK.objectWorker}`);
+    // The worker must not be on the outbound egress network (no DVR/Telegram/internet route).
+    expect(objectWorker).toMatch(/media:\s*\n\s+ipv4_address/);
+    expect(objectWorker).not.toMatch(/egress:\s*\n/);
   });
 
   it("uses the dedicated worker MediaMTX account and an authenticated healthcheck", () => {

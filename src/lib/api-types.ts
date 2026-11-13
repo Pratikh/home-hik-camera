@@ -115,17 +115,6 @@ export type SystemHealthBody = {
     lastPoll: string | null;
     lastError: string | null;
   };
-  faceDetection: {
-    enabled: boolean;
-    worker: "running" | "stopped" | "unknown" | "disabled";
-    lastHeartbeat: string | null;
-    heartbeatAgeSeconds: number | null;
-    /** The worker has not checked in recently enough to be trusted. */
-    stale: boolean;
-    queue: { pending: number; processing: number; completed: number; failed: number } | null;
-    detail: string | null;
-    warning: string | null;
-  };
   thumbnails: {
     enabled: boolean;
     worker: OperationalState;
@@ -157,8 +146,6 @@ export type SystemHealthBody = {
       notifications: number;
       snapshots: number;
       orphanedSnapshots: number;
-      crops: number;
-      orphanedCrops: number;
     } | null;
   };
   sessions: { active: number | null };
@@ -239,13 +226,11 @@ export type TelegramMediaStatusResponse = {
   /** Master switch and whether the credentials are present. */
   enabled: boolean;
   configured: boolean;
-  /** Whether face detections may notify at all. */
-  faceNotifications: boolean;
   /** Whether accepted notification-rule decisions may notify. */
   eventNotifications: boolean;
-  /** Whether the face crop and the event clip are attached. */
-  faceImage: boolean;
-  faceVideo: boolean;
+  /** Whether the event snapshot and clip are attached. */
+  eventImage: boolean;
+  eventVideo: boolean;
   videoPreSeconds: number;
   videoPostSeconds: number;
   clipSeconds: number;

@@ -6,8 +6,8 @@
 #   * the live data/events.sqlite is never opened, moved or replaced;
 #   * SQLite integrity and foreign-key checks run against the copy;
 #   * the expected tables must exist;
-#   * every stored snapshot and face-crop path must resolve to a file inside the
-#     backup, so a restore cannot leave broken references.
+#   * every stored snapshot path must resolve to a file inside the backup, so a
+#     restore cannot leave broken references.
 #
 # Usage:
 #   ./scripts/verify-backup.sh ./backups/2026-10-09_103000
@@ -85,18 +85,15 @@ FOREIGN="$(query "PRAGMA foreign_key_check;")"
 }
 echo "verify-backup: foreign_key_check ok"
 
-# 2. Expected tables. The face tables are required whenever the backup contains
-# face crops; older databases without face detection can still verify.
+# 2. Expected tables. Old backups may or may not contain the (now inactive)
+# face-detection tables; they are not required for a valid backup and are not
+# checked.
 table_exists() {
   [ "$(query "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='$1';")" = "1" ]
 }
 for table in events users auth_sessions notification_rules notification_history app_settings audit_logs telegram_media_jobs; do
   table_exists "$table" || fail "missing table: $table"
 done
-if [ -d "$SRC/face-crops" ]; then
-  table_exists "event_faces" || fail "backup has face-crops/ but no event_faces table"
-  table_exists "face_processing" || fail "backup has face-crops/ but no face_processing table"
-fi
 echo "verify-backup: expected tables present"
 
 # 3. Representative data and file references.
@@ -127,28 +124,6 @@ if [ "$EVENTS" -gt 0 ]; then
 fi
 [ "$SNAPSHOTS_MISSING" -eq 0 ] || fail "$SNAPSHOTS_MISSING snapshot file(s) referenced but missing"
 echo "verify-backup: snapshot references checked: $SNAPSHOTS_CHECKED"
-
-if table_exists "event_faces"; then
-  FACES="$(query "SELECT COUNT(*) FROM event_faces;")"
-  CROPS_CHECKED=0
-  CROPS_MISSING=0
-  query "SELECT crop_path FROM event_faces WHERE crop_path IS NOT NULL AND crop_path <> '';" > "$TMP/crops.txt"
-  while IFS= read -r rel; do
-    [ -n "$rel" ] || continue
-    case "$rel" in
-      /*|*..*)
-        fail "unsafe face-crop path in database: $rel"
-        ;;
-    esac
-    CROPS_CHECKED=$((CROPS_CHECKED + 1))
-    if [ ! -f "$SRC/face-crops/$rel" ]; then
-      CROPS_MISSING=$((CROPS_MISSING + 1))
-      echo "verify-backup: missing face crop: face-crops/$rel" >&2
-    fi
-  done < "$TMP/crops.txt"
-  [ "$CROPS_MISSING" -eq 0 ] || fail "$CROPS_MISSING face-crop file(s) referenced but missing"
-  echo "verify-backup: detected faces=$FACES crop references checked: $CROPS_CHECKED"
-fi
 
 echo "verify-backup: PASS ($SRC is structurally sound; live data was not touched)"
 exit 0

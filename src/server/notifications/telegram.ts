@@ -45,7 +45,6 @@ export type TelegramConfig = Pick<
   | "telegramNotificationsEnabled"
   | "telegramBotToken"
   | "telegramChatId"
-  | "telegramFaceNotifications"
   | "telegramEventNotifications"
 >;
 
@@ -54,8 +53,6 @@ export type TelegramState = {
   enabled: boolean;
   /** Token and chat id are both present. */
   configured: boolean;
-  /** Enabled, configured and allowed for face detections. */
-  faceReady: boolean;
   /** Enabled, configured and allowed for general notification rules. */
   eventReady: boolean;
   reason: TelegramFailureReason | null;
@@ -103,12 +100,11 @@ export function formatTelegramTime(value: string | Date): string {
 }
 
 /** What the media notification is about; drives the caption title. */
-export type TelegramMediaKind = "person" | "vehicle" | "face";
+export type TelegramMediaKind = "person" | "vehicle";
 
 const MEDIA_TITLES: Record<TelegramMediaKind, { emoji: string; title: string }> = {
   person: { emoji: "🚨", title: "Person detected" },
   vehicle: { emoji: "🚗", title: "Vehicle detected" },
-  face: { emoji: "👤", title: "Face detected" },
 };
 
 /**
@@ -123,7 +119,7 @@ export function buildTelegramMediaCaption(input: {
   cameraName: string;
   /** Stored event timestamp; rendered in India time. */
   eventTimestamp: string;
-  /** 0–1, from the detector or the face detector; null when unknown. */
+  /** 0–1, from the object detector; null when the source has none. */
   confidence: number | null;
 }): string {
   const title = MEDIA_TITLES[input.kind];
@@ -163,14 +159,13 @@ export function looksLikeInvalidChatId(value: string): boolean {
 export function telegramState(config: TelegramConfig = getConfig()): TelegramState {
   const enabled = config.telegramNotificationsEnabled;
   const configured = Boolean(config.telegramBotToken) && Boolean(config.telegramChatId);
-  if (!enabled) return { enabled, configured, faceReady: false, eventReady: false, reason: "disabled" };
-  if (!configured) return { enabled, configured, faceReady: false, eventReady: false, reason: "not_configured" };
+  if (!enabled) return { enabled, configured, eventReady: false, reason: "disabled" };
+  if (!configured) return { enabled, configured, eventReady: false, reason: "not_configured" };
   return {
     enabled,
     configured,
-    faceReady: config.telegramFaceNotifications,
     eventReady: config.telegramEventNotifications,
-    reason: config.telegramFaceNotifications ? null : "disabled",
+    reason: null,
   };
 }
 
@@ -188,8 +183,6 @@ export type SendTelegramInput = {
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
   log?: (line: string) => void;
-  /** When false, TELEGRAM_FACE_NOTIFICATIONS is not consulted (the test button). */
-  requireFaceFlag?: boolean;
   /** When true, TELEGRAM_EVENT_NOTIFICATIONS must be enabled. */
   requireEventFlag?: boolean;
 };
@@ -211,7 +204,6 @@ function preflight(input: {
   log?: (message: string) => void;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
-  requireFaceFlag?: boolean;
   requireEventFlag?: boolean;
 }): { ok: true; ready: Ready } | { ok: false; result: TelegramResult } {
   const config = input.config ?? getConfig();
@@ -225,10 +217,6 @@ function preflight(input: {
   if (!state.configured) {
     logger("configuration missing");
     return { ok: false, result: { ok: false, status: "not_configured", detail: null } };
-  }
-  if (input.requireFaceFlag && !config.telegramFaceNotifications) {
-    logger("disabled");
-    return { ok: false, result: { ok: false, status: "disabled", detail: null } };
   }
   if (input.requireEventFlag && !config.telegramEventNotifications) {
     logger("disabled");
@@ -344,8 +332,8 @@ export async function sendTelegramMessage(input: SendTelegramInput): Promise<Tel
   );
 }
 
-/** Options for the file senders: no text body, no face-flag gate. */
-export type TelegramSendOptions = Omit<SendTelegramInput, "text" | "requireFaceFlag">;
+/** Options for the file senders: no text body, no flag gate. */
+export type TelegramSendOptions = Omit<SendTelegramInput, "text" | "requireEventFlag">;
 
 /** A file to upload. Bytes are held in memory only for the duration of a send. */
 export type TelegramFile = {
@@ -367,7 +355,7 @@ function fileBlob(file: TelegramFile): Blob {
   return new Blob([new Uint8Array(file.bytes)], { type: file.contentType });
 }
 
-/** Upload the detected face crop. */
+/** Upload a single photo (used for the event snapshot). */
 export async function sendTelegramPhoto(
   input: TelegramSendOptions & { photo: TelegramFile; caption?: string },
 ): Promise<TelegramResult> {
@@ -391,7 +379,7 @@ export async function sendTelegramPhoto(
   return postTelegram("sendPhoto", form, null, ready);
 }
 
-/** Upload one or more face crops as a single album. */
+/** Upload one or more photos as a single album. */
 export async function sendTelegramMediaGroup(
   input: TelegramSendOptions & { photos: TelegramFile[]; caption?: string },
 ): Promise<TelegramResult> {

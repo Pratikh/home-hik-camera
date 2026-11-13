@@ -119,7 +119,6 @@ Actual routes discovered from `src/app`:
 | `/events` | Event list + detail panel, filters. |
 | `/events/[id]` | Single event detail (server-rendered). |
 | `/events/stats` | Event statistics. |
-| `/faces` | Detected faces (detection only; every face is Unassigned). |
 | `/notifications` | Notification history (decisions, not rules). |
 | `/device` | DVR device information. |
 | `/account` | Own password change and session list/revocation. Any signed-in user. |
@@ -137,8 +136,8 @@ the protected layouts (`src/app/(hub)/layout.tsx`,
 Selected API routes: `/api/auth/login`, `/api/auth/logout`, `/api/auth/session`,
 `/api/auth/password`, `/api/auth/sessions`, `/api/health` (public, small),
 `/api/system/health` (ADMIN, operational), `/api/cameras`, `/api/cameras/[id]`,
-`/api/dvr/status`, `/api/dvr/info`, `/api/events*`, `/api/events/[id]/faces`,
-`/api/faces`, `/api/faces/[id]`, `/api/faces/[id]/image`, `/api/notifications*`,
+`/api/dvr/status`, `/api/dvr/info`, `/api/events*`,
+`/api/notifications*`,
 `/api/notification-rules*`, `/api/audit`, `/api/users*`,
 `/api/users/[id]/sessions`, `/api/settings`, `/api/system/sessions`,
 `/api/streams/*`, `/api/webrtc/*`, `/api/hls/*`, `/api/playback/search`,
@@ -233,50 +232,6 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
 - A snapshot is either rendered from the authenticated
   `/api/events/<id>/snapshot` route or explicitly reported as unavailable.
 
-## Face detection (detection only)
-
-- `/faces` is a gallery of faces found in **existing event snapshots**. It is
-  not a recognition screen: every card shows **Unassigned**, because no identity
-  is computed. Filters: camera, date, assignment (All/Unassigned/Assigned) and
-  minimum confidence.
-- The page always renders one honest state — gallery, empty, or
-  "Face detection is disabled." It never invents a count and never shows an
-  error for a switched-off feature.
-- The event detail page (`/events/[id]`) gains a **Face Detection** section only
-  when detection is enabled *and* the event has faces. When detection is off the
-  section is absent: the page must never say "0 faces" for a disabled feature.
-- Face crops are served only by `GET /api/faces/<id>/image`, which requires a
-  session and resolves the stored path inside `DATA_DIR/face-crops`. There is no
-  static mapping to that directory and no path ever appears in a response.
-- Detection runs in a separate local Python worker (`face-worker/`) that reads
-  the queue from the same SQLite database. It never touches the live stream, the
-  recordings, the rule engine, notification history or the audit log.
-- A **temporary** face-notification test mode (bounded by
-  `FACE_DETECTION_TEST_UNTIL`) can raise a browser notification when a face is
-  detected. The same accepted notification can also be delivered to Telegram
-  (`TELEGRAM_*`, server-side only, ADMIN test button on
-  `/settings/notifications`); it shares the one decision, so the cooldown,
-  duplicate protection and expiry are unchanged and Telegram keeps no history of
-  its own. It is additive — motion/person notifications and their rules are
-  untouched. Telegram receives one media message per accepted detection (clip,
-  else face crop, else snapshot), never a text message and never a name. When
-  the window is active, `/faces` shows a small read-only status line; when it is
-  off or expired, that line is absent. See
-  [Face-Detection.md](Face-Detection.md#16-temporary-face-detection-notification-test).
-- Separately, `TELEGRAM_EVENT_NOTIFICATIONS=true` delivers an ordinary camera
-  event that a Notification Rule accepts. The rule decision (match, priority,
-  schedule, quiet hours, cooldown, duplicate protection) is recorded first, so
-  Telegram is delivery-only and a Telegram failure cannot suppress the browser
-  notification. The channel is independent of the face one. Each accepted event
-  produces exactly one media message — the clip, else the face crop, else the
-  snapshot — queued through the one durable background media worker (so a slow
-  DVR search or FFmpeg never delays event ingestion). There is no text fallback.
-  A clip that lost the DVR's playback slot is retried once after three minutes,
-  without re-uploading an image.
-- Processing is idempotent: `face_processing` holds one row per event and
-  `event_faces` has `UNIQUE(event_id, detection_index)`; a restart or a retry
-  converges on the same rows. See `docs/Face-Detection.md`.
-
 ## Notifications
 
 - `/notifications` is **history**: every notification decision the hub made
@@ -347,30 +302,10 @@ Observed names on the QA DVR at implementation time: **1 Parking**,
   normal application behaviour and cannot be avoided by browser QA. No events,
   notification rules, notification history, camera names or accounts are
   created or changed by the suite.
-- **The face gallery fixtures live at the network boundary.** FACE-UI-002/003/
-  005/006/007 serve `/api/faces` and `/api/events/<id>/faces` with
-  `page.route`, so no fake face row, crop or person is ever written to the
-  production database. The authentication checks in FACE-UI-004 hit the real
-  server. Retention, cascade, duplicate protection, thresholds and path safety
-  are covered by the worker (pytest) and hub (vitest) suites instead.
-- **Face detection is off by default**, so the browser suite normally exercises
-  the *disabled* path (FACE-UI-001/008). With detection enabled on the host,
-  FACE-UI-001 accepts a real gallery too, and FACE-UI-002…007 still run against
-  their fixtures.
 - **A running `next dev` can serve a stale RSC payload for one route** after a
-  shared layout changes (for example adding the `Faces` nav item). The symptom
+  shared layout changes. The symptom
   is a React hydration mismatch on that route only, while other routes render the
   new markup. Restart the dev server before treating it as an application bug.
-- **The face notification test mode is off by default and time-boxed.** Without
-  `FACE_DETECTION_TEST_NOTIFICATIONS=true` plus a valid `FACE_DETECTION_TEST_UNTIL`,
-  no test notification is produced and no decision is recorded. Native browser
-  notifications are not driven by the Playwright suite (permission and the OS
-  notification centre are not reliably observable headlessly); the suite covers
-  the read-only status, the gallery and the event detail panel, and the
-  decision/content/delivery path is covered by the hub unit tests.
-- **The face worker needs a one-time model download.** `face-worker/tests/`
-  skips the real-model test when the model is absent; run
-  `python3 face-worker/scripts/download_model.py`.
 
 ## Known intentional behavior
 
@@ -385,14 +320,6 @@ Do not report these as defects:
   `Date` control is used. It intentionally adds no layout height.
 - Event **"Motion"** quick filter means "unclassified motion"; it maps to
   `classification=none`.
-- **Detected faces are Unassigned.** This is the design, not a bug: the phase
-  implements detection only, and no identity is computed or stored.
-- **Face detection is off unless `FACE_DETECTION_ENABLED=true`.** With it off,
-  `/faces` explains the disabled state and the event detail page has no face
-  section at all — that absence is correct, not a missing feature.
-- **Face test notifications expire on purpose.** After
-  `FACE_DETECTION_TEST_UNTIL` the notifications stop while face detection keeps
-  running. An absent status line on `/faces` is the intended state, not a bug.
 - Browsing the playback calendar to a month with **no recordings** snaps back to
   the nearest month that has one (`findNearestAvailableDate`). The calendar is
   not a free month browser by design.
@@ -433,27 +360,9 @@ desired behaviour.
 | USER-001 … USER-009 | `tests/e2e/users.spec.ts` |
 | SYSTEM-001 … SYSTEM-007 | `tests/e2e/system.spec.ts` |
 | SEC-001 … SEC-008 | `tests/e2e/security.spec.ts` |
-| FACE-UI-001 … FACE-UI-008 | `tests/e2e/faces.spec.ts` |
-| FACE-NOTIFY-001 … FACE-NOTIFY-016 | `src/server/events/face-notify.test.ts` |
-| FACE-NOTIFY-UI-001 … FACE-NOTIFY-UI-003 | `tests/e2e/face-notify.spec.ts` |
-| TELEGRAM-001 … TELEGRAM-018 | `src/server/notifications/telegram.test.ts`, `src/server/events/face-notify.test.ts`, `src/app/api/notifications/telegram/telegram-route.test.ts` |
+| TELEGRAM-001 … TELEGRAM-018 | `src/server/notifications/telegram.test.ts`, `src/app/api/notifications/telegram/telegram-route.test.ts` |
 | TELEGRAM-RULE-001 … TELEGRAM-RULE-007 | `src/server/events/telegram-event.test.ts` |
 | TELEGRAM-UI-001 … TELEGRAM-UI-004 | `tests/e2e/telegram.spec.ts` |
-
-Face detection is split across three suites; the full mapping is in
-[Face-Detection.md](Face-Detection.md#16-tests):
-
-| Test ID | Where |
-| --- | --- |
-| FACE-001 (off by default) | `src/lib/config.test.ts` |
-| FACE-002 (no detector when off) | `face-worker/tests/test_flag_and_detector.py` |
-| FACE-003 … FACE-011, FACE-013, FACE-014 | `face-worker/tests/test_pipeline.py`, `test_worker_flow.py` |
-| FACE-012 (path containment) | `face-worker/tests/test_crop_paths.py`, `src/lib/face-path.test.ts` |
-| FACE-015, FACE-016 (image endpoint auth) | `src/app/api/faces/faces-api.test.ts` |
-| FACE-017, FACE-018 (relationship + cleanup) | `face-worker/tests/test_pipeline.py`, `src/server/events/retention-face.test.ts` |
-
-Worker tests: `npm run test:face` (pytest, from `face-worker/tests/`). They use
-an injected stub detector, so they are deterministic and need no face image.
 
 Support code lives in `tests/e2e/support/`:
 `qa-env.ts` (viewport, routes, credentials), `fixtures.ts` (per-test source
@@ -503,8 +412,3 @@ Future AI agents must:
 9. Never modify DVR/MediaMTX unless explicitly instructed.
 10. Never modify the production database during browser tests.
 11. Clearly distinguish environmental limitations from application defects.
-12. Never analyse the live stream or the H.265 recordings for face detection —
-    snapshots only, and only through the worker.
-13. Never add face recognition, embeddings, person matching or a cloud vision
-    call without an explicit new phase. This phase is detection only, and every
-    detected face stays Unassigned.

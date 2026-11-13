@@ -1,7 +1,6 @@
 import "server-only";
 
 import { parseTrustedProxies } from "@/lib/client-ip";
-import { DEFAULT_FACE_TEST_COOLDOWN_SECONDS } from "@/lib/faces";
 import { DEFAULT_THUMBNAIL_INTERVAL_SECONDS } from "@/lib/playback-thumbnail";
 
 export type Env = Record<string, string | undefined>;
@@ -40,18 +39,6 @@ export type AppConfig = {
   eventDevMock: boolean;
   mediamtxAuthUser: string;
   mediamtxAuthPassword: string;
-  /** Face detection is opt-in and off by default. */
-  faceDetectionEnabled: boolean;
-  /** Detections below this score are discarded. Never hardcoded in logic. */
-  faceDetectionConfidence: number;
-  /** Upper bound on faces stored per snapshot; the strongest are kept. */
-  faceDetectionMaxFaces: number;
-  /** Temporary face-notification test mode. Off unless explicitly enabled. */
-  faceDetectionTestNotifications: boolean;
-  /** Per-camera cooldown for the test notifications, in seconds. */
-  faceDetectionTestNotificationCooldownSeconds: number;
-  /** ISO-8601 expiry with an explicit offset; empty when unset. */
-  faceDetectionTestUntil: string;
   /**
    * Telegram notifications. Server-side only: the token and chat id are never
    * sent to the browser, never returned by an API and never logged.
@@ -59,8 +46,6 @@ export type AppConfig = {
   telegramNotificationsEnabled: boolean;
   telegramBotToken: string;
   telegramChatId: string;
-  /** Whether face detections may produce a Telegram message. */
-  telegramFaceNotifications: boolean;
   /**
    * Whether accepted general notification-rule decisions (motion/person/
    * vehicle) may produce a Telegram message. Separate from the face-test path
@@ -69,12 +54,10 @@ export type AppConfig = {
   telegramEventNotifications: boolean;
   /**
    * Accepted for compatibility with the documented environment. Telegram does
-   * NOT apply its own cooldown: the face notification cooldown is the existing
-   * `faceDetectionTestNotificationCooldownSeconds`, and a suppressed face
-   * decision suppresses Telegram too.
+   * not keep its own cooldown; the notification rules remain the gate.
    */
   telegramCooldownSeconds: number;
-  /** Attach the existing face crop to the Telegram notification. */
+  /** Attach the event snapshot (full camera still) as the image. */
   telegramFaceImage: boolean;
   /** Attach a short CCTV clip around the event. */
   telegramFaceVideo: boolean;
@@ -169,22 +152,9 @@ export function readConfig(env: Env): AppConfig {
     eventDevMock: (env.NODE_ENV ?? "") !== "production" && (env.EVENT_DEV_MOCK ?? "").trim().toLowerCase() === "true",
     mediamtxAuthUser: (env.MEDIAMTX_AUTH_USER ?? "hub").trim() || "hub",
     mediamtxAuthPassword: env.MEDIAMTX_AUTH_PASSWORD ?? "",
-    faceDetectionEnabled: (env.FACE_DETECTION_ENABLED ?? "").trim().toLowerCase() === "true",
-    faceDetectionConfidence: readFloat(env.FACE_DETECTION_CONFIDENCE, DEFAULT_FACE_CONFIDENCE, 0, 1),
-    faceDetectionMaxFaces: readBoundedInt(env.FACE_DETECTION_MAX_FACES, DEFAULT_FACE_MAX_FACES, 1, 100),
-    faceDetectionTestNotifications:
-      (env.FACE_DETECTION_TEST_NOTIFICATIONS ?? "").trim().toLowerCase() === "true",
-    faceDetectionTestNotificationCooldownSeconds: readBoundedInt(
-      env.FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS,
-      DEFAULT_FACE_TEST_COOLDOWN_SECONDS,
-      0,
-      86_400,
-    ),
-    faceDetectionTestUntil: (env.FACE_DETECTION_TEST_UNTIL ?? "").trim(),
     telegramNotificationsEnabled: (env.TELEGRAM_NOTIFICATIONS_ENABLED ?? "").trim().toLowerCase() === "true",
     telegramBotToken: (env.TELEGRAM_BOT_TOKEN ?? "").trim(),
     telegramChatId: (env.TELEGRAM_CHAT_ID ?? "").trim(),
-    telegramFaceNotifications: (env.TELEGRAM_FACE_NOTIFICATIONS ?? "").trim().toLowerCase() === "true",
     telegramEventNotifications: (env.TELEGRAM_EVENT_NOTIFICATIONS ?? "").trim().toLowerCase() === "true",
     telegramCooldownSeconds: readBoundedInt(
       env.TELEGRAM_COOLDOWN_SECONDS,
@@ -228,8 +198,6 @@ export function readConfig(env: Env): AppConfig {
   };
 }
 
-export const DEFAULT_FACE_CONFIDENCE = 0.6;
-export const DEFAULT_FACE_MAX_FACES = 10;
 export const DEFAULT_TELEGRAM_COOLDOWN_SECONDS = 300;
 export const DEFAULT_VIDEO_PRE_SECONDS = 5;
 export const DEFAULT_VIDEO_POST_SECONDS = 5;
@@ -267,13 +235,6 @@ function readBool(value: string | undefined, fallback: boolean): boolean {
  * A confidence threshold outside 0..1 is meaningless; fall back rather than
  * failing the whole application configuration over an optional feature.
  */
-function readFloat(value: string | undefined, fallback: number, min: number, max: number): number {
-  if (value === undefined || value.trim() === "") return fallback;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return fallback;
-  return parsed;
-}
-
 function readBoundedInt(value: string | undefined, fallback: number, min: number, max: number): number {
   if (value === undefined || value.trim() === "") return fallback;
   const parsed = Number(value);

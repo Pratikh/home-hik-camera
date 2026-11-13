@@ -24,7 +24,6 @@ import {
   type RuleEventType,
 } from "@/lib/events";
 import { CAMERA_IDS, isValidCameraId } from "@/lib/cameras";
-import { isFaceId, type DetectedFace, type FaceProcessingSummary, type FaceQuery } from "@/lib/faces";
 import { defaultPriority, isEventPriority, priorityRank, type EventPriority } from "@/lib/priority";
 
 /** Sources that can create an event row. The DVR poller and the object detector. */
@@ -69,16 +68,6 @@ export type NotificationQuery = {
   priority: EventPriority | null;
   page: number;
   pageSize: number;
-};
-
-/** One completed face job waiting for a notification decision. */
-export type FaceTestCandidate = {
-  eventId: string;
-  cameraId: number;
-  eventTimestamp: string;
-  finishedAt: string;
-  faces: number;
-  maxConfidence: number;
 };
 
 type RuleRow = {
@@ -160,7 +149,7 @@ CREATE INDEX IF NOT EXISTS notification_history_event_id ON notification_history
 CREATE INDEX IF NOT EXISTS notification_history_rule_id ON notification_history(rule_id);
 CREATE INDEX IF NOT EXISTS notification_history_created_at ON notification_history(created_at);
 /*
- * Durable queue for the Telegram media work (face snapshot + event clip).
+ * Durable queue for the Telegram media work (event snapshot + clip).
  *
  * Media delivery is asynchronous, so it needs somewhere to live across a hub
  * restart; the text notification is sent by the decision itself and is not
@@ -438,39 +427,6 @@ function mapEvent(row: Record<string, unknown>): CctvEvent {
   };
 }
 
-/** Detected-face rows always come back joined to the event they belong to. */
-const FACE_SELECT = `
-SELECT f.id, f.event_id, f.person_id, f.confidence, f.x, f.y, f.width, f.height, f.crop_path,
-       f.detector, f.model, f.created_at,
-       e.camera_id AS camera_id, e.timestamp AS event_timestamp,
-       e.type AS event_type, e.classification AS event_classification
-FROM event_faces f
-JOIN events e ON e.id = f.event_id`;
-
-function mapFace(row: Record<string, unknown>): DetectedFace {
-  const type = isEventType(String(row.event_type)) ? (String(row.event_type) as EventType) : "motion";
-  const classification = row.event_classification;
-  return {
-    id: String(row.id),
-    eventId: String(row.event_id),
-    // NULL in this phase: the face is detected but not assigned to a person.
-    personId: row.person_id ? String(row.person_id) : null,
-    confidence: Number(row.confidence),
-    x: Number(row.x),
-    y: Number(row.y),
-    width: Number(row.width),
-    height: Number(row.height),
-    hasCrop: typeof row.crop_path === "string" && row.crop_path.length > 0,
-    detector: String(row.detector ?? ""),
-    model: row.model ? String(row.model) : null,
-    createdAt: String(row.created_at),
-    cameraId: Number(row.camera_id),
-    eventTimestamp: String(row.event_timestamp),
-    eventType: type,
-    eventClassification: classification === "person" || classification === "vehicle" ? classification : null,
-  };
-}
-
 /**
  * Read the V5.2 multi-select columns. `null` means "no multi-select data; use
  * the legacy columns". A malformed value is also treated as absent so a corrupt
@@ -640,8 +596,7 @@ export class EventStore {
     addColumn("notification_rules", "camera_ids", "TEXT");
     addColumn("notification_rules", "event_types", "TEXT");
 
-    // Telegram media is queued for both channels; older rows were face-only.
-    addColumn("telegram_media_jobs", "channel", "TEXT NOT NULL DEFAULT 'face'");
+    addColumn("telegram_media_jobs", "channel", "TEXT NOT NULL DEFAULT 'event'");
     // A clip that lost the DVR's playback slot is retried a little later.
     addColumn("telegram_media_jobs", "next_attempt_at", "TEXT NOT NULL DEFAULT ''");
     // Caption metadata and the DVR-adjusted clip time (additive columns).
@@ -1043,35 +998,6 @@ export class EventStore {
   }
 
   /**
-   * Liveness marker for the optional local face worker.
-   *
-   * A row is only a hint: the health endpoint also checks its age against the
-   * worker's poll interval, so a cleanly exited or crashed worker becomes
-   * visible as "stopped" instead of silently looking healthy forever.
-   */
-  faceWorkerHeartbeat(): {
-    lastSeenAt: string;
-    pollIntervalMs: number;
-    pid: number | null;
-    status: string;
-    detail: string | null;
-  } | null {
-    const row = this.db
-      .prepare("SELECT last_seen_at, poll_interval_ms, pid, status, detail FROM face_worker_heartbeat WHERE id = 1")
-      .get() as
-      | { last_seen_at: string; poll_interval_ms: number; pid: number | null; status: string; detail: string | null }
-      | undefined;
-    if (!row) return null;
-    return {
-      lastSeenAt: row.last_seen_at,
-      pollIntervalMs: row.poll_interval_ms,
-      pid: row.pid,
-      status: row.status,
-      detail: row.detail,
-    };
-  }
-
-  /**
    * Thumbnail-worker state persisted in `app_settings`.
    *
    * The worker runs in the instrumentation module, while the health route runs
@@ -1102,8 +1028,6 @@ export class EventStore {
     notifications: number;
     snapshots: number;
     orphanedSnapshots: number;
-    crops: number;
-    orphanedCrops: number;
   } {
     const numberSetting = (key: string): number => {
       const value = this.setting(key);
@@ -1116,8 +1040,6 @@ export class EventStore {
       notifications: numberSetting("retention_last_notifications"),
       snapshots: numberSetting("retention_last_snapshots"),
       orphanedSnapshots: numberSetting("retention_last_orphaned_snapshots"),
-      crops: numberSetting("retention_last_crops"),
-      orphanedCrops: numberSetting("retention_last_orphaned_crops"),
     };
   }
 
@@ -1168,30 +1090,16 @@ export class EventStore {
   }
 
   /** Counts notifications actually delivered by a rule within a cooldown window. */
-  countSentSince(ruleId: string, sinceIso: string, excludeEventId?: string): number {
+  countSentSince(ruleId: string, sinceIso: string): number {
     // created_at is stored as a UTC ISO string while the cooldown window is
     // formatted in IST (+05:30). Comparing those strings lexicographically is
     // wrong across the offset boundary, so compare actual instants.
-    //
-    // excludeEventId is used by the face-notification path: the event may
-    // already have its own "sent" decision from event ingestion, and that row
-    // must not count as an earlier notification when checking its cooldown.
-    const row = (
-      excludeEventId === undefined
-        ? this.db
-            .prepare(
-              `SELECT COUNT(*) AS count FROM notification_history
-               WHERE rule_id = ? AND status = 'sent' AND julianday(created_at) >= julianday(?)`,
-            )
-            .get(ruleId, sinceIso)
-        : this.db
-            .prepare(
-              `SELECT COUNT(*) AS count FROM notification_history
-               WHERE rule_id = ? AND status = 'sent' AND julianday(created_at) >= julianday(?)
-                 AND event_id <> ?`,
-            )
-            .get(ruleId, sinceIso, excludeEventId)
-    ) as { count: number };
+    const row = this.db
+      .prepare(
+        `SELECT COUNT(*) AS count FROM notification_history
+         WHERE rule_id = ? AND status = 'sent' AND julianday(created_at) >= julianday(?)`,
+      )
+      .get(ruleId, sinceIso) as { count: number };
     return row.count;
   }
 
@@ -1332,120 +1240,6 @@ export class EventStore {
     this.db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(key, value);
   }
 
-  // -------------------------------------------------------------------------
-  // Detected faces (read-only here: the local face worker owns every write).
-  // -------------------------------------------------------------------------
-
-  faceById(id: string): DetectedFace | null {
-    if (!isFaceId(id)) return null;
-    const row = this.db.prepare(`${FACE_SELECT} WHERE f.id = ?`).get(id) as Record<string, unknown> | undefined;
-    return row ? mapFace(row) : null;
-  }
-
-  faces(query: FaceQuery): { faces: DetectedFace[]; total: number } {
-    const where: string[] = [];
-    const params: Array<string | number> = [];
-    if (query.cameraId !== null) {
-      where.push("e.camera_id = ?");
-      params.push(query.cameraId);
-    }
-    if (query.start) {
-      where.push("e.timestamp >= ?");
-      params.push(query.start);
-    }
-    if (query.end) {
-      where.push("e.timestamp <= ?");
-      params.push(query.end);
-    }
-    if (query.assigned === true) where.push("f.person_id IS NOT NULL");
-    if (query.assigned === false) where.push("f.person_id IS NULL");
-    if (query.minConfidence !== null) {
-      where.push("f.confidence >= ?");
-      params.push(query.minConfidence);
-    }
-    if (query.eventId) {
-      where.push("f.event_id = ?");
-      params.push(query.eventId);
-    }
-    const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
-    const total = this.db
-      .prepare(`SELECT COUNT(*) AS count FROM event_faces f JOIN events e ON e.id = f.event_id ${clause}`)
-      .get(...params) as { count: number };
-    const offset = (query.page - 1) * query.pageSize;
-    const rows = this.db
-      .prepare(
-        `${FACE_SELECT} ${clause} ORDER BY e.timestamp DESC, f.confidence DESC, f.detection_index ASC LIMIT ? OFFSET ?`,
-      )
-      .all(...params, query.pageSize, offset) as Array<Record<string, unknown>>;
-    return { faces: rows.map(mapFace), total: total.count };
-  }
-
-  /**
-   * Best stored face crop for one event, or null.
-   *
-   * Used by the Telegram media worker: the crop is the preferred still image for
-   * a person notification. Only a path the server itself stored is returned; the
-   * caller still confines it to DATA_DIR/face-crops with `faceCropFile`.
-   */
-  cropPathForEvent(eventId: string): string | null {
-    const row = this.db
-      .prepare(
-        `SELECT crop_path FROM event_faces
-         WHERE event_id = ? AND crop_path IS NOT NULL AND crop_path <> ''
-         ORDER BY confidence DESC, detection_index ASC LIMIT 1`,
-      )
-      .get(eventId) as { crop_path: string } | undefined;
-    return row?.crop_path ?? null;
-  }
-
-  /** Faces for one event, strongest first. Used by the event detail panel. */
-  facesForEvent(eventId: string): DetectedFace[] {
-    const rows = this.db
-      .prepare(`${FACE_SELECT} WHERE f.event_id = ? ORDER BY f.confidence DESC, f.detection_index ASC`)
-      .all(eventId) as Array<Record<string, unknown>>;
-    return rows.map(mapFace);
-  }
-
-  faceProcessing(eventId: string): {
-    status: string;
-    facesFound: number;
-    attempts: number;
-    detector: string | null;
-    model: string | null;
-    error: string | null;
-    updatedAt: string;
-  } | null {
-    const row = this.db
-      .prepare("SELECT status, faces_found, attempts, detector, model, error, updated_at FROM face_processing WHERE event_id = ?")
-      .get(eventId) as
-      | { status: string; faces_found: number; attempts: number; detector: string | null; model: string | null; error: string | null; updated_at: string }
-      | undefined;
-    if (!row) return null;
-    return {
-      status: row.status,
-      facesFound: row.faces_found,
-      attempts: row.attempts,
-      detector: row.detector,
-      model: row.model,
-      error: row.error,
-      updatedAt: row.updated_at,
-    };
-  }
-
-  faceProcessingSummary(): FaceProcessingSummary {
-    const summary: FaceProcessingSummary = { pending: 0, processing: 0, completed: 0, failed: 0 };
-    const rows = this.db
-      .prepare("SELECT status, COUNT(*) AS count FROM face_processing GROUP BY status")
-      .all() as Array<{ status: string; count: number }>;
-    for (const row of rows) {
-      if (row.status === "PENDING") summary.pending += row.count;
-      else if (row.status === "PROCESSING") summary.processing += row.count;
-      else if (row.status === "COMPLETED") summary.completed += row.count;
-      else if (row.status === "FAILED") summary.failed += row.count;
-    }
-    return summary;
-  }
-
   /* ---------------------------------------------------------------------- */
   /* Telegram media queue (durable, additive table)                         */
   /* ---------------------------------------------------------------------- */
@@ -1471,8 +1265,8 @@ export class EventStore {
     /** Detector confidence shown in the caption; null when unknown. */
     confidence?: number | null;
     snapshotPath: string | null;
-    /** Which Telegram channel queued the job. Older rows default to "face". */
-    channel?: "face" | "event";
+    /** Which Telegram channel queued the job. New rows are "event". */
+    channel?: "event";
     now: string;
     limit?: number;
   }): "queued" | "duplicate" | "full" {
@@ -1507,7 +1301,7 @@ export class EventStore {
         input.classification ?? null,
         input.confidence ?? null,
         input.snapshotPath,
-        input.channel ?? "face",
+        input.channel ?? "event",
         input.now,
         input.now,
       );
@@ -1642,108 +1436,6 @@ export class EventStore {
     return Object.fromEntries(rows.map((row) => [row.status, row.count]));
   }
 
-  /** Every crop path still referenced, used by the orphan sweep. */
-  allFaceCropPaths(): string[] {
-    const rows = this.db
-      .prepare("SELECT crop_path FROM event_faces WHERE crop_path IS NOT NULL AND crop_path <> ''")
-      .all() as Array<{ crop_path: string }>;
-    return rows.map((row) => row.crop_path);
-  }
-
-  /** Crop paths belonging to events that retention is about to delete. */
-  faceCropPathsBefore(cutoffIso: string): string[] {
-    const rows = this.db
-      .prepare(
-        `SELECT f.crop_path FROM event_faces f JOIN events e ON e.id = f.event_id
-         WHERE e.timestamp < ? AND f.crop_path IS NOT NULL AND f.crop_path <> ''`,
-      )
-      .all(cutoffIso) as Array<{ crop_path: string }>;
-    return rows.map((row) => row.crop_path);
-  }
-
-  // -------------------------------------------------------------------------
-  // Temporary face-notification test mode (read-only here; the notifier writes
-  // through the existing `recordNotification`).
-  // -------------------------------------------------------------------------
-
-  /**
-   * Completed face jobs that have faces and no decision yet for `ruleId`.
-   *
-   * The cursor is a (finished_at, event_id) pair, so a restart resumes exactly
-   * where it stopped and a busy second cannot be skipped. `NOT EXISTS` on the
-   * notification history is the second half of the duplicate guard.
-   */
-  faceTestCandidates(input: {
-    ruleId: string;
-    cursorAt: string | null;
-    cursorId: string | null;
-    limit: number;
-  }): FaceTestCandidate[] {
-    const where: string[] = ["fp.status = 'COMPLETED'"];
-    const params: Array<string | number> = [];
-    if (input.cursorAt) {
-      // Strict cursor: already-decided rows are also excluded below.
-      where.push("(fp.finished_at > ? OR (fp.finished_at = ? AND fp.event_id > ?))");
-      params.push(input.cursorAt, input.cursorAt, input.cursorId ?? "");
-    }
-    where.push(
-      "NOT EXISTS (SELECT 1 FROM notification_history h WHERE h.event_id = fp.event_id AND h.rule_id = ?)",
-    );
-    params.push(input.ruleId);
-    const rows = this.db
-      .prepare(
-        `SELECT fp.event_id AS event_id, e.camera_id AS camera_id, e.timestamp AS event_timestamp,
-                fp.finished_at AS finished_at, COUNT(f.id) AS faces, MAX(f.confidence) AS max_confidence
-         FROM face_processing fp
-         JOIN events e ON e.id = fp.event_id
-         JOIN event_faces f ON f.event_id = fp.event_id
-         WHERE ${where.join(" AND ")}
-         GROUP BY fp.event_id
-         ORDER BY fp.finished_at ASC, fp.event_id ASC
-         LIMIT ?`,
-      )
-      .all(...params, input.limit) as Array<Record<string, unknown>>;
-    return rows.map((row) => ({
-      eventId: String(row.event_id),
-      cameraId: Number(row.camera_id),
-      eventTimestamp: String(row.event_timestamp),
-      finishedAt: String(row.finished_at),
-      faces: Number(row.faces),
-      maxConfidence: Number(row.max_confidence),
-    }));
-  }
-
-  /** The newest completed face job, used to park the cursor on activation. */
-  latestFaceTestCursor(): { finishedAt: string; eventId: string } | null {
-    const row = this.db
-      .prepare("SELECT finished_at, event_id FROM face_processing ORDER BY finished_at DESC, event_id DESC LIMIT 1")
-      .get() as { finished_at: string; event_id: string } | undefined;
-    return row ? { finishedAt: row.finished_at, eventId: row.event_id } : null;
-  }
-
-  /**
-   * Detection time of the most recent *sent* test notification for a camera —
-   * the cooldown anchor.
-   *
-   * Anchoring on the detection's own `finished_at` rather than on when the row
-   * was written keeps the cooldown correct across a restart, a backlog, or a
-   * hub that was briefly down: five minutes between detections means five
-   * minutes, whichever process noticed them.
-   */
-  lastSentFaceTestAt(ruleId: string, cameraId: number): string | null {
-    const row = this.db
-      .prepare(
-        `SELECT fp.finished_at AS finished_at
-         FROM notification_history h
-         JOIN face_processing fp ON fp.event_id = h.event_id
-         WHERE h.rule_id = ? AND h.camera_id = ? AND h.status = 'sent'
-         ORDER BY fp.finished_at DESC
-         LIMIT 1`,
-      )
-      .get(ruleId, cameraId) as { finished_at: string } | undefined;
-    return row?.finished_at ?? null;
-  }
-
   /**
    * Delete detection track metadata older than the event-retention cutoff.
    *
@@ -1812,7 +1504,7 @@ export function openEventStore(dataDir: string): EventStore {
   if (existing) return existing;
   /*
    * The data directory holds the camera database (password hashes, sessions,
-   * audit rows, event metadata), face crops and snapshots. It must not be
+   * audit rows, event metadata) and snapshots. It must not be
    * world-readable on the host. The mode is applied on every open so an
    * existing install is fixed on the next restart without a manual chmod.
    * Failures are ignored rather than fatal (a read-only or root-owned tree must
@@ -1822,11 +1514,9 @@ export function openEventStore(dataDir: string): EventStore {
   const dbPath = path.join(dataDir, "events.sqlite");
   const db = new DatabaseSync(dbPath);
   /*
-   * The local face worker reads and writes this same database from a separate
-   * process. WAL lets the two read concurrently, busy_timeout makes a brief
-   * write overlap wait instead of throwing, and foreign_keys makes the
-   * ON DELETE CASCADE on event_faces and face_processing real, so retention
-   * cannot leave face rows behind.
+   * The local object-detection worker reads and writes this same database from
+   * a separate process. WAL lets the two read concurrently and busy_timeout
+   * makes a brief write overlap wait instead of throwing.
    */
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA busy_timeout = 5000");

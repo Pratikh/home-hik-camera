@@ -32,7 +32,6 @@ const CONFIG: TelegramConfig = {
   telegramNotificationsEnabled: true,
   telegramBotToken: FAKE_TOKEN,
   telegramChatId: FAKE_CHAT_ID,
-  telegramFaceNotifications: true,
   telegramEventNotifications: true,
 };
 
@@ -65,13 +64,13 @@ describe("TELEGRAM-001 / 002 / 003 / 004 — when nothing may be sent", () => {
     expect(log).toHaveBeenCalledWith("disabled");
   });
 
-  it("TELEGRAM-002 sends no request while TELEGRAM_FACE_NOTIFICATIONS is false", async () => {
+  it("TELEGRAM-002 sends no request while TELEGRAM_EVENT_NOTIFICATIONS is false", async () => {
     const fetchImpl = okFetch();
     const log = vi.fn();
     const result = await sendTelegramMessage({
       text: "hello",
-      requireFaceFlag: true,
-      config: { ...CONFIG, telegramFaceNotifications: false },
+      requireEventFlag: true,
+      config: { ...CONFIG, telegramEventNotifications: false },
       fetchImpl,
       log,
     });
@@ -81,11 +80,11 @@ describe("TELEGRAM-001 / 002 / 003 / 004 — when nothing may be sent", () => {
     expect(log).toHaveBeenCalledWith("disabled");
   });
 
-  it("still allows the admin test message while face notifications are off", async () => {
+  it("still allows the admin test message while event notifications are off", async () => {
     const fetchImpl = okFetch();
     const result = await sendTelegramMessage({
       text: buildTelegramTestMessage(),
-      config: { ...CONFIG, telegramFaceNotifications: false },
+      config: { ...CONFIG, telegramEventNotifications: false },
       fetchImpl,
       log: () => undefined,
     });
@@ -125,7 +124,6 @@ describe("TELEGRAM-001 / 002 / 003 / 004 — when nothing may be sent", () => {
     expect(telegramState(CONFIG)).toEqual({
       enabled: true,
       configured: true,
-      faceReady: true,
       eventReady: true,
       reason: null,
     });
@@ -135,7 +133,7 @@ describe("TELEGRAM-001 / 002 / 003 / 004 — when nothing may be sent", () => {
     });
     expect(telegramState({ ...CONFIG, telegramBotToken: "" })).toMatchObject({
       configured: false,
-      faceReady: false,
+      eventReady: false,
       reason: "not_configured",
     });
     // The state object contains no token and no chat id.
@@ -605,13 +603,10 @@ describe("TELEGRAM-CAPTION-008 — media caption formatting", () => {
     );
   });
 
-  it("formats the vehicle and face captions", () => {
+  it("formats the vehicle caption", () => {
     expect(
       buildTelegramMediaCaption({ kind: "vehicle", cameraName: "Left Side Outside", eventTimestamp: TIME, confidence: 0.7 }),
     ).toContain("🚗 <b>Vehicle detected</b>");
-    expect(
-      buildTelegramMediaCaption({ kind: "face", cameraName: "First Floor Passage", eventTimestamp: TIME, confidence: 0.82 }),
-    ).toContain("👤 <b>Face detected</b>");
   });
 
   it("rounds the detector confidence to whole percent", () => {
@@ -643,7 +638,7 @@ describe("TELEGRAM-CAPTION-008 — media caption formatting", () => {
     expect(formatTelegramTime("2026-10-22T19:00:00Z")).toBe("23 Oct 2026, 12:30 AM");
     expect(
       buildTelegramMediaCaption({
-        kind: "face",
+        kind: "person",
         cameraName: "Parking",
         eventTimestamp: "2021-03-04T09:05:00+05:30",
         confidence: 0.9,

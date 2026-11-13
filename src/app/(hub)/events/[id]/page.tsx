@@ -11,7 +11,6 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Icon } from "@/components/ui/Icon";
 import { PriorityBadge } from "@/components/events/PriorityBadge";
 import { SnapshotPanel } from "@/components/events/SnapshotPanel";
-import { EventFacesPanel } from "@/components/events/EventFacesPanel";
 import { MarkReadOnView } from "@/components/events/MarkReadOnView";
 
 export const dynamic = "force-dynamic";
@@ -187,11 +186,6 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
               </span>
             </div>
           </section>
-
-          {/* Face DETECTION only. It renders nothing when the feature is
-              disabled, so an event detail page never reports "0 faces" for a
-              feature that is switched off. */}
-          <EventFacesPanel eventId={event.id} />
 
           <section className="card" aria-label="Technical details">
             <div className="card__head">

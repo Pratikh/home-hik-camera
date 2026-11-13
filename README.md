@@ -6,7 +6,7 @@ Private CCTV hub for a Hikvision DS-7104HGHI-K1 on the home network. The browser
 Hikvision DVR --RTSP--> MediaMTX --WebRTC or HLS (proxied by the hub)--> browser
 ```
 
-Four camera slots. Sub streams (`102`, `202`, `302`, `402`) fill the grid. Main streams (`101`, `201`, `301`, `401`) open full screen. Live view, playback, events, notification rules, browser/Telegram notifications, optional local face **detection**, users/roles, session management, backup/restore, a daily backup timer, and a Podman systemd unit are implemented. This README describes the current system; it does not promise anything that is not in the code.
+Four camera slots. Sub streams (`102`, `202`, `302`, `402`) fill the grid. Main streams (`101`, `201`, `301`, `401`) open full screen. Live view, playback, events, notification rules, browser/Telegram notifications, optional local object **detection** (person/vehicle via YOLOX-Nano), users/roles, session management, backup/restore, a daily backup timer, and a Podman systemd unit are implemented. This README describes the current system; it does not promise anything that is not in the code.
 
 **The only public entry point is the Next.js hub on port `3000`.** Tailscale Funnel must expose only that port. The DVR is never public, and MediaMTX's HLS, WHEP and API ports are internal to the compose network.
 
@@ -75,7 +75,7 @@ Layout on the server:
 ├── compose.yml            # production stack
 ├── compose.dev.yml        # loopback-only ports for host development
 ├── .env                   # secrets; mode 0600, never committed
-├── data/                  # SQLite, events, face crops, thumbnails
+├── data/                  # SQLite, events, thumbnails
 ├── backups/               # daily backups first, then 7 retained
 ├── deploy/systemd/        # boot + backup units
 └── scripts/               # backup/restore/verify/cleanup
@@ -93,11 +93,6 @@ sudo install -m 644 deploy/systemd/home-cctv-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now home-cctv.service
 sudo systemctl enable --now home-cctv-backup.timer
-
-# Only when FACE_DETECTION_ENABLED=true:
-sudo install -m 644 deploy/systemd/home-cctv-face-worker.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now home-cctv-face-worker.service
 ```
 
 Never copy `.env` into an image, a backup, or git. The `.env.example` file
@@ -148,21 +143,13 @@ Put the random string in `SESSION_SECRET`. Set `APP_USERNAME` and `APP_PASSWORD`
 | `AI_ENABLED` | Records the DVR's own person/vehicle label in `event_ai_results`. Default off. Runs no vision model. |
 | `EVENT_DEV_MOCK` | Development-only event fixtures. Ignored when `NODE_ENV=production`. |
 | `DATA_DIR` | Camera display names, events database, and event snapshots. Default `./data` (gitignored). |
-| `FACE_DETECTION_ENABLED` | Local, offline face **detection** on event snapshots. Default `false`. Detection only — no recognition. |
 | Object detection | Configurable person/vehicle detection on the H.264 camera substreams by a separate CPU worker, off by default, edited at `/settings/detection`. The worker reads MediaMTX's internal RTSP listener and stores the exact analysed frame; the normal rules/history/Telegram pipeline runs unchanged. See [docs/Object-Detection.md](docs/Object-Detection.md). |
-| `FACE_DETECTION_CONFIDENCE` | Detections below this score are discarded. Default `0.60`. |
-| `FACE_DETECTION_MAX_FACES` | Highest-confidence faces kept per snapshot. Default `10`. |
-| `FACE_DETECTION_TEST_NOTIFICATIONS` | Temporary face-notification test mode. Default `false`. Additive; never identifies anyone. |
-| `FACE_DETECTION_TEST_NOTIFICATION_COOLDOWN_SECONDS` | Per-camera cooldown for the test notification. Default `300`. |
-| `FACE_DETECTION_TEST_UNTIL` | ISO-8601 expiry with a timezone offset, e.g. `2026-10-12T10:00:00+05:30`. Empty or invalid means test notifications stay off. |
 | `TELEGRAM_NOTIFICATIONS_ENABLED` | Master Telegram switch. Default `false`. Server-side only. |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token. Read by the server; never sent to the browser or logged. |
 | `TELEGRAM_CHAT_ID` | Telegram destination chat. Server-side only. |
-| `TELEGRAM_FACE_NOTIFICATIONS` | Whether face detections may produce a Telegram message. Default `false`. Independent of the rule-event channel. |
 | `TELEGRAM_EVENT_NOTIFICATIONS` | Whether an accepted Notification Rule decision (a matching camera event) may produce a Telegram message. Default `false`. Rule matching, priority, schedule, quiet hours, cooldown and duplicate protection are decided before Telegram is called. |
-| `TELEGRAM_COOLDOWN_SECONDS` | Informational only; Telegram shares the existing face notification cooldown. Default `300`. |
-| `TELEGRAM_EVENT_IMAGE` | Allow an image when no clip can be produced: the face crop if one exists, otherwise the full camera snapshot. Default `true`. `TELEGRAM_FACE_IMAGE` is the older name and still works. |
-| `TELEGRAM_FACE_VIDEO` | Attach a short clip from the DVR recording. Default `true`. |
+| `TELEGRAM_COOLDOWN_SECONDS` | Informational only; Telegram shares the existing notification cooldown. Default `300`. |
+| `TELEGRAM_EVENT_IMAGE` | Allow an image when no clip can be produced: the full camera snapshot. Default `true`. |
 | `TELEGRAM_VIDEO_PRE_SECONDS` / `TELEGRAM_VIDEO_POST_SECONDS` | Clip window around the event. Defaults `5` + `5` = 10 seconds. |
 | `TELEGRAM_VIDEO_MAX_MB` / `TELEGRAM_VIDEO_TIMEOUT_SECONDS` | Clip upload cap (`45`) and FFmpeg time limit (`30`). |
 | `FFMPEG_PATH` | FFmpeg executable used for the clip conversion. Default `ffmpeg`. |
@@ -322,7 +309,7 @@ Podman Desktop on macOS forwards published ports from the Mac. Containers reach 
 - `/account` changes your own password and manages your sessions.
 - `/settings` shows the host, ports, username, and `********` for the password.
 - `/settings/users` (ADMIN) creates users, resets passwords, and signs out sessions.
-- `/settings/system` (ADMIN) shows application, database, DVR, MediaMTX, face-worker, thumbnail, storage, backup and retention status.
+- `/settings/system` (ADMIN) shows application, database, DVR, MediaMTX, object-worker, thumbnail, storage, backup and retention status.
 - `/events` filters stored events; `/events/<id>` shows one with its snapshot.
 - `/notifications` shows every notification decision.
 - `/events/stats` shows counts by range and camera.
@@ -437,7 +424,7 @@ Statistics range over whole Asia/Kolkata calendar days, so "today" means 00:00�
 - Use it on a trusted home LAN or through Tailscale. Do not port-forward the hub or the DVR on the router.
 - **Public surface:** only the hub on `3000`, and only through Tailscale Funnel. The compose file publishes `8189` for WebRTC ICE and nothing else; `8888` (HLS), `8889` (WHEP) and `9997` (API) are internal. The DVR's `80`/`554` are never published. `554`, `8888`, `8889`, `9997` and the DVR address must never appear in a Funnel rule or router port-forward.
 - **MediaMTX authentication is required — including for the Control API.** `MEDIAMTX_AUTH_PASSWORD` (16+ characters) is rendered into MediaMTX at container start. Production renders exactly two internal users: the hub account (`read`, `playback`, `api`, bound by source address to the web container and to its own loopback address for the in-container healthcheck) and a separate read-only `worker` account for the object-detection worker (`MEDIAMTX_WORKER_USER`, bound to the worker address). There is no anonymous user in production; anonymous read/playback/api exists only with the explicit `MEDIAMTX_ALLOW_ANONYMOUS=true` development flag, and the container refuses to start without a password otherwise.
-- **Media network isolation.** The web hub and MediaMTX are the only services with the `egress` network (DVR/Telegram); MediaMTX and the object worker share an `internal` media network with static addresses (the API allowlist depends on them), and the face worker has no network at all. MediaMTX's stdout/stderr are piped through a credential-redaction wrapper, so a rendered RTSP source URL cannot leak the DVR password into the container log.
+- **Media network isolation.** The web hub and MediaMTX are the only services with the `egress` network (DVR/Telegram); MediaMTX and the object worker share an `internal` media network with static addresses (the API allowlist depends on them). MediaMTX's stdout/stderr are piped through a credential-redaction wrapper, so a rendered RTSP source URL cannot leak the DVR password into the container log.
 - **DVR credentials** stay in the server process and in the MediaMTX process. They are never in `NEXT_PUBLIC_*` variables, React props, browser URLs, API responses, or logs. MediaMTX's rendered runtime config is created with mode `0600` inside the container.
 - **`.env`** is gitignored, never copied into an image or backup, and must be mode `0600` (`chmod 600 /opt/home-cctv/.env`). Treat the DVR password, `SESSION_SECRET`, Telegram token and MediaMTX password as independent secrets; do not reuse them.
 - **Password storage:** scrypt with a random salt. Plaintext passwords are never stored, logged, or returned. API responses never include `passwordHash`; the Users and Settings pages mask the DVR password.
@@ -445,8 +432,8 @@ Statistics range over whole Asia/Kolkata calendar days, so "today" means 00:00�
 - **Client address trust:** the TCP peer address is authoritative. `X-Forwarded-For`, `X-Forwarded-Proto` and `CF-Connecting-IP` are honoured **only** when the peer matches `TRUSTED_PROXY_CIDRS` (set it to `127.0.0.1,::1` for a host-run Tailscale Funnel or cloudflared). Never add LAN client ranges to that list.
 - **Password lifecycle:** a signed-in user can change their own password at `/account`; an ADMIN can reset another user's password at `/settings/users`. Either action revokes every existing session for that user (self-change issues a fresh session to the current browser). Session rows are checked against the database on every request; logout deletes the row.
 - **Sessions:** a user can list and revoke their own sessions; an ADMIN can revoke another user's sessions. Expired sessions are pruned at startup, hourly, on login, and when session lists are read. Active sessions are never deleted by pruning.
-- **Files:** event snapshots are stored under `data/events` with mode `0600` and served only through the authenticated `/api/events/<id>/snapshot` route. They are never placed in `public/`. Face crops have the same rule. Stored paths are resolved inside their configured directory; traversal, absolute paths and symlinks are refused. Backups are written with `umask 077`. **The data directory and the SQLite database (including `-wal`/`-shm`) are forced to `0700`/`0600` on every start**, so a legacy install is repaired automatically; snapshot directories are created `0700` and snapshot files `0600`.
-- **Data retention:** event rows/snapshots/face crops follow `EVENT_RETENTION_DAYS`; audit-log rows follow `AUDIT_LOG_RETENTION_DAYS` (default 365); object-detection track metadata follows the event window; stale viewer-presence rows (24 h) and completed detection-test requests (7 days) are always pruned. Setting `EVENT_RETENTION_DAYS=0` disables only event retention — the privacy pruning above still runs.
+- **Files:** event snapshots are stored under `data/events` with mode `0600` and served only through the authenticated `/api/events/<id>/snapshot` route. They are never placed in `public/`. Stored paths are resolved inside their configured directory; traversal, absolute paths and symlinks are refused. Backups are written with `umask 077`. **The data directory and the SQLite database (including `-wal`/`-shm`) are forced to `0700`/`0600` on every start**, so a legacy install is repaired automatically; snapshot directories are created `0700` and snapshot files `0600`.
+- **Data retention:** event rows/snapshots follow `EVENT_RETENTION_DAYS`; audit-log rows follow `AUDIT_LOG_RETENTION_DAYS` (default 365); object-detection track metadata follows the event window; stale viewer-presence rows (24 h) and completed detection-test requests (7 days) are always pruned. Setting `EVENT_RETENTION_DAYS=0` disables only event retention — the privacy pruning above still runs.
 - **Content-Security-Policy:** generated per request in the proxy with a fresh nonce. Production uses `script-src 'self' 'nonce-…' 'strict-dynamic'` (no `unsafe-inline` for scripts), plus `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` and `frame-ancestors 'none'`; development keeps `'unsafe-eval'` for HMR. HSTS is intentionally not sent until the production HTTPS domain behaviour has been verified.
 - **Authorization:** notification rule management, user management, settings and `/api/system/health` require ADMIN. Event and notification reads require a session. Role checks run on the server, and ids sent by the browser are validated rather than trusted.
 - **Health data:** the public `/api/health` endpoint is intentionally small. Detailed operational data (queue counts, storage, backups, worker status) is on the ADMIN-only `/api/system/health`; neither returns passwords, tokens, DVR credentials, session tokens or filesystem paths.
@@ -457,7 +444,6 @@ Statistics range over whole Asia/Kolkata calendar days, so "today" means 00:00�
 npm install
 npm run dev
 npm test
-npm run test:face        # uses .venv-face/bin/python when present
 npm run lint
 npm run typecheck
 npm run build
@@ -518,7 +504,7 @@ On this DS-7104HGHI-K1 the alarm log contained motion only. Line crossing, intru
 
 ## Smart events and notifications (V5)
 
-The DVR detects; this hub organizes, filters, correlates, and notifies. `AI_ENABLED` only records the label the DVR already sent into `event_ai_results`; it runs no vision model by itself. The only local inference in the project is the optional, off-by-default **face detection** worker described in [Face detection](#face-detection-detection-only) below — it never identifies anyone.
+The DVR detects; this hub organizes, filters, correlates, and notifies. `AI_ENABLED` only records the label the DVR already sent into `event_ai_results`; it runs no vision model by itself. The only local inference in the project is the optional, off-by-default **object detection** worker described in [docs/Object-Detection.md](docs/Object-Detection.md) — it detects people and vehicles on the H.264 substreams.
 
 ### Event flow
 
@@ -650,7 +636,7 @@ Every route checks the session and the role on the server. Camera ids, event ids
 
 `data/events.sqlite` holds events, notification rules, notification history, and this hub's users, sessions, and audit log. V5 adds its columns and tables additively on first start: existing events are kept, priorities are backfilled once from what the DVR reported, and pre-V5 rules receive readable names. The migration is idempotent and runs automatically, so there is no separate migration command.
 
-Indexes cover the query shapes actually used: `(camera_id, timestamp)`, `(type, timestamp)`, `(classification, timestamp)`, `(priority, timestamp)`, plus `notified`, and `notification_history` on `(event_id, rule_id)` unique, `event_id`, `rule_id`, and `created_at`. V5.2 adds `auth_sessions(expires_at)`, `auth_sessions(user_id)`, the single-row `face_worker_heartbeat` table, and the multi-select columns `notification_rules.camera_ids` / `notification_rules.event_types`. All migrations are additive and idempotent; no command is required, and existing notification rules are preserved and backfilled.
+Indexes cover the query shapes actually used: `(camera_id, timestamp)`, `(type, timestamp)`, `(classification, timestamp)`, `(priority, timestamp)`, plus `notified`, and `notification_history` on `(event_id, rule_id)` unique, `event_id`, `rule_id`, and `created_at`. V5.2 adds `auth_sessions(expires_at)`, `auth_sessions(user_id)`, and the multi-select columns `notification_rules.camera_ids` / `notification_rules.event_types`. All migrations are additive and idempotent; no command is required, and existing notification rules are preserved and backfilled.
 
 ### Podman operations
 
@@ -683,20 +669,20 @@ Day-to-day checks:
 
 | What | Command / place |
 | --- | --- |
-| Application, DVR, MediaMTX, face worker, thumbnails, storage, last backup | `/settings/system` (ADMIN) or `GET /api/system/health` |
+| Application, DVR, MediaMTX, object worker, thumbnails, storage, last backup | `/settings/system` (ADMIN) or `GET /api/system/health` |
 | Active sessions | `/account`, `/settings/system` |
 | Login and password events | `/settings/audit-log` |
 | Backup result | `journalctl -u home-cctv-backup -n 50`, `data/backup-status.json` |
 | Backup timer | `systemctl list-timers home-cctv-backup.timer` |
-| Face worker | `systemctl status home-cctv-face-worker`, `podman logs home-cctv-face-worker-1` |
+| Object worker | `systemctl status home-cctv-object-worker`, `podman logs home-cctv-object-worker-1` |
 | Orphan snapshots | `./scripts/cleanup-orphan-snapshots.sh --dry-run` |
 | Restore rehearsal | `./scripts/verify-backup.sh ./backups/<timestamp>` |
 
-If the admin System page says **face detection is enabled but the worker is not
-processing jobs**, check, in order: `FACE_DETECTION_ENABLED=true` in `.env`;
-the model exists at `face-worker/models/face_detection_yunet_2023mar.onnx`; the
-`home-cctv-face-worker.service` is enabled (or the container is running); and the
-worker log names a database, model or path error. When detection is disabled the
+If the admin System page says **object detection is enabled but the worker is not
+processing jobs**, check, in order: that object detection is enabled in `.env` or
+`/settings/detection`; the model exists at the configured `OBJECT_DETECTION_MODEL_PATH`;
+the `home-cctv-object-worker` service is enabled (or the container is running); and the
+worker log names a database, MediaMTX, model or path error. When detection is disabled the
 page says so and does not raise a warning.
 
 If the hub reports `mediamtx: offline`, check `podman logs home-cctv-mediamtx-1`.
@@ -710,8 +696,7 @@ HTTPS (Funnel) the session cookie is marked `Secure` automatically.
 
 Container logs are rotated by Compose (`json-file`, 10 MB × 3 per service).
 SQLite keeps a bounded WAL (`journal_size_limit`), thumbnails expire after
-`PLAYBACK_THUMBNAIL_RETENTION_DAYS`, face-worker batch/concurrency settings
-are bounded by `FACE_DETECTION_BATCH_SIZE`, and FFmpeg clip files are removed
+`PLAYBACK_THUMBNAIL_RETENTION_DAYS`, and FFmpeg clip files are removed
 after upload or after 30 minutes if a crash left them behind.
 
 ## Hardening (V5.2)
@@ -739,10 +724,9 @@ a later phase.
 `./backups/<timestamp>/`:
 
 - `database.sqlite` — events, notification rules, notification history, users,
-  sessions, audit log, face rows. Copied through SQLite's online backup API, so
+  sessions, audit log. Copied through SQLite's online backup API, so
   it is consistent while the hub is running.
 - `events/` — event snapshots written by this hub.
-- `face-crops/` — detected-face crops, when the directory exists.
 - `cameras.json` — camera display names.
 - `manifest.json` — what the backup contains and when it was taken.
 
@@ -779,7 +763,7 @@ DVR recordings live on the DVR and are excluded too.
 Rehearse a backup **without touching live data**. The script copies the backup
 database to a temporary directory, runs `PRAGMA integrity_check`,
 `foreign_key_check`, verifies the expected tables and users, and checks that every
-stored snapshot and face-crop reference resolves inside the backup:
+stored snapshot and object-detection track reference resolves inside the backup:
 
 ```bash
 ./scripts/verify-backup.sh ./backups/2026-10-09_103000
@@ -798,8 +782,8 @@ sudo systemctl start home-cctv
 ```
 
 `restore.sh` runs `verify-backup.sh` first, refuses to run while the hub is
-listening, stages every copy, and moves the previous database, snapshots and face
-crops aside as `*.pre-restore-<timestamp>` rather than deleting them. The old WAL
+listening, stages every copy, and moves the previous database and snapshots
+aside as `*.pre-restore-<timestamp>` rather than deleting them. The old WAL
 and SHM files are moved with the old database so they cannot replay against the
 restored file. Set `DRY_RUN=1` to preview. `.env` is not part of a backup; restore
 it separately with mode `0600`.
@@ -824,16 +808,16 @@ example through Tailscale Funnel).
 ### Operational health
 
 `GET /api/system/health` (ADMIN) reports application, SQLite, DVR, MediaMTX,
-event ingestion, the face-worker heartbeat and queue, the thumbnail worker,
+event ingestion, the object-worker heartbeat and queue, the thumbnail worker,
 storage, the last successful backup, retention, and active sessions. Unknown
 checks are reported as `unknown`, never as healthy. It never returns passwords,
 Telegram tokens, session tokens, DVR credentials, or filesystem paths.
 
 `/settings/system` renders the same data and raises a clear warning when
-`FACE_DETECTION_ENABLED=true` but the worker has no recent heartbeat. When
-detection is disabled, no error is shown. The face worker writes a single
-`face_worker_heartbeat` row every cycle (including idle cycles), so a stopped
-worker is visible instead of silently accumulating a queue.
+object detection is enabled but the worker has no recent heartbeat. When
+detection is disabled, no error is shown. The object worker reports a
+heartbeat every cycle (including idle cycles), so a stopped worker is visible
+instead of silently accumulating a queue.
 
 The public `/api/health` endpoint keeps its small shape for external probes.
 
@@ -851,8 +835,7 @@ supports a dry run:
 ```
 
 The same sweep runs in the hub's hourly retention pass, so a crash between a
-snapshot write and the database update does not leave a file forever. Face crops
-already have their own retention sweep in the same pass.
+snapshot write and the database update does not leave a file forever.
 
 ### Browser notification permission
 
@@ -865,23 +848,4 @@ This DS-7104HGHI-K1 produces **motion only**. Person and vehicle are not separat
 ### Playback download
 
 Download is **not available**. This DVR's download API returns a private `IMKH` stream (`Content-Type: Opaque/data`), not a browser-savable MP4. The playback page states this instead of showing a button that fails. The `/api/playback/download` endpoint returns `501` and is not wired to a broken UI control.
-
-### Face detection (detection only)
-
-Optional and **off by default**. When `FACE_DETECTION_ENABLED=true`, a separate local worker (`face-worker/`) analyses **existing event snapshots** — never the live stream and never the H.265 recordings — with OpenCV's YuNet model on the CPU, and stores what it finds in `event_faces` plus JPEG crops under `data/face-crops/`. Everything is offline: no cloud AI, no image upload.
-
-It reports **that** a face is present and where it is. It does **not** recognise anyone: no embeddings, no matching, and every detected face is **Unassigned**. `/faces` lists detections; `/events/<id>` shows them for one event.
-
-```bash
-python3 face-worker/scripts/download_model.py      # once, 232 KB, MIT, checksum-verified
-FACE_DETECTION_ENABLED=true python3 face-worker/worker.py
-```
-
-Set `FACE_DETECTION_ENABLED`, `FACE_DETECTION_CONFIDENCE` (default `0.60`) and `FACE_DETECTION_MAX_FACES` (default `10`) in `.env`.
-
-Telegram receives the same accepted notification as **media only** (server-side only, with an ADMIN *Send Telegram Test* button on `/settings/notifications`). It shares the one decision, so the cooldown, duplicate protection and expiry are unchanged. For a person/face detection the chat gets one of: the ~10 second clip cut from the DVR's own recording (H.265 converted to H.264 MP4 by FFmpeg, which the container image includes), otherwise the stored face crop, otherwise the full camera snapshot. The old verbose text message is never sent for these notifications; if no media exists the hub logs `MEDIA_UNAVAILABLE` and sends nothing. Media is generated in the background and its temporary file is deleted after upload. The ADMIN *Send Telegram Test* button still sends a plain text test message.
-
-The same Telegram delivery is available for ordinary camera events, not only faces: with `TELEGRAM_EVENT_NOTIFICATIONS=true` an event that a Notification Rule accepts is also sent to Telegram, as media with a short caption (title, camera, event time, detector confidence). The rule decision is made and recorded first (camera, event type, priority, schedule, quiet hours, cooldown, duplicate protection), and only then is media queued, so a Telegram failure never suppresses the browser notification or changes the history. `TELEGRAM_FACE_NOTIFICATIONS` and `TELEGRAM_EVENT_NOTIFICATIONS` are independent channels behind the `TELEGRAM_NOTIFICATIONS_ENABLED` master switch. Each accepted event produces exactly one media notification: the clip when it can be cut, otherwise the face crop, otherwise the snapshot. The work runs in the durable background worker, so a slow DVR search or FFmpeg never delays event ingestion; if the DVR has no free playback slot the job is retried once after three minutes.
-
-For a bounded real-world trial you can also raise a browser notification when a face is detected: set `FACE_DETECTION_TEST_NOTIFICATIONS=true` and `FACE_DETECTION_TEST_UNTIL` to the end of your window (ISO-8601 with an offset, for example `2026-10-12T10:00:00+05:30`). It is a temporary, additive test mode — motion notifications are unchanged, notifications are anonymous ("Face detected"), the per-camera cooldown defaults to 5 minutes, and the mode stops by itself at the expiry while face detection keeps running. See [docs/Face-Detection.md](docs/Face-Detection.md) for the model's provenance, security and privacy model, measured performance, retention and the future recognition plan.
 

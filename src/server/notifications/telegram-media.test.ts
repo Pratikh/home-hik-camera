@@ -9,11 +9,10 @@ import type { TelegramFile, TelegramResult } from "@/server/notifications/telegr
 import type { ClipDiagnostics } from "@/server/notifications/event-clip";
 import {
   enqueueEventMedia,
-  enqueueFaceMedia,
   logVideoDiagnostics,
-  processFaceMediaJob,
+  processTelegramMediaJob,
   telegramMediaQueueDepth,
-  type FaceMediaJob,
+  type TelegramMediaJob,
 } from "@/server/notifications/telegram-media";
 
 /**
@@ -22,6 +21,10 @@ import {
  *
  * Telegram, the clip generator and the filesystem are mocked, so no test sends a
  * message, contacts the DVR or runs FFmpeg.
+ *
+ * The media notification is person/vehicle only. The accepted event produces at
+ * most one media notification: the event-time clip when it can be produced,
+ * otherwise the full camera snapshot. No face crop, no face channel, no album.
  */
 
 const FAKE_TOKEN = "333333:CCCfake-media-token-value";
@@ -29,7 +32,7 @@ const FAKE_CHAT = "-1001234567890";
 const EVENT_ID = "evt_aaaaaaaaaaaaaaaaaaaaaaaa";
 const SNAPSHOT = `2026/10/10/3-${EVENT_ID}.jpg`;
 /** Only the general rule-event Telegram channel is on for these tests. */
-const EVENT_ONLY = { TELEGRAM_FACE_NOTIFICATIONS: "false", TELEGRAM_EVENT_NOTIFICATIONS: "true" };
+const EVENT_ONLY = { TELEGRAM_EVENT_NOTIFICATIONS: "true" };
 
 function config(dataDir: string, overrides: Record<string, string> = {}) {
   return readConfig({
@@ -43,25 +46,26 @@ function config(dataDir: string, overrides: Record<string, string> = {}) {
     TELEGRAM_NOTIFICATIONS_ENABLED: "true",
     TELEGRAM_BOT_TOKEN: FAKE_TOKEN,
     TELEGRAM_CHAT_ID: FAKE_CHAT,
-    TELEGRAM_FACE_NOTIFICATIONS: "true",
+    TELEGRAM_EVENT_NOTIFICATIONS: "true",
     ...overrides,
   });
 }
 
-const JOB: FaceMediaJob = {
+const JOB: TelegramMediaJob = {
   eventId: EVENT_ID,
   cameraId: 3,
   cameraName: "First Floor Passage",
-  faces: 3,
-  maxConfidence: 0.66,
+  faces: 0,
+  maxConfidence: 0,
   eventTimestamp: "2026-10-10T14:35:20+05:30",
+  classification: "person",
+  confidence: 0.66,
   snapshotPath: SNAPSHOT,
 };
 
 const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42"), Buffer.alloc(64)]);
-/** The full camera view is a different, larger image than a face crop. */
+/** The full camera snapshot uploaded when no usable clip can be produced. */
 const SNAPSHOT_BYTES = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(500, 7)]);
-const CROP_BYTES = Buffer.from([0xff, 0xd8, 0xff, 0x01]);
 
 const tempDirs: string[] = [];
 async function dataDirWithSnapshot(withSnapshot = true): Promise<string> {
@@ -70,10 +74,6 @@ async function dataDirWithSnapshot(withSnapshot = true): Promise<string> {
   const dirPath = path.join(dir, "events", "2026", "10", "10");
   await mkdir(dirPath, { recursive: true });
   if (withSnapshot) await writeFile(path.join(dirPath, `3-${EVENT_ID}.jpg`), SNAPSHOT_BYTES);
-  // A face crop also exists on disk: it must never be uploaded.
-  const crops = path.join(dir, "face-crops", "2026", "10");
-  await mkdir(crops, { recursive: true });
-  await writeFile(path.join(crops, `${EVENT_ID}-face-1.jpg`), CROP_BYTES);
   return dir;
 }
 
@@ -143,21 +143,19 @@ afterEach(async () => {
   for (const dir of tempDirs.splice(0)) await rm(dir, { recursive: true, force: true });
 });
 
-describe("TELEGRAM-MEDIA-002 / 003 / 004 — the full snapshot replaces the crop", () => {
+describe("TELEGRAM-MEDIA-002 / 003 / 004 — the full camera snapshot is the fallback", () => {
   it("TELEGRAM-MEDIA-002 / 003 falls back to the full snapshot when the clip is unavailable", async () => {
     const dataDir = await dataDirWithSnapshot();
     const sendPhoto = vi.fn(async (input: { photo: TelegramFile; caption?: string }) => {
       void input;
       return ok();
     });
-    const sendMediaGroup = vi.fn(async () => ok());
     const sendVideo = vi.fn(async () => ok());
 
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto,
-      sendMediaGroup,
       sendVideo,
       generateClip: vi.fn(async () => clipFailed("no_recording")),
       log: () => undefined,
@@ -166,19 +164,17 @@ describe("TELEGRAM-MEDIA-002 / 003 / 004 — the full snapshot replaces the crop
     expect(outcome.image).toBe("sent");
     expect(outcome.imageCount).toBe(1);
     expect(outcome.video).toBe("skipped");
-    // Media only: one image, no video, and no caption.
+    // Media only: one image, no video.
     expect(sendPhoto).toHaveBeenCalledTimes(1);
     expect(sendVideo).not.toHaveBeenCalled();
-    expect(sendMediaGroup).not.toHaveBeenCalled();
 
     const call = sendPhoto.mock.calls[0]![0];
-    // No crop was supplied on the job, so the full snapshot is used.
+    // The full snapshot is uploaded; there is no face-crop preference.
     expect(Buffer.from(call.photo.bytes).equals(SNAPSHOT_BYTES)).toBe(true);
-    expect(Buffer.from(call.photo.bytes).equals(CROP_BYTES)).toBe(false);
     expect(call.photo.filename).toBe("camera-snapshot.jpg");
     expect(call.photo.contentType).toBe("image/jpeg");
-    // Media only: the image carries the face caption, never a separate text.
-    expect(call.caption).toBe(["👤 <b>Face detected</b>", "", "📹 Camera: First Floor Passage", "🕐 Time: 10 Oct 2026, 02:35 PM", "🎯 Confidence: 66%"].join("\n"));
+    // Media only: the image carries the caption, never a separate text.
+    expect(call.caption).toBe(["🚨 <b>Person detected</b>", "", "📹 Camera: First Floor Passage", "🕐 Time: 10 Oct 2026, 02:35 PM", "🎯 Confidence: 66%"].join("\n"));
   });
 
   it("TELEGRAM-MEDIA-035 sends no text and logs MEDIA_UNAVAILABLE when there is no media", async () => {
@@ -187,11 +183,10 @@ describe("TELEGRAM-MEDIA-002 / 003 / 004 — the full snapshot replaces the crop
     const sendVideo = vi.fn(async () => ok());
     const log = vi.fn();
 
-    const outcome = await processFaceMediaJob({ ...JOB, snapshotPath: null, cropPath: null }, {
+    const outcome = await processTelegramMediaJob({ ...JOB, snapshotPath: null }, {
       config: config(dataDir),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo,
       generateClip: vi.fn(async () => clipFailed("no_recording")),
       log,
@@ -210,11 +205,10 @@ describe("TELEGRAM-MEDIA-002 / 003 / 004 — the full snapshot replaces the crop
     const generateClip = vi.fn(async () => clipOk(dataDir));
     const sendVideo = vi.fn(async () => ok());
 
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto: vi.fn(async () => ok()),
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo,
       generateClip,
       unlinkImpl: vi.fn(async () => undefined),
@@ -240,11 +234,10 @@ describe("TELEGRAM-MEDIA-011 / 013 / 014 / 015 / 030 — the clip upload", () =>
       return clipOk(dataDir);
     });
 
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto: vi.fn(async () => ok()),
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo,
       generateClip,
       unlinkImpl: vi.fn(async () => undefined),
@@ -258,8 +251,8 @@ describe("TELEGRAM-MEDIA-011 / 013 / 014 / 015 / 030 — the clip upload", () =>
     expect(Buffer.from(call.video.bytes).equals(MP4)).toBe(true);
     expect(call.video.contentType).toBe("video/mp4");
     expect(call.video.filename).toBe("cctv-event.mp4");
-    // Media only: the video carries the face caption.
-    expect(call.caption).toBe(["👤 <b>Face detected</b>", "", "📹 Camera: First Floor Passage", "🕐 Time: 10 Oct 2026, 02:35 PM", "🎯 Confidence: 66%"].join("\n"));
+    // Media only: the video carries the caption.
+    expect(call.caption).toBe(["🚨 <b>Person detected</b>", "", "📹 Camera: First Floor Passage", "🕐 Time: 10 Oct 2026, 02:35 PM", "🎯 Confidence: 66%"].join("\n"));
     // The clip used the event's camera and timestamp.
     expect(generateClip.mock.calls[0]![0]).toMatchObject({
       eventId: EVENT_ID,
@@ -273,11 +266,10 @@ describe("TELEGRAM-MEDIA-011 / 013 / 014 / 015 / 030 — the clip upload", () =>
     await prepareClip(dataDir);
     const log = vi.fn();
 
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto: vi.fn(async () => ok()),
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => failed("http_error")),
       generateClip: vi.fn(async () => clipOk(dataDir)),
       unlinkImpl: vi.fn(async () => undefined),
@@ -286,7 +278,7 @@ describe("TELEGRAM-MEDIA-011 / 013 / 014 / 015 / 030 — the clip upload", () =>
 
     expect(outcome.video).toBe("failed");
     expect(outcome.videoReason).toBe("http_error");
-    // A failed upload falls back to the image, so one media notification still
+    // A failed upload falls back to the snapshot, so one media notification still
     // reaches the chat.
     expect(outcome.image).toBe("sent");
     // The full diagnostic block is printed, with no secret in it.
@@ -305,11 +297,10 @@ describe("TELEGRAM-MEDIA-011 / 013 / 014 / 015 / 030 — the clip upload", () =>
     const sendVideo = vi.fn(async () => ok());
     const log = vi.fn();
 
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo,
       generateClip: vi.fn(async () => clipFailed("no_recording")),
       log,
@@ -327,11 +318,10 @@ describe("TELEGRAM-MEDIA-011 / 013 / 014 / 015 / 030 — the clip upload", () =>
     const dataDir = await dataDirWithSnapshot();
     const sendPhoto = vi.fn(async () => ok());
 
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => failed("timeout")),
       generateClip: vi.fn(async () => {
         await prepareClip(dataDir);
@@ -351,11 +341,10 @@ describe("TELEGRAM-MEDIA-011 / 013 / 014 / 015 / 030 — the clip upload", () =>
     const dataDir = await dataDirWithSnapshot();
     const sendPhoto = vi.fn(async () => ok());
 
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => ok()),
       generateClip: vi.fn(async () => clipFailed("ffmpeg_failed")),
       log: () => undefined,
@@ -373,11 +362,10 @@ describe("TELEGRAM-MEDIA-017 / 018 / 021 / 022 — lifecycle", () => {
     const clip = await prepareClip(dataDir);
     const unlinkImpl = vi.fn(async () => undefined);
 
-    await processFaceMediaJob(JOB, {
+    await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto: vi.fn(async () => ok()),
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => ok()),
       generateClip: vi.fn(async () => clipOk(dataDir)),
       unlinkImpl,
@@ -392,11 +380,10 @@ describe("TELEGRAM-MEDIA-017 / 018 / 021 / 022 — lifecycle", () => {
     const clip = await prepareClip(dataDir);
     const unlinkImpl = vi.fn(async () => undefined);
 
-    await processFaceMediaJob(JOB, {
+    await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto: vi.fn(async () => ok()),
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => failed()),
       generateClip: vi.fn(async () => clipOk(dataDir)),
       unlinkImpl,
@@ -413,11 +400,10 @@ describe("TELEGRAM-MEDIA-017 / 018 / 021 / 022 — lifecycle", () => {
     const sendVideo = vi.fn(async () => ok());
     const generateClip = vi.fn(async () => clipOk(dataDir));
 
-    const outcome = await processFaceMediaJob({ ...JOB, faces: 3 }, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo,
       generateClip,
       unlinkImpl: vi.fn(async () => undefined),
@@ -437,11 +423,10 @@ describe("TELEGRAM-MEDIA-017 / 018 / 021 / 022 — lifecycle", () => {
     const sendVideo = vi.fn(async () => ok());
     const generateClip = vi.fn(async () => clipOk(dataDir));
 
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir, { TELEGRAM_NOTIFICATIONS_ENABLED: "false" }),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo,
       generateClip,
       log: () => undefined,
@@ -456,13 +441,13 @@ describe("TELEGRAM-MEDIA-017 / 018 / 021 / 022 — lifecycle", () => {
   it("refuses to queue when Telegram is off, and queues when it is on", () => {
     const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-queue-"));
     tempDirs.push(dataDir);
-    expect(enqueueFaceMedia(JOB, config(dataDir, { TELEGRAM_NOTIFICATIONS_ENABLED: "false" }))).toBe("disabled");
-    expect(enqueueFaceMedia(JOB, config(dataDir, { TELEGRAM_FACE_NOTIFICATIONS: "false" }))).toBe("disabled");
+    expect(enqueueEventMedia(JOB, config(dataDir, { TELEGRAM_NOTIFICATIONS_ENABLED: "false" }))).toBe("disabled");
+    expect(enqueueEventMedia(JOB, config(dataDir, { TELEGRAM_EVENT_NOTIFICATIONS: "false" }))).toBe("disabled");
     expect(telegramMediaQueueDepth(dataDir)).toBe(0);
-    expect(enqueueFaceMedia(JOB, config(dataDir))).toBe("queued");
+    expect(enqueueEventMedia(JOB, config(dataDir))).toBe("queued");
     expect(telegramMediaQueueDepth(dataDir)).toBe(1);
     // Idempotent per event: a duplicate decision cannot queue a second clip.
-    expect(enqueueFaceMedia(JOB, config(dataDir))).toBe("queued");
+    expect(enqueueEventMedia(JOB, config(dataDir))).toBe("queued");
     expect(telegramMediaQueueDepth(dataDir)).toBe(1);
   });
 });
@@ -473,11 +458,10 @@ describe("TELEGRAM-MEDIA-024 — no secrets in the logs", () => {
     await prepareClip(dataDir);
     const lines: string[] = [];
 
-    await processFaceMediaJob(JOB, {
+    await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto: vi.fn(async () => ok()),
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => failed()),
       generateClip: vi.fn(async () => clipOk(dataDir)),
       unlinkImpl: vi.fn(async () => undefined),
@@ -523,7 +507,7 @@ describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
     const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-durable-"));
     tempDirs.push(dataDir);
 
-    expect(enqueueFaceMedia(JOB, config(dataDir))).toBe("queued");
+    expect(enqueueEventMedia(JOB, config(dataDir))).toBe("queued");
     expect(telegramMediaQueueDepth(dataDir)).toBe(1);
 
     const store = openEventStore(dataDir);
@@ -534,7 +518,7 @@ describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
       cameraId: 3,
       cameraName: "First Floor Passage",
       snapshotPath: SNAPSHOT,
-      faces: 3,
+      faces: 0,
     });
     expect(telegramMediaQueueDepth(dataDir)).toBe(0);
 
@@ -549,7 +533,7 @@ describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
     tempDirs.push(dataDir);
     const store = openEventStore(dataDir);
 
-    enqueueEventMedia({ ...JOB, channel: "event" }, config(dataDir, { TELEGRAM_FACE_NOTIFICATIONS: "false", TELEGRAM_EVENT_NOTIFICATIONS: "true" }));
+    enqueueEventMedia(JOB, config(dataDir, { TELEGRAM_EVENT_NOTIFICATIONS: "true" }));
     const first = store.claimNextTelegramMediaJob("2026-10-22T10:00:00.000Z")!;
     expect(first).toMatchObject({ attempts: 1, channel: "event" });
     store.retryTelegramMediaJob(first.id, "2026-10-22T10:03:00.000Z", "ffmpeg_failed", "2026-10-22T10:00:30.000Z");
@@ -566,12 +550,12 @@ describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
     tempDirs.push(dataDir);
     const store = openEventStore(dataDir);
 
-    enqueueFaceMedia(JOB, config(dataDir));
+    enqueueEventMedia(JOB, config(dataDir));
     const claimed = store.claimNextTelegramMediaJob(new Date().toISOString())!;
     store.finishTelegramMediaJob(claimed.id, "done", null, new Date(0).toISOString());
 
     // A second, still-pending event.
-    enqueueFaceMedia({ ...JOB, eventId: "evt_bbbbbbbbbbbbbbbbbbbbbbbb" }, config(dataDir));
+    enqueueEventMedia({ ...JOB, eventId: "evt_bbbbbbbbbbbbbbbbbbbbbbbb" }, config(dataDir));
 
     expect(store.telegramMediaJobsByStatus()).toMatchObject({ done: 1, pending: 1 });
     expect(store.pruneTelegramMediaJobs(new Date().toISOString())).toBe(1);
@@ -589,8 +573,8 @@ describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
         eventId: `evt_${String(index).padStart(24, "0")}`,
         cameraId: 1,
         cameraName: "Parking",
-        faces: 1,
-        maxConfidence: 0.8,
+        faces: 0,
+        maxConfidence: 0,
         eventTimestamp: JOB.eventTimestamp,
         snapshotPath: null,
         now,
@@ -606,48 +590,38 @@ describe("TELEGRAM-MEDIA-031 — the queue survives a restart", () => {
 /* ---------------------------------------------------------------------------
  * TELEGRAM-MEDIA-032 / 033 — rule events use the same durable media queue.
  *
- * The face channel is deliberately off in these tests: a rule-event job must
- * still attach the snapshot and the clip, and vice versa.
+ * There is only the general event channel now: an accepted rule event always
+ * attaches the snapshot and the clip through the durable media queue.
  * ------------------------------------------------------------------------- */
 
 describe("TELEGRAM-MEDIA-032 / 033 — rule events queue the snapshot and the clip", () => {
-  const EVENT_CONFIG = { TELEGRAM_FACE_NOTIFICATIONS: "false", TELEGRAM_EVENT_NOTIFICATIONS: "true" };
-
-  it("TELEGRAM-MEDIA-032 queues with only the event channel on, and the worker remembers the channel", () => {
+  it("TELEGRAM-MEDIA-032 queues an event job, and the worker remembers the event channel", () => {
     const dataDir = mkdtempSync(path.join(os.tmpdir(), "media-event-"));
     tempDirs.push(dataDir);
-    const cfg = config(dataDir, EVENT_CONFIG);
-    const job: FaceMediaJob = { ...JOB, channel: "event" };
+    const cfg = config(dataDir);
 
-    expect(enqueueFaceMedia(job, cfg)).toBe("disabled");
-    expect(telegramMediaQueueDepth(dataDir)).toBe(0);
-
-    expect(enqueueEventMedia(job, cfg)).toBe("queued");
+    expect(enqueueEventMedia(JOB, cfg)).toBe("queued");
     expect(telegramMediaQueueDepth(dataDir)).toBe(1);
 
     const claimed = openEventStore(dataDir).claimNextTelegramMediaJob(new Date().toISOString());
     expect(claimed).toMatchObject({ eventId: EVENT_ID, channel: "event" });
   });
 
-  it("TELEGRAM-MEDIA-033 sends the clip only for an event job", async () => {
+  it("TELEGRAM-MEDIA-033 sends the clip first, keeping the snapshot as the fallback", async () => {
     const dataDir = await dataDirWithSnapshot();
     await prepareClip(dataDir);
     const sendPhoto = vi.fn(async () => ok());
     const sendVideo = vi.fn(async () => ok());
 
-    const outcome = await processFaceMediaJob(
-      { ...JOB, channel: "event" },
-      {
-        config: config(dataDir, EVENT_CONFIG),
-        dataDir,
-        sendPhoto,
-        sendMediaGroup: vi.fn(async () => ok()),
-        sendVideo,
-        generateClip: vi.fn(async () => clipOk(dataDir)),
-        unlinkImpl: vi.fn(async () => undefined),
-        log: () => undefined,
-      },
-    );
+    const outcome = await processTelegramMediaJob(JOB, {
+      config: config(dataDir),
+      dataDir,
+      sendPhoto,
+      sendVideo,
+      generateClip: vi.fn(async () => clipOk(dataDir)),
+      unlinkImpl: vi.fn(async () => undefined),
+      log: () => undefined,
+    });
 
     expect(outcome).toMatchObject({ image: "skipped", video: "sent" });
     expect(sendPhoto).not.toHaveBeenCalled();
@@ -660,13 +634,12 @@ describe("TELEGRAM-MEDIA-032 / 033 — rule events queue the snapshot and the cl
     const sendPhoto = vi.fn(async () => ok());
     const sendVideo = vi.fn(async () => ok());
 
-    const outcome = await processFaceMediaJob(
-      { ...JOB, channel: "event", attempts: 2 },
+    const outcome = await processTelegramMediaJob(
+      { ...JOB, attempts: 2 },
       {
-        config: config(dataDir, EVENT_CONFIG),
+        config: config(dataDir),
         dataDir,
         sendPhoto,
-        sendMediaGroup: vi.fn(async () => ok()),
         sendVideo,
         generateClip: vi.fn(async () => clipOk(dataDir)),
         unlinkImpl: vi.fn(async () => undefined),
@@ -684,49 +657,18 @@ describe("TELEGRAM-MEDIA-032 / 033 — rule events queue the snapshot and the cl
     const sendPhoto = vi.fn(async () => ok());
     const generateClip = vi.fn(async () => clipOk(dataDir));
 
-    const outcome = await processFaceMediaJob(
-      { ...JOB, channel: "event" },
-      {
-        config: config(dataDir, { TELEGRAM_FACE_NOTIFICATIONS: "true", TELEGRAM_EVENT_NOTIFICATIONS: "false" }),
-        dataDir,
-        sendPhoto,
-        sendMediaGroup: vi.fn(async () => ok()),
-        sendVideo: vi.fn(async () => ok()),
-        generateClip,
-        log: () => undefined,
-      },
-    );
+    const outcome = await processTelegramMediaJob(JOB, {
+      config: config(dataDir, { TELEGRAM_EVENT_NOTIFICATIONS: "false" }),
+      dataDir,
+      sendPhoto,
+      sendVideo: vi.fn(async () => ok()),
+      generateClip,
+      log: () => undefined,
+    });
 
     expect(outcome).toMatchObject({ image: "skipped", video: "skipped", videoReason: "disabled" });
     expect(sendPhoto).not.toHaveBeenCalled();
     expect(generateClip).not.toHaveBeenCalled();
-  });
-  it("TELEGRAM-MEDIA-036 prefers the stored face crop over the full snapshot", async () => {
-    const dataDir = await dataDirWithSnapshot();
-    const sendPhoto = vi.fn(async (input: { photo: TelegramFile }) => {
-      void input;
-      return ok();
-    });
-    const log = vi.fn();
-
-    const outcome = await processFaceMediaJob(
-      { ...JOB, cropPath: `2026/10/${EVENT_ID}-face-1.jpg` },
-      {
-        config: config(dataDir),
-        dataDir,
-        sendPhoto,
-        sendMediaGroup: vi.fn(async () => ok()),
-        sendVideo: vi.fn(async () => ok()),
-        generateClip: vi.fn(async () => clipFailed("no_recording")),
-        log,
-      },
-    );
-
-    expect(outcome.image).toBe("sent");
-    const photo = sendPhoto.mock.calls[0]![0].photo;
-    expect(Buffer.from(photo.bytes).equals(CROP_BYTES)).toBe(true);
-    expect(photo.filename).toBe("person.jpg");
-    expect(log.mock.calls.join("\n")).toContain("source=face-crop");
   });
 
   it("TELEGRAM-MEDIA-037 a retry never re-queues media when a clip was already sent", async () => {
@@ -735,13 +677,12 @@ describe("TELEGRAM-MEDIA-032 / 033 — rule events queue the snapshot and the cl
     const sendPhoto = vi.fn(async () => ok());
     const sendVideo = vi.fn(async () => ok());
 
-    const outcome = await processFaceMediaJob(
-      { ...JOB, attempts: 2, channel: "event" },
+    const outcome = await processTelegramMediaJob(
+      { ...JOB, attempts: 2 },
       {
-        config: config(dataDir, EVENT_CONFIG),
+        config: config(dataDir),
         dataDir,
         sendPhoto,
-        sendMediaGroup: vi.fn(async () => ok()),
         sendVideo,
         generateClip: vi.fn(async () => clipOk(dataDir)),
         unlinkImpl: vi.fn(async () => undefined),
@@ -753,7 +694,6 @@ describe("TELEGRAM-MEDIA-032 / 033 — rule events queue the snapshot and the cl
     expect(sendPhoto).not.toHaveBeenCalled();
     expect(outcome).toMatchObject({ image: "skipped", video: "sent" });
   });
-
 });
 
 /* ---------------------------------------------------------------------------
@@ -777,11 +717,10 @@ describe("TELEGRAM-MEDIA-038/039 — each job attaches its own event frame", () 
       void input;
       return ok();
     });
-    const outcome = await processFaceMediaJob(JOB, {
+    const outcome = await processTelegramMediaJob(JOB, {
       config: config(dataDir),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => ok()),
       generateClip: vi.fn(async () => clipFailed("no_recording")),
       log: () => undefined,
@@ -805,12 +744,11 @@ describe("TELEGRAM-MEDIA-038/039 — each job attaches its own event frame", () 
       sent.push(Buffer.from(input.photo.bytes));
       return ok();
     });
-    const processOne = (job: FaceMediaJob) =>
-      processFaceMediaJob(job, {
+    const processOne = (job: TelegramMediaJob) =>
+      processTelegramMediaJob(job, {
         config: config(dataDir),
         dataDir,
         sendPhoto,
-        sendMediaGroup: vi.fn(async () => ok()),
         sendVideo: vi.fn(async () => ok()),
         generateClip: vi.fn(async () => clipFailed("no_recording")),
         log: () => undefined,
@@ -835,16 +773,15 @@ describe("TELEGRAM-MEDIA-038/039 — each job attaches its own event frame", () 
  * TELEGRAM-CAPTION — media-only notifications carry exactly safe metadata.
  *
  * The caption comes from the event (camera name, event time, detector
- * confidence) and travels in Telegram's `caption` field. No text message is sent.
+ * confidence and the person/vehicle classification) and travels in Telegram's
+ * `caption` field. No text message is sent.
  * ------------------------------------------------------------------------- */
 
 describe("TELEGRAM-CAPTION — media captions", () => {
   const eventJob = (classification: "person" | "vehicle", confidence: number | null) => ({
     ...JOB,
-    channel: "event" as const,
     classification,
     confidence,
-    maxConfidence: 0,
   });
 
   it("TELEGRAM-CAPTION-001 a person image uses sendPhoto with the caption", async () => {
@@ -853,11 +790,10 @@ describe("TELEGRAM-CAPTION — media captions", () => {
       void input;
       return ok();
     });
-    const outcome = await processFaceMediaJob(eventJob("person", 0.87), {
+    const outcome = await processTelegramMediaJob(eventJob("person", 0.87), {
       config: config(dataDir, EVENT_ONLY),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => ok()),
       generateClip: vi.fn(async () => clipFailed("no_recording")),
       log: () => undefined,
@@ -881,11 +817,10 @@ describe("TELEGRAM-CAPTION — media captions", () => {
       void input;
       return ok();
     });
-    const outcome = await processFaceMediaJob(eventJob("person", 0.73), {
+    const outcome = await processTelegramMediaJob(eventJob("person", 0.73), {
       config: config(dataDir, EVENT_ONLY),
       dataDir,
       sendPhoto: vi.fn(async () => ok()),
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo,
       generateClip: vi.fn(async () => clipOk(dataDir)),
       unlinkImpl: vi.fn(async () => undefined),
@@ -909,11 +844,10 @@ describe("TELEGRAM-CAPTION — media captions", () => {
       void input;
       return ok();
     });
-    await processFaceMediaJob(eventJob("vehicle", 0.7), {
+    await processTelegramMediaJob(eventJob("vehicle", 0.7), {
       config: config(dataDir, EVENT_ONLY),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => ok()),
       generateClip: vi.fn(async () => clipFailed("no_recording")),
       log: () => undefined,
@@ -922,43 +856,16 @@ describe("TELEGRAM-CAPTION — media captions", () => {
     expect(sendPhoto.mock.calls[0]![0].caption).toContain("🎯 Confidence: 70%");
   });
 
-  it("TELEGRAM-CAPTION-004 a face notification uses the face caption and face confidence", async () => {
-    const dataDir = await dataDirWithSnapshot();
-    const sendPhoto = vi.fn(async (input: { photo: TelegramFile; caption?: string }) => {
-      void input;
-      return ok();
-    });
-    await processFaceMediaJob({ ...JOB, maxConfidence: 0.82 }, {
-      config: config(dataDir),
-      dataDir,
-      sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
-      sendVideo: vi.fn(async () => ok()),
-      generateClip: vi.fn(async () => clipFailed("no_recording")),
-      log: () => undefined,
-    });
-    expect(sendPhoto.mock.calls[0]![0].caption).toBe(
-      [
-        "👤 <b>Face detected</b>",
-        "",
-        "📹 Camera: First Floor Passage",
-        "🕐 Time: 10 Oct 2026, 02:35 PM",
-        "🎯 Confidence: 82%",
-      ].join("\n"),
-    );
-  });
-
   it("TELEGRAM-CAPTION-005 uses the event timestamp, never the send time", async () => {
     const dataDir = await dataDirWithSnapshot();
     const sendPhoto = vi.fn(async (input: { photo: TelegramFile; caption?: string }) => {
       void input;
       return ok();
     });
-    await processFaceMediaJob({ ...eventJob("person", 0.9), eventTimestamp: "2021-03-04T09:05:00+05:30" }, {
+    await processTelegramMediaJob({ ...eventJob("person", 0.9), eventTimestamp: "2021-03-04T09:05:00+05:30" }, {
       config: config(dataDir, EVENT_ONLY),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => ok()),
       generateClip: vi.fn(async () => clipFailed("no_recording")),
       log: () => undefined,
@@ -974,11 +881,10 @@ describe("TELEGRAM-CAPTION — media captions", () => {
       void input;
       return ok();
     });
-    await processFaceMediaJob(eventJob("person", null), {
+    await processTelegramMediaJob(eventJob("person", null), {
       config: config(dataDir, EVENT_ONLY),
       dataDir,
       sendPhoto,
-      sendMediaGroup: vi.fn(async () => ok()),
       sendVideo: vi.fn(async () => ok()),
       generateClip: vi.fn(async () => clipFailed("no_recording")),
       log: () => undefined,

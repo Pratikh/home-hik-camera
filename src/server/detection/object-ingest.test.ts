@@ -32,7 +32,6 @@ function config(dataDir: string): AppConfig {
     telegramNotificationsEnabled: true,
     telegramBotToken: "test-token",
     telegramChatId: "-1001234567890",
-    telegramFaceNotifications: true,
     telegramEventNotifications: true,
   } as unknown as AppConfig;
 }

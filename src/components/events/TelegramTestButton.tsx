@@ -72,10 +72,10 @@ export function TelegramTestButton() {
         >
           Telegram: <span className={on ? "text-online" : undefined}>{on ? "Enabled" : "Disabled"}</span>
           {" · "}Rule events: {status.eventNotifications && on ? "On" : "Off"}
-          {" · "}Snapshot: {status.faceImage && on ? "On" : "Off"}
+          {" · "}Snapshot: {status.eventImage && on ? "On" : "Off"}
           {" · "}Video:{" "}
-          {status.faceVideo && on ? `On (${status.clipSeconds}s, ${status.videoPreSeconds}s before)` : "Off"}
-          {status.faceVideo && on ? ` · FFmpeg: ${status.ffmpeg === "available" ? "found" : "not found"}` : ""}
+          {status.eventVideo && on ? `On (${status.clipSeconds}s, ${status.videoPreSeconds}s before)` : "Off"}
+          {status.eventVideo && on ? ` · FFmpeg: ${status.ffmpeg === "available" ? "found" : "not found"}` : ""}
         </p>
       ) : null}
     </div>

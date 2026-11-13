@@ -123,11 +123,6 @@ export default function SystemPage() {
     return () => clearTimeout(timer);
   }, [load]);
 
-  const face = detailed?.faceDetection;
-  const faceProblem = Boolean(face?.enabled && face.worker !== "running");
-  const faceAlreadyWarned = Boolean(
-    detailed?.warnings.some((warning) => /face/i.test(warning)),
-  );
   const overallTone: Tone =
     detailed?.status === "healthy" ? "online" : detailed?.status === "degraded" ? "warn" : detailed ? "offline" : "idle";
 
@@ -181,19 +176,6 @@ export default function SystemPage() {
         </div>
       ) : null}
 
-      {faceProblem && !faceAlreadyWarned ? (
-        <div className="notice notice--warn" role="alert">
-          <Icon name="alert" />
-          <div>
-            <strong>Face detection is enabled but its worker is not processing jobs.</strong>
-            <p className="section__hint" style={{ marginTop: 4 }}>
-              {face?.warning ? humanizeSecondsInText(face.warning) :
-                "Start the local worker (face-worker or the home-cctv-face-worker systemd service) and check its logs."}
-            </p>
-          </div>
-        </div>
-      ) : null}
-
       {(health || detailed) && (
         <div className="health-grid">
           <HealthCard
@@ -240,13 +222,6 @@ export default function SystemPage() {
             tone={statusTone(detailed?.events.ingestion ?? health?.events, "running")}
             value={detailed?.events.ingestion ?? health?.events ?? "unknown"}
             detail={detailed?.events.lastPoll ? `last poll ${when(detailed.events.lastPoll)}` : "no poll recorded"}
-          />
-          <HealthCard
-            icon="faces"
-            label="Face worker"
-            tone={face ? (face.worker === "running" ? "online" : face.worker === "disabled" ? "idle" : "warn") : "idle"}
-            value={face?.worker ?? "unknown"}
-            detail={face?.queue ? `${face.queue.pending} pending · ${face.queue.failed} failed` : "no queue"}
           />
           <HealthCard
             icon="image"
@@ -404,43 +379,7 @@ export default function SystemPage() {
             </div>
           </section>
 
-          <section className="card">
-            <div className="card__head">
-              <h2 className="card__title">
-                <Icon name="faces" className="icon icon-sm" />
-                Face detection
-              </h2>
-              <span className={`badge ${face?.enabled ? (face.worker === "running" ? "badge--online" : "badge--warn") : ""}`}>
-                {face?.enabled ? face.worker : "disabled"}
-              </span>
-            </div>
-            <div className="card__body">
-              {face?.enabled ? (
-                <dl className="prop-list">
-                  <dt>Worker</dt>
-                  <dd className="mono">{face.worker}</dd>
-                  <dt>Last heartbeat</dt>
-                  <dd>{face.lastHeartbeat ? age(face.heartbeatAgeSeconds) : "never"}</dd>
-                  <dt>Queue</dt>
-                  <dd className="mono">
-                    {face.queue
-                      ? `${face.queue.pending} pending · ${face.queue.processing} processing · ${face.queue.failed} failed · ${face.queue.completed} completed`
-                      : "unknown"}
-                  </dd>
-                  {face.detail ? (
-                    <>
-                      <dt>Last note</dt>
-                      <dd className="section__hint">{face.detail}</dd>
-                    </>
-                  ) : null}
-                </dl>
-              ) : (
-                <p className="section__hint">Face detection is disabled. No worker is expected to run.</p>
-              )}
-            </div>
-          </section>
-
-          <section className="card">
+<section className="card">
             <div className="card__head">
               <h2 className="card__title">
                 <Icon name="image" className="icon icon-sm" />

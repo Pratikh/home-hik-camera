@@ -111,10 +111,9 @@ test.describe("TELEGRAM-MEDIA - status and temporary files", () => {
           body: JSON.stringify({
             enabled: true,
             configured: true,
-            faceNotifications: true,
             eventNotifications: true,
-            faceImage: true,
-            faceVideo: true,
+            eventImage: true,
+            eventVideo: true,
             videoPreSeconds: 5,
             videoPostSeconds: 5,
             clipSeconds: 10,
@@ -152,10 +151,9 @@ test.describe("TELEGRAM-MEDIA - status and temporary files", () => {
           body: JSON.stringify({
             enabled: true,
             configured: true,
-            faceNotifications: true,
             eventNotifications: true,
-            faceImage: true,
-            faceVideo: true,
+            eventImage: true,
+            eventVideo: true,
             videoPreSeconds: 5,
             videoPostSeconds: 5,
             clipSeconds: 10,
@@ -172,7 +170,7 @@ test.describe("TELEGRAM-MEDIA - status and temporary files", () => {
     diag.expectClean();
   });
 
-  test("TELEGRAM-MEDIA-023 temporary clips and crops are not served as static files", async ({
+  test("TELEGRAM-MEDIA-023 temporary clips and private data are not served as static files", async ({
     page,
     diag,
   }) => {

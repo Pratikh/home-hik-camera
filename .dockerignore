@@ -12,6 +12,4 @@ coverage
 .DS_Store
 .venv-face
 __pycache__
-face-worker/models
-face-worker/tests
 .pytest_cache

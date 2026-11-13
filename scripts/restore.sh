@@ -9,8 +9,8 @@
 #   * the source must contain manifest.json and pass verify-backup.sh first;
 #   * the script refuses to run if the hub web port appears to be listening;
 #   * every replacement is staged and checked before the live path is swapped;
-#   * the previous database, snapshots and face crops are moved aside with a
-#     timestamp, never deleted, so a mistaken restore is reversible;
+#   * the previous database and snapshots are moved aside with a timestamp,
+#     never deleted, so a mistaken restore is reversible;
 #   * `.env` is not restored because it is never part of a backup.
 #
 # Usage:
@@ -70,7 +70,6 @@ if [ "${DRY_RUN:-0}" = "1" ]; then
   echo "restore: DRY RUN — no files were changed."
   if [ -f "$SRC/database.sqlite" ]; then echo "restore: would restore database.sqlite"; fi
   if [ -d "$SRC/events" ]; then echo "restore: would restore events/ ($(find "$SRC/events" -type f | wc -l | tr -d ' ') files)"; fi
-  if [ -d "$SRC/face-crops" ]; then echo "restore: would restore face-crops/ ($(find "$SRC/face-crops" -type f | wc -l | tr -d ' ') files)"; fi
   if [ -f "$SRC/cameras.json" ]; then echo "restore: would restore cameras.json"; fi
   exit 0
 fi
@@ -97,12 +96,6 @@ STAGE_EVENTS=""
 if [ -d "$SRC/events" ]; then
   STAGE_EVENTS="$DATA_DIR/.events.restore-$STAMP"
   cp -R "$SRC/events" "$STAGE_EVENTS"
-fi
-
-STAGE_CROPS=""
-if [ -d "$SRC/face-crops" ]; then
-  STAGE_CROPS="$DATA_DIR/.face-crops.restore-$STAMP"
-  cp -R "$SRC/face-crops" "$STAGE_CROPS"
 fi
 
 STAGE_CAMERAS=""
@@ -135,15 +128,6 @@ if [ -n "$STAGE_EVENTS" ]; then
   fi
   mv "$STAGE_EVENTS" "$DATA_DIR/events"
   echo "restore: restored event snapshots -> data/events/"
-fi
-
-if [ -n "$STAGE_CROPS" ]; then
-  if [ -d "$DATA_DIR/face-crops" ]; then
-    mv "$DATA_DIR/face-crops" "$DATA_DIR/face-crops.pre-restore-$STAMP"
-    echo "restore: kept previous face crops as data/face-crops.pre-restore-$STAMP"
-  fi
-  mv "$STAGE_CROPS" "$DATA_DIR/face-crops"
-  echo "restore: restored face crops -> data/face-crops/"
 fi
 
 if [ -n "$STAGE_CAMERAS" ]; then

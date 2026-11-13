@@ -269,7 +269,6 @@ applied while detection is ON.
 - **CPU:** the model is small enough for a 2-core i3-5005U at 1 FPS per camera;
   test one camera first. Inference time on that CPU will be higher than the
   ~21 ms measured on the development host (budget 100–200 ms/frame).
-- **Face detection is separate and unchanged.** No face recognition is done here.
 - **Tracking** is a lightweight IoU/centroid tracker, not a heavy MOT framework.
 - **Startup backfill:** only the hub's DVR poller has the old snapshot-association
   guard; AI events always carry their own analysed frame.
