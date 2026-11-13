@@ -54,6 +54,7 @@ export function PlaybackTimeline({
   onZoom,
   onSeek,
   events = [],
+  dimSegments = false,
   cameraName,
   camera,
   date,
@@ -71,6 +72,8 @@ export function PlaybackTimeline({
    */
   onSeek: (offsetMs: number) => void;
   events?: CctvEvent[];
+  /** Dim the recording band while an event-classification filter is active. */
+  dimSegments?: boolean;
   /** DVR camera name, shown in the event tooltip. */
   cameraName?: string;
   /** Which recording the hover preview should frame. */
@@ -340,7 +343,7 @@ export function PlaybackTimeline({
           Row 3: the recording track. The darker background IS the gap: anywhere
           without a segment means "no recording", and is never filled in.
         */}
-        <div className="relative mt-1.5 overflow-hidden rounded" style={{ height: TRACK_H }}>
+        <div className={`relative mt-1.5 overflow-hidden rounded ${dimSegments ? "opacity-40" : ""}`} style={{ height: TRACK_H }}>
           <div className="absolute inset-0 bg-black/50" aria-hidden="true" />
           {segments.map((segment) => {
             const box = segmentPercents(segment, visible);
@@ -357,8 +360,9 @@ export function PlaybackTimeline({
           })}
         </div>
 
-        {/* Row 4: the event track, separate from recording so the two never blur. */}
-        <div className="relative mt-1 h-8">
+        {/* Row 4: the event track, separate from recording so the two never blur.
+            z-10 puts markers above the playhead hairline. */}
+        <div className="relative z-10 mt-1 h-8">
           {markers.map((marker) => {
             const box = segmentPercents({ startMs: marker.offsetMs, endMs: marker.offsetMs + 1 }, visible);
             if (!box) return null;
@@ -439,7 +443,12 @@ export function PlaybackTimeline({
         {/* Playhead spans the ruler and both tracks, so it reads as one position. */}
         {playheadPercent !== null ? (
           <span
-            className="pointer-events-none absolute bottom-0 top-6 w-0.5 -translate-x-1/2 bg-teal shadow-[0_0_6px_rgba(62,224,199,0.8)]"
+            /*
+             * z-0 keeps the playhead BEHIND the marker buttons (which paint in a
+             * later stacking layer), so a marker crossing the playhead stays a
+             * solid dot instead of being bisected into an unreadable glyph.
+             */
+            className="pointer-events-none absolute bottom-0 top-6 z-0 w-0.5 -translate-x-1/2 bg-teal shadow-[0_0_6px_rgba(62,224,199,0.8)]"
             style={{ left: `${playheadPercent}%` }}
             aria-hidden="true"
           >

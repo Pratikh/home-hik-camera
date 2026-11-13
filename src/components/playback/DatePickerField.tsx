@@ -86,7 +86,7 @@ export function DatePickerField({
 
   return (
     <div ref={wrapRef} className="relative">
-      <span className="mb-1 block text-sm text-muted" id={`${panelId}-label`}>
+      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted" id={`${panelId}-label`}>
         Date
       </span>
       <button
@@ -98,7 +98,7 @@ export function DatePickerField({
         aria-labelledby={`${panelId}-label`}
         className="flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-line bg-card px-3 text-left font-mono text-sm text-ink hover:bg-white/5"
       >
-        <span>{date}</span>
+        <span className="whitespace-nowrap">{date}</span>
         <CalendarIcon />
       </button>
 
