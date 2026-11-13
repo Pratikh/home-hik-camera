@@ -92,8 +92,13 @@ async function poll(backfill: boolean): Promise<void> {
     const now = new Date();
     if (backfill && !backfilled) {
       // Diagnostic for the historical-event path: this poll re-reads the day,
-      // so its events must not receive a "current" live still.
-      console.info("[events] Backfill poll started");
+      // so its events must not receive a "current" live still. Anything older
+      // than the notification window is stored but never notified (the
+      // freshness gate in processEventNotification decides per event).
+      console.info(
+        "[events] Backfill poll started; recovered events older than " +
+          `${config.dvrNotificationMaxEventAgeSeconds}s will be stored without notifying`,
+      );
     }
     const day = kolkataDayBounds(todayInKolkata(now));
     const start = backfill && !backfilled && day ? day.start : new Date(now.getTime() - Math.max(config.eventPollIntervalMs * 3, 120_000));
@@ -177,7 +182,13 @@ async function poll(backfill: boolean): Promise<void> {
        */
       const { delivered } = processEventNotification({
         store,
-        event: { ...event, priority, source: "hikvision", confidence: null },
+        event: {
+          ...event,
+          priority,
+          source: "hikvision",
+          confidence: null,
+          receivedAt: new Date().toISOString(),
+        },
         config,
         detectionSource,
         cameraName,

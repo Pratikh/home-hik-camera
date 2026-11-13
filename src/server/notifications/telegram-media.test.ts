@@ -11,6 +11,7 @@ import {
   enqueueEventMedia,
   logVideoDiagnostics,
   processTelegramMediaJob,
+  revalidateQueuedJob,
   telegramMediaQueueDepth,
   type TelegramMediaJob,
 } from "@/server/notifications/telegram-media";
@@ -68,6 +69,12 @@ const MP4 = Buffer.concat([Buffer.from([0, 0, 0, 0x18]), Buffer.from("ftypmp42")
 const SNAPSHOT_BYTES = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(500, 7)]);
 
 const tempDirs: string[] = [];
+function tempDirSync(): string {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "media-test-"));
+  tempDirs.push(dir);
+  return dir;
+}
+
 async function dataDirWithSnapshot(withSnapshot = true): Promise<string> {
   const dir = mkdtempSync(path.join(os.tmpdir(), "media-test-"));
   tempDirs.push(dir);
@@ -899,5 +906,150 @@ describe("TELEGRAM-CAPTION — media captions", () => {
     const source = readFileSync(new URL("./telegram-media.ts", import.meta.url), "utf8");
     expect(source).not.toMatch(/sendTelegramMessage\s*\(/);
     expect(source).not.toMatch(/notifyTelegram/);
+  });
+});
+/* ---------------------------------------------------------------------------
+ * Stale queued jobs.
+ *
+ * A job queued while its event was current can be delivered much later (a
+ * restart requeues it; a busy DVR delays the clip). Delivery must revalidate
+ * the event timestamp and drop a job that has since gone stale, rather than
+ * uploading a notification for something that happened hours ago.
+ * ------------------------------------------------------------------------- */
+
+describe("TELEGRAM-STALE — queued jobs are revalidated before delivery", () => {
+  it("suppresses a DVR job whose event is older than the window", async () => {
+    const dataDir = await dataDirWithSnapshot();
+    const store = openEventStore(dataDir);
+    const eventId = "evt_stale_dvr_0001";
+    store.insertEvent({
+      id: eventId,
+      dedupeKey: `stale-${eventId}`,
+      cameraId: 1,
+      type: "motion",
+      classification: "person",
+      timestamp: "2026-10-10T08:00:00+05:30",
+      endTimestamp: null,
+      source: "hikvision",
+      metaId: "stale",
+      priority: "HIGH",
+      confidence: null,
+    });
+    store.enqueueTelegramMediaJob({
+      eventId,
+      cameraId: 1,
+      cameraName: "Parking",
+      faces: 0,
+      maxConfidence: 0,
+      eventTimestamp: "2026-10-10T08:00:00+05:30",
+      snapshotPath: SNAPSHOT,
+      now: new Date().toISOString(),
+    });
+    const claimed = store.claimNextTelegramMediaJob(new Date().toISOString())!;
+    expect(claimed.eventId).toBe(eventId);
+
+    const dropped = revalidateQueuedJob({
+      store,
+      config: config(dataDir),
+      job: {
+        id: claimed.id,
+        eventId: claimed.eventId,
+        cameraId: claimed.cameraId,
+        eventTimestamp: claimed.eventTimestamp,
+        classification: claimed.classification,
+      },
+    });
+
+    expect(dropped).toBe(true);
+    // The job is finished, never retried.
+    expect(store.claimNextTelegramMediaJob(new Date().toISOString())).toBeNull();
+  });
+
+  it("lets a current DVR job through", () => {
+    const dataDir = tempDirSync();
+    const store = openEventStore(dataDir);
+    const eventId = "evt_fresh_dvr_0001";
+    const now = new Date();
+    store.insertEvent({
+      id: eventId,
+      dedupeKey: `fresh-${eventId}`,
+      cameraId: 1,
+      type: "motion",
+      classification: "person",
+      timestamp: now.toISOString(),
+      endTimestamp: null,
+      source: "hikvision",
+      metaId: "fresh",
+      priority: "HIGH",
+      confidence: null,
+    });
+    const queued = store.enqueueTelegramMediaJob({
+      eventId,
+      cameraId: 1,
+      cameraName: "Parking",
+      faces: 0,
+      maxConfidence: 0,
+      eventTimestamp: now.toISOString(),
+      snapshotPath: SNAPSHOT,
+      now: now.toISOString(),
+    });
+    expect(queued).toBe("queued");
+    const claimed = store.claimNextTelegramMediaJob(new Date().toISOString())!;
+
+    const dropped = revalidateQueuedJob({
+      store,
+      config: config(dataDir),
+      job: {
+        id: claimed.id,
+        eventId: claimed.eventId,
+        cameraId: claimed.cameraId,
+        eventTimestamp: claimed.eventTimestamp,
+        classification: claimed.classification,
+      },
+    });
+    expect(dropped).toBe(false);
+  });
+
+  it("never drops an object-detection job", () => {
+    const dataDir = tempDirSync();
+    const store = openEventStore(dataDir);
+    const eventId = "evt_ai_job_0001";
+    store.insertEvent({
+      id: eventId,
+      dedupeKey: `ai-${eventId}`,
+      cameraId: 1,
+      type: "motion",
+      classification: "person",
+      timestamp: new Date().toISOString(),
+      endTimestamp: null,
+      source: "object-detection-worker",
+      metaId: "ai",
+      priority: "HIGH",
+      confidence: 0.9,
+    });
+    store.enqueueTelegramMediaJob({
+      eventId,
+      cameraId: 1,
+      cameraName: "Parking",
+      faces: 0,
+      maxConfidence: 0,
+      eventTimestamp: "2026-10-10T08:00:00+05:30",
+      snapshotPath: SNAPSHOT,
+      now: new Date().toISOString(),
+    });
+    const claimed = store.claimNextTelegramMediaJob(new Date().toISOString())!;
+
+    const dropped = revalidateQueuedJob({
+      store,
+      config: config(dataDir),
+      job: {
+        id: claimed.id,
+        eventId: claimed.eventId,
+        cameraId: claimed.cameraId,
+        eventTimestamp: claimed.eventTimestamp,
+        classification: claimed.classification,
+      },
+    });
+    expect(dropped).toBe(false);
   });
 });

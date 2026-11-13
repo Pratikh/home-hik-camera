@@ -4,7 +4,12 @@ import type { AppConfig } from "@/lib/config";
 import { getConfig } from "@/lib/config";
 import type { TelegramMediaStatusResponse } from "@/lib/api-types";
 import { snapshotFile } from "@/lib/snapshot-path";
-import { openEventStore } from "@/server/events/event-store";
+import {
+  checkNotificationFreshness,
+  formatFreshnessLog,
+  sourceIsAgeChecked,
+} from "@/lib/notification-freshness";
+import { openEventStore, type EventStore } from "@/server/events/event-store";
 import {
   buildTelegramMediaCaption,
   sendTelegramPhoto,
@@ -342,6 +347,50 @@ export function ensureTelegramMediaWorker(): void {
   setInterval(() => void mediaTick(), TELEGRAM_MEDIA_INTERVAL_MS);
 }
 
+/**
+ * Re-check a queued job immediately before delivery.
+ *
+ * A job can be queued while its event is current and only be delivered minutes
+ * later (a restart requeues in-flight jobs; a busy DVR delays the clip). The
+ * freshness rule must therefore be applied again here, against the event's own
+ * timestamp, so a job that has gone stale never uploads anything.
+ *
+ * Returns true when the job was stale: the caller must not send it.
+ */
+export function revalidateQueuedJob(input: {
+  store: EventStore;
+  config: AppConfig;
+  job: { id: number; eventId: string; cameraId: number; eventTimestamp: string; classification: "person" | "vehicle" | null };
+  now?: Date;
+}): boolean {
+  const { store, config, job } = input;
+  const source = store.sourceOf(job.eventId);
+  if (!source || !sourceIsAgeChecked(source)) return false;
+
+  const freshness = checkNotificationFreshness({
+    eventTimestamp: job.eventTimestamp,
+    maxAgeSeconds: config.dvrNotificationMaxEventAgeSeconds,
+    now: input.now,
+  });
+  if (freshness.eligible) return false;
+
+  console.info(
+    formatFreshnessLog({
+      eventId: job.eventId,
+      cameraId: job.cameraId,
+      source,
+      eventType: "motion",
+      classification: job.classification,
+      eventTimestamp: job.eventTimestamp,
+      receivedAt: job.eventTimestamp,
+      evaluation: freshness,
+    }),
+  );
+  // Finished, not retried: a stale job must not come back.
+  store.finishTelegramMediaJob(job.id, "done", freshness.reason, new Date().toISOString());
+  return true;
+}
+
 async function mediaTick(): Promise<void> {
   if (running) return; // single flight: one clip at a time
   running = true;
@@ -358,6 +407,26 @@ async function mediaTick(): Promise<void> {
 
     const claimed = store.claimNextTelegramMediaJob(new Date().toISOString());
     if (!claimed) return;
+
+    /*
+     * Revalidate at delivery time. A job may have been queued before a restart
+     * and only be picked up minutes later, or a stale DVR event may have slipped
+     * into the queue before a policy change. The queue stores the event's real
+     * timestamp, so the same freshness rule can be applied here, immediately
+     * before any bytes are uploaded.
+     */
+    const stale = revalidateQueuedJob({
+      store,
+      config,
+      job: {
+        id: claimed.id,
+        eventId: claimed.eventId,
+        cameraId: claimed.cameraId,
+        eventTimestamp: claimed.eventTimestamp,
+        classification: claimed.classification,
+      },
+    });
+    if (stale) return;
     const job: TelegramMediaJob = {
       eventId: claimed.eventId,
       cameraId: claimed.cameraId,

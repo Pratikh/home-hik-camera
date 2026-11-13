@@ -7,6 +7,11 @@ import type { DetectionSource } from "@/lib/object-detection";
 import { enqueueEventMedia } from "@/server/notifications/telegram-media";
 import { cooldownBlocks, cooldownWindowStart, evaluateRules } from "@/server/events/rule-engine";
 import { recordNotificationDecisions } from "@/server/events/notification-decisions";
+import {
+  checkNotificationFreshness,
+  formatFreshnessLog,
+  sourceIsAgeChecked,
+} from "@/lib/notification-freshness";
 import type { EventStore } from "@/server/events/event-store";
 
 /**
@@ -27,6 +32,8 @@ export type PipelineEvent = {
   source: string;
   /** Detector confidence for the media caption; null when the source has none. */
   confidence?: number | null;
+  /** When the hub received the event (created_at); for the audit line only. */
+  receivedAt?: string | null;
 };
 
 /**
@@ -66,6 +73,8 @@ export type PipelineInput = {
    * own clock while an AI detection is stamped with the server clock.
    */
   clipTimestamp?: string;
+  /** Evaluation instant for the freshness gate; defaults to real now. */
+  now?: Date;
 };
 
 export function processEventNotification(input: PipelineInput): { delivered: boolean } {
@@ -75,6 +84,38 @@ export function processEventNotification(input: PipelineInput): { delivered: boo
   if (!notificationSourceAllowed(event.source, event.classification, mode)) {
     // Stored and searchable, but this source may not notify in this mode.
     return { delivered: false };
+  }
+
+  /*
+   * Freshness gate. The DVR can hand the hub events it has never seen before —
+   * most obviously the day's history re-read by the first poll after a restart.
+   * Those must be stored (so the Events page is complete) but must never
+   * notify: "motion at 11:00" arriving at 18:00 is history, not an alarm.
+   *
+   * The check runs before rule evaluation and before any media is queued, so a
+   * stale event cannot enter the Telegram queue at all.
+   */
+  if (sourceIsAgeChecked(event.source)) {
+    const freshness = checkNotificationFreshness({
+      eventTimestamp: event.timestamp,
+      maxAgeSeconds: config.dvrNotificationMaxEventAgeSeconds,
+      now: input.now,
+    });
+    if (!freshness.eligible) {
+      console.info(
+        formatFreshnessLog({
+          eventId: event.id,
+          cameraId: event.cameraId,
+          source: event.source,
+          eventType: event.type,
+          classification: event.classification,
+          eventTimestamp: event.timestamp,
+          receivedAt: event.receivedAt ?? null,
+          evaluation: freshness,
+        }),
+      );
+      return { delivered: false };
+    }
   }
 
   const rules = store.rules();

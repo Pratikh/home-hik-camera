@@ -895,6 +895,14 @@ export class EventStore {
     return Number(result.changes);
   }
 
+  /** The source of a stored event, or null when the row is gone. */
+  sourceOf(eventId: string): string | null {
+    const row = this.db.prepare("SELECT source FROM events WHERE id = ?").get(eventId) as
+      | { source: string }
+      | undefined;
+    return row?.source ?? null;
+  }
+
   setSnapshotPath(id: string, relativePath: string): void {
     this.db.prepare("UPDATE events SET snapshot_path = ? WHERE id = ?").run(relativePath, id);
   }
