@@ -30,6 +30,22 @@ export const MEDIAMTX_WORKER_USER = "worker";
  */
 export const MEDIAMTX_HEALTHCHECK_IP = "127.0.0.1";
 
+/**
+ * Extra source addresses allowed to use the hub account, development only.
+ *
+ * With the loopback development overlay (`compose.dev.yml`), requests from the
+ * host reach MediaMTX through the Podman/Docker VM port forward, so MediaMTX
+ * sees the VM gateway address (for example 192.168.127.1) rather than
+ * 127.0.0.1. `compose.dev.yml` sets this variable; production never sets it, so
+ * the rendered allowlist in production is unchanged.
+ */
+function developmentHubIps(env) {
+  return String(env.MEDIAMTX_DEV_HUB_IPS || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0 && /^[0-9a-fA-F.:]+(\/\d{1,3})?$/.test(item));
+}
+
 export function cameraStreamPlan() {
   const plan = [];
   for (let id = 1; id <= 4; id += 1) {
@@ -156,10 +172,15 @@ export function mediamtxUsers(env) {
       "      - action: api",
     ];
   }
+  const hubIps = [
+    `${MEDIAMTX_NETWORK.hub}/32`,
+    `${MEDIAMTX_HEALTHCHECK_IP}/32`,
+    ...developmentHubIps(env),
+  ];
   return [
     `  - user: ${auth.user}`,
     `    pass: ${yamlString(auth.password)}`,
-    `    ips: [${yamlString(`${MEDIAMTX_NETWORK.hub}/32`)}, ${yamlString(`${MEDIAMTX_HEALTHCHECK_IP}/32`)}]`,
+    `    ips: [${hubIps.map((ip) => yamlString(ip)).join(", ")}]`,
     "    permissions:",
     "      - action: read",
     "      - action: playback",

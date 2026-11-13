@@ -33,6 +33,23 @@ describe("MediaMTX control-plane authentication", () => {
     expect(hub).toContain("      - action: api");
   });
 
+  it("adds the development host gateway to the hub allowlist only when asked", () => {
+    const prod = renderMediamtxConfig({ MEDIAMTX_AUTH_PASSWORD: AUTH });
+    expect(prod).not.toContain("192.168.127.1");
+    expect(prod).not.toContain("MEDIAMTX_DEV_HUB_IPS");
+
+    const dev = renderMediamtxConfig({
+      MEDIAMTX_AUTH_PASSWORD: AUTH,
+      MEDIAMTX_DEV_HUB_IPS: "192.168.127.1, 10.89.1.1 ,not-an-ip",
+    });
+    const hub = blockFor(dev, "  - user: hub");
+    expect(hub).toContain(`"${MEDIAMTX_NETWORK.hub}/32"`);
+    expect(hub).toContain(`"${MEDIAMTX_HEALTHCHECK_IP}/32"`);
+    expect(hub).toContain('"192.168.127.1"');
+    expect(hub).toContain('"10.89.1.1"');
+    expect(hub).not.toContain("not-an-ip");
+  });
+
   it("gives the object worker a separate read-only account bound to its address", () => {
     const yaml = renderMediamtxConfig({ MEDIAMTX_AUTH_PASSWORD: AUTH });
     const worker = blockFor(yaml, `  - user: ${MEDIAMTX_WORKER_USER}`);

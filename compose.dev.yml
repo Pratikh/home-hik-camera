@@ -13,6 +13,11 @@ name: home-cctv
 
 services:
   mediamtx:
+    # Requests from the host arrive through the Podman/Docker VM port forward, so
+    # MediaMTX sees the VM gateway address, not 127.0.0.1. Allow that address for
+    # the hub account in development; production never sets this variable.
+    environment:
+      MEDIAMTX_DEV_HUB_IPS: "${MEDIAMTX_DEV_HUB_IPS:-192.168.127.1,10.89.1.1}"
     ports:
       - "127.0.0.1:8888:8888"
       - "127.0.0.1:8889:8889"
