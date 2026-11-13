@@ -69,9 +69,15 @@ describe("playback player - picture fidelity", () => {
 describe("playback player - vertical economy", () => {
   it("keeps the clock compact rather than a large block", () => {
     const html = renderPlayer();
-    // Was mt-3 text-lg; tightened to save vertical space.
-    expect(html).toContain("mt-2 font-mono text-base");
+    /*
+     * The clock now lives inside a compact control bar next to the state label.
+     * It must stay text-base on desktop (the vertical budget that keeps the
+     * timeline above the fold); a slightly larger size is allowed on touch.
+     */
+    // Compact: text-sm on phones, text-base from md up — never a large block.
+    expect(html).toContain("font-mono text-sm tabular-nums text-ink-2 md:text-base");
     expect(html).not.toContain("mt-3 font-mono text-lg");
+    expect(html).toContain("data-testid=\"playback-clock\"");
   });
 
   it("keeps the control row tight against the video", () => {

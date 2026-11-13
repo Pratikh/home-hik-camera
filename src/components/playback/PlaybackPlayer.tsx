@@ -313,11 +313,23 @@ export function PlaybackPlayer({
     });
   }
 
+  /*
+   * Mobile keeps the source ratio instead of forcing 16:9: the stage is a
+   * width-limited box whose height follows the real picture (`aspect`) once
+   * metadata arrives, and falls back to a 4:3-ish box before that so the layout
+   * never jumps. Desktop keeps the height-limited fill that lets the timeline
+   * stay above the fold.
+   */
+  /*
+   * Mobile fits the player to the source ratio once metadata arrives, and uses a
+   * 4:3 placeholder before that so the page does not jump. Desktop keeps the
+   * height-limited fill so the timeline stays above the fold (PLAY-015).
+   */
   return (
     <section className="flex min-w-0 flex-col md:min-h-0 md:flex-1" aria-label="Playback">
       <div
         ref={frameRef}
-        className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl border border-line bg-black md:aspect-auto md:min-h-0 md:flex-1 md:basis-0"
+        className="relative flex w-full items-center justify-center overflow-hidden rounded-xl border border-line bg-black max-md:aspect-[4/3] md:aspect-auto md:min-h-0 md:flex-1 md:basis-0"
       >
         {/*
           The stage takes the stream's own ratio, driven by the frame's height.
@@ -386,9 +398,26 @@ export function PlaybackPlayer({
           ) : null}
         </div>
       </div>
-      <p className="mt-2 font-mono text-base tabular-nums" aria-live="polite">
-        {clock}
-      </p>
+      {/* Control bar: the clock is the anchor, the state reads at a glance. */}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-card px-3 py-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`dot ${visiblePhase === "playing" ? "dot--online" : visiblePhase === "error" ? "dot--offline" : ""}`}
+            aria-hidden="true"
+          />
+          {/*
+            One readout, not three. On desktop this bar is the anchor clock; on
+            phones the timeline shows the prominent time next to the scrubber,
+            so this one is deliberately quieter to avoid competing clocks.
+          */}
+          <span className="font-mono text-sm tabular-nums text-ink-2 md:text-base" aria-live="polite" data-testid="playback-clock">
+            {clock}
+          </span>
+        </div>
+        <span className="text-xs uppercase tracking-wide text-muted" data-testid="playback-state">
+          {phaseLabel(visiblePhase)}
+        </span>
+      </div>
       <div className="mt-2">
         <PlaybackControls
           playing={visiblePhase === "playing" || visiblePhase === "loading" || visiblePhase === "connecting"}
@@ -408,4 +437,26 @@ export function PlaybackPlayer({
       </div>
     </section>
   );
+}
+
+/** Human state for the control bar; never a raw phase name. */
+function phaseLabel(phase: Phase): string {
+  switch (phase) {
+    case "playing":
+      return "Playing";
+    case "paused":
+      return "Paused";
+    case "ended":
+      return "Finished";
+    case "error":
+      return "Unavailable";
+    case "connecting":
+      return "Connecting";
+    case "loading":
+      return "Buffering";
+    case "gesture":
+      return "Tap to start";
+    default:
+      return "Ready";
+  }
 }

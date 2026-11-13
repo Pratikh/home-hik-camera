@@ -19,6 +19,9 @@ import {
 } from "@/components/hooks/useRecordingDates";
 import { PlaybackPlayer } from "@/components/playback/PlaybackPlayer";
 import { PlaybackTimeline } from "@/components/playback/PlaybackTimeline";
+import { MobilePlaybackTimeline } from "@/components/playback/MobilePlaybackTimeline";
+import { PlaybackTimelineFilters, type TimelineFilter } from "@/components/playback/PlaybackTimelineFilters";
+import { useMediaQuery } from "@/components/hooks/useMediaQuery";
 
 const FALLBACK = CAMERA_IDS.map((id) => ({
   id,
@@ -81,6 +84,14 @@ export function PlaybackView({
   const [playNonce, setPlayNonce] = useState(0);
   const [position, setPosition] = useState<number | null>(null);
   const [zoom, setZoom] = useState<24 | 6 | 1>(24);
+  // Timeline category filter. Presentation only: it hides tracks, never data.
+  const [filter, setFilter] = useState<TimelineFilter>("all");
+  /*
+   * Which timeline to mount. Matches the CSS breakpoint where the precision
+   * timeline is hidden (lg = 64rem = 1024px), so the DOM never holds two
+   * timeline sliders at once.
+   */
+  const isCompact = useMediaQuery("(max-width: 1023px)");
   const [pointNote, setPointNote] = useState<string | null>(null);
   // Raw events for the day; markers are grouped from these so the grouping can
   // follow the zoom level without another network request.
@@ -120,6 +131,28 @@ export function PlaybackView({
   const selected = recordings.find((recording) => recording.id === selectedId) ?? null;
   /* No recordings for this day. Not the same as a failed search or a gap. */
   const noRecordings = !pending && !searchError && recordings.length === 0;
+
+  /*
+   * Display-only projections of the same data. Filtering hides tracks in the
+   * timeline; the player still seeks through the full recording set, so turning
+   * a category off can never make a real recording unreachable.
+   */
+  /*
+   * Classification filters are ADDITIVE: they narrow the events shown but keep
+   * the recording band, because "Person" means "show me person activity", never
+   * "hide what the DVR recorded". Only "Event" hides the band (the operator asked
+   * for events). A dimmed band keeps the day's coverage legible under a filter.
+   */
+  const classificationFilter = filter === "person" || filter === "vehicle";
+  const showSegments = filter === "event" ? [] : segments;
+  const showEvents =
+    filter === "recording"
+      ? []
+      : filter === "person"
+        ? dayEvents.filter((event) => event.classification === "person")
+        : filter === "vehicle"
+          ? dayEvents.filter((event) => event.classification === "vehicle")
+          : dayEvents;
 
   function playRecording(recording: RecordingView, fromIso?: string) {
     setSelectedId(recording.id);
@@ -184,6 +217,15 @@ export function PlaybackView({
   useEffect(() => {
     loadRef.current = load;
   });
+
+  /** Previous / next day from the mobile date navigator. */
+  function stepDay(deltaDays: number) {
+    if (!day) return;
+    const next = new Date(day.start.getTime() + deltaDays * 24 * 60 * 60 * 1000);
+    if (next.getTime() > Date.now() + 24 * 60 * 60 * 1000) return;
+    const iso = formatKolkataIso(next).slice(0, 10);
+    chooseDate(iso);
+  }
 
   function chooseDate(next: string) {
     const resolved = resolvePlaybackDate({ today: initialDate, selected: next, userChoseDate: true });
@@ -275,6 +317,7 @@ export function PlaybackView({
         onMonthChange={setMonth}
         onDate={chooseDate}
         onReloadAvailability={availability.reload}
+        onStepDay={stepDay}
       />
       {searchError ? (
         <p className="text-sm text-warn" role="status">
@@ -289,20 +332,50 @@ export function PlaybackView({
         onPosition={setPosition}
       />
       {day ? (
-        <PlaybackTimeline
-          dayStartMs={day.start.getTime()}
-          segments={segments}
-          window={visible}
-          positionMs={positionMs}
-          zoom={zoom}
-          onZoom={setZoom}
-          /* Dragging previews locally; this runs once when the gesture ends. */
-          onSeek={seekDay}
-          events={dayEvents}
-          cameraName={cameras.find((item) => item.id === camera)?.name}
-          camera={camera}
-          date={date}
-        />
+        <div className="grid min-w-0 grid-cols-1 gap-2">
+          <PlaybackTimelineFilters value={filter} onChange={setFilter} segments={segments} events={dayEvents} />
+          {/*
+            Desktop: the full-width precision timeline. It is only MOUNTED on
+            desktop so exactly one timeline (and one slider) exists in the DOM —
+            simpler and safer than rendering both and disabling one with `inert`,
+            which also made the visible timeline unreachable for automation.
+          */}
+          {!isCompact && (
+          <div>
+            <PlaybackTimeline
+              dayStartMs={day.start.getTime()}
+              segments={showSegments}
+              window={visible}
+              positionMs={positionMs}
+              zoom={zoom}
+              onZoom={setZoom}
+              /* Dragging previews locally; this runs once when the gesture ends. */
+              onSeek={seekDay}
+              events={showEvents}
+              dimSegments={classificationFilter}
+              cameraName={cameras.find((item) => item.id === camera)?.name}
+              camera={camera}
+              date={date}
+            />
+          </div>
+          )}
+          {/* Mobile/tablet: a scrollable, thumb-sized timeline of the same data. */}
+          {isCompact && (
+          <div className="min-w-0">
+          <MobilePlaybackTimeline
+            dayStartMs={day.start.getTime()}
+            segments={segments}
+            window={visible}
+            positionMs={positionMs}
+            zoom={zoom}
+            onZoom={setZoom}
+            onSeek={seekDay}
+            events={dayEvents}
+            filter={filter}
+          />
+          </div>
+          )}
+        </div>
       ) : null}
       {noRecordings ? <p className="text-sm text-muted">{Messages.noRecordings}</p> : null}
       {pointNote ? <p className="text-sm text-muted">{pointNote}</p> : null}
