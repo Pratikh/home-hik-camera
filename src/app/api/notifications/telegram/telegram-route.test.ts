@@ -16,7 +16,7 @@ const CONFIG = {
   telegramNotificationsEnabled: true,
   telegramBotToken: FAKE_TOKEN,
   telegramChatId: FAKE_CHAT_ID,
-  telegramFaceNotifications: true,
+  telegramEventNotifications: true,
 };
 
 const currentUser = vi.fn();
@@ -57,15 +57,13 @@ beforeEach(() => {
   CONFIG.telegramNotificationsEnabled = true;
   CONFIG.telegramBotToken = FAKE_TOKEN;
   CONFIG.telegramChatId = FAKE_CHAT_ID;
-  CONFIG.telegramFaceNotifications = true;
   statusMock.mockReset();
   statusMock.mockResolvedValue({
     enabled: true,
     configured: true,
-    faceNotifications: true,
     eventNotifications: true,
-    faceImage: true,
-    faceVideo: true,
+    eventImage: true,
+    eventVideo: true,
     videoPreSeconds: 5,
     videoPostSeconds: 5,
     clipSeconds: 10,
@@ -106,8 +104,8 @@ describe("TELEGRAM-017 an ADMIN can send the test message", () => {
     expect(serialised).not.toContain("api.telegram.org");
   });
 
-  it("works even when face notifications are off (it is a general test)", async () => {
-    CONFIG.telegramFaceNotifications = false;
+  it("works even when the event-notification channel is off (it is a general test)", async () => {
+    CONFIG.telegramEventNotifications = false;
     const fetchImpl = telegramFetch();
     vi.stubGlobal("fetch", fetchImpl);
 
@@ -218,8 +216,8 @@ describe("GET /api/notifications/telegram/status", () => {
     expect(body).toMatchObject({
       enabled: true,
       configured: true,
-      faceImage: true,
-      faceVideo: true,
+      eventImage: true,
+      eventVideo: true,
       clipSeconds: 10,
       ffmpeg: "available",
     });

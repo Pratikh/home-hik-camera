@@ -86,7 +86,7 @@ function lastUserDirective(dockerfile: string): string | null {
   return users.length > 0 ? users[users.length - 1] : null;
 }
 
-const WORKERS = ["object-worker", "face-worker"] as const;
+const WORKERS = ["object-worker"] as const;
 const MEDIAMTX_AND_WORKERS = ["mediamtx", ...WORKERS] as const;
 const ALL_SERVICES = ["mediamtx", "web", ...WORKERS] as const;
 const FORBIDDEN_FOR_MEDIAMTX_AND_WORKERS = [/^SESSION_SECRET$/, /^TELEGRAM_/, /^APP_/];
@@ -114,9 +114,9 @@ describe("compose.yml: per-service environments (WRK-02)", () => {
     }
   });
 
-  it("gives the face worker no MediaMTX credential and the object worker no face-only settings", () => {
-    expect(environmentKeys("face-worker")).not.toContain("MEDIAMTX_AUTH_PASSWORD");
-    expect(environmentKeys("face-worker")).not.toContain("MEDIAMTX_AUTH_USER");
+  it("gives the object worker no face-only settings", () => {
+    // Face detection is removed; the object worker must not receive any residual
+    // FACE_DETECTION_* settings.
     expect(environmentKeys("object-worker")).not.toContain("FACE_DETECTION_ENABLED");
     expect(environmentKeys("object-worker")).not.toContain("FACE_DETECTION_CONFIDENCE");
   });
@@ -159,18 +159,6 @@ describe("compose.yml: per-service environments (WRK-02)", () => {
       "OBJECT_DETECTION_MAX_TRACKS_PER_CAMERA",
     ]) {
       expect(objectWorker, `object-worker needs ${key}`).toContain(key);
-    }
-
-    const faceWorker = environmentKeys("face-worker");
-    for (const key of [
-      "DATA_DIR",
-      "FACE_DETECTION_ENABLED",
-      "FACE_DETECTION_MODEL_PATH",
-      "FACE_DETECTION_CONFIDENCE",
-      "FACE_DETECTION_MAX_FACES",
-      "FACE_DETECTION_BATCH_SIZE",
-    ]) {
-      expect(faceWorker, `face-worker needs ${key}`).toContain(key);
     }
   });
 });
@@ -218,7 +206,6 @@ describe("compose.yml: published ports are still only 3000 and 8189", () => {
 
   it("publishes no ports for either worker", () => {
     expect(publishedPorts("object-worker")).toEqual([]);
-    expect(publishedPorts("face-worker")).toEqual([]);
   });
 });
 
@@ -237,7 +224,6 @@ describe("Dockerfiles: non-root execution (WRK-01)", () => {
     ["web", "Dockerfile"],
     ["mediamtx", "mediamtx/Dockerfile"],
     ["object-worker", "object-worker/Dockerfile"],
-    ["face-worker", "face-worker/Dockerfile"],
   ] as const;
 
   it("runs every image as uid/gid 10001 (cctv)", () => {

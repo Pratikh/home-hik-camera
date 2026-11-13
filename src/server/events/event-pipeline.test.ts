@@ -16,7 +16,6 @@ const CONFIG = {
   telegramNotificationsEnabled: false,
   telegramBotToken: "",
   telegramChatId: "",
-  telegramFaceNotifications: false,
   telegramEventNotifications: false,
 } as unknown as AppConfig;
 

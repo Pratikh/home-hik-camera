@@ -100,7 +100,7 @@ services:
       dockerfile: Dockerfile
     # The hub is the only service that legitimately needs the full application
     # environment: it signs sessions (SESSION_SECRET), logs in (APP_*), talks to
-    # the DVR (DVR_*/HIKVISION_*), sends Telegram media (TELEGRAM_*), runs face
+    # the DVR (DVR_*/HIKVISION_*), sends Telegram media (TELEGRAM_*), runs object
     # detection and thumbnail settings, and owns the shared SQLite database.
     # Keeping `env_file` here means new hub settings are available without a
     # compose edit; no other container receives this file.
@@ -236,69 +236,6 @@ services:
       start_period: 30s
     # Restart after a crash, Podman restart or server reboot; idle is not a crash.
     restart: unless-stopped
-
-  # Local face DETECTION worker (optional, off by default).
-  #
-  # It is behind a compose profile so `podman compose up -d` does not start it
-  # and FACE_DETECTION_ENABLED=false stays the default. To use it:
-  #   1. python3 face-worker/scripts/download_model.py     # once, on the host
-  #   2. FACE_DETECTION_ENABLED=true in .env
-  #   3. podman compose --profile faces up -d face-worker
-  #
-  # It shares ./data with the web service, so it uses the same SQLite database
-  # and the same face-crops directory. No separate database, no broker.
-  face-worker:
-    build:
-      context: .
-      dockerfile: face-worker/Dockerfile
-    profiles: ["faces"]
-    # Explicit, minimal environment: no SESSION_SECRET, no TELEGRAM_*, no APP_*,
-    # no DVR_*/HIKVISION_*, and no MediaMTX credentials (this worker only reads
-    # snapshots from the shared database). Only the variables
-    # face-worker/config.py reads are passed; empty means "use the code default".
-    environment:
-      DATA_DIR: /app/data
-      FACE_DETECTION_MODEL_PATH: /app/models/face_detection_yunet_2023mar.onnx
-      FACE_DETECTION_ENABLED: "${FACE_DETECTION_ENABLED:-false}"
-      FACE_DETECTION_CONFIDENCE: "${FACE_DETECTION_CONFIDENCE:-}"
-      FACE_DETECTION_MAX_FACES: "${FACE_DETECTION_MAX_FACES:-}"
-      FACE_DETECTION_POLL_INTERVAL_MS: "${FACE_DETECTION_POLL_INTERVAL_MS:-}"
-      FACE_DETECTION_BACKFILL_DAYS: "${FACE_DETECTION_BACKFILL_DAYS:-}"
-      FACE_DETECTION_MAX_ATTEMPTS: "${FACE_DETECTION_MAX_ATTEMPTS:-}"
-      FACE_DETECTION_STALE_AFTER_S: "${FACE_DETECTION_STALE_AFTER_S:-}"
-      FACE_DETECTION_BATCH_SIZE: "${FACE_DETECTION_BATCH_SIZE:-}"
-      FACE_DETECTION_MAX_WIDTH: "${FACE_DETECTION_MAX_WIDTH:-}"
-      FACE_DETECTION_JPEG_QUALITY: "${FACE_DETECTION_JPEG_QUALITY:-}"
-    volumes:
-      - ./data:/app/data
-      - ./face-worker/models:/app/models:ro
-    # OpenCV temp files go to /tmp; the rest of the image is read-only.
-    read_only: true
-    tmpfs:
-      - /tmp:size=64m,mode=1777
-    cap_drop:
-      - ALL
-    security_opt:
-      - "no-new-privileges:true"
-    # YuNet is tiny; 1g is the same conservative bound as object-worker so the
-    # optional profiles can never be the reason the 4 GB host runs out of RAM.
-    mem_limit: 1g
-    pids_limit: 256
-    stop_grace_period: 30s
-    # The face worker only reads snapshots from the shared database and writes
-    # crops; it needs no network interface at all.
-    network_mode: "none"
-    depends_on:
-      web:
-        condition: service_started
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    # It exits 0 immediately when detection is disabled, so a stray start is
-    # harmless. A crash retries and then stops rather than looping forever.
-    restart: on-failure
 
 networks:
   # Outbound-only: the hub (DVR ISAPI + Telegram) and MediaMTX (DVR RTSP).

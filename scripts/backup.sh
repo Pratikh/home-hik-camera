@@ -7,7 +7,6 @@
 #                           backup API so the copy is consistent even while the
 #                           hub is running.
 #   - data/events/        (event snapshots, written by this hub only)
-#   - data/face-crops/    (detected-face crops, when face detection is on)
 #   - data/cameras.json   (camera display names)
 #
 # What is intentionally NOT backed up:
@@ -156,20 +155,13 @@ if [ -d "$DATA_DIR/events" ]; then
   cp -R "$DATA_DIR/events" "$STAGING/events"
 fi
 
-# 2b. Face crops. They belong to the events above, so restoring one without the
-# other would leave face rows pointing at missing images.
-if [ -d "$DATA_DIR/face-crops" ]; then
-  cp -R "$DATA_DIR/face-crops" "$STAGING/face-crops"
-fi
-
-# 3. Camera display names.
+# 2b. Camera display names.
 if [ -f "$DATA_DIR/cameras.json" ]; then
   cp "$DATA_DIR/cameras.json" "$STAGING/cameras.json"
 fi
 
 DB_BYTES="$(wc -c < "$STAGING/database.sqlite" | tr -d ' ')"
 SNAPSHOT_FILES="$(find "$STAGING/events" -type f 2>/dev/null | wc -l | tr -d ' ')"
-CROP_FILES="$(find "$STAGING/face-crops" -type f 2>/dev/null | wc -l | tr -d ' ')"
 FINISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 # 4. The manifest is written last and is what restore/verify use to identify a
@@ -180,11 +172,9 @@ cat > "$STAGING/manifest.json" <<EOF
   "created_at": "$FINISHED_AT",
   "database": "database.sqlite",
   "snapshots": "events/",
-  "face_crops": "face-crops/",
   "cameras": "cameras.json",
   "database_bytes": $DB_BYTES,
   "snapshot_files": $SNAPSHOT_FILES,
-  "face_crop_files": $CROP_FILES,
   "notes": "Application data only. No DVR recordings, no generated thumbnails, no secrets (.env is excluded)."
 }
 EOF
@@ -220,7 +210,6 @@ fi
 echo "backup: $FINAL"
 echo "backup: database      $(du -h "$FINAL/database.sqlite" 2>/dev/null | cut -f1 || echo "$DB_BYTES bytes")"
 echo "backup: snapshots     $SNAPSHOT_FILES files"
-echo "backup: face crops    $CROP_FILES files"
 echo "backup: retained      up to $RETAIN complete backup(s); removed $REMOVED old backup(s)"
 echo "backup: status        $STATUS_FILE"
 echo "backup: done"

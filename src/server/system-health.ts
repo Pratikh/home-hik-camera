@@ -4,7 +4,6 @@ import path from "node:path";
 import type { HealthDvrState, SystemHealthBody } from "@/lib/api-types";
 import type { AppConfig } from "@/lib/config";
 import { getConfig } from "@/lib/config";
-import type { FaceProcessingSummary } from "@/lib/faces";
 import { eventIngestionStatus } from "@/server/events/event-processor";
 import { openEventStore, type EventStore } from "@/server/events/event-store";
 import { getDvrOverview } from "@/server/hikvision/hikvision-status";
@@ -16,8 +15,8 @@ import { getMediaStatus, type MediaStatus } from "@/server/video/media-status";
  * Admin-only operational health.
  *
  * The public `/api/health` endpoint keeps its small, stable shape. This module
- * adds the checks an operator needs at 03:00 — a face worker that silently
- * stopped, a backup that has not run, a storage volume filling up — without
+ * adds the checks an operator needs at 03:00 — a backup that has not run, a
+ * storage volume filling up — without
  * exposing credentials, tokens, traffic URLs or file-system paths.
  *
  * Every unknown is reported as `unknown`, never as healthy. A missing backup
@@ -27,14 +26,6 @@ import { getMediaStatus, type MediaStatus } from "@/server/video/media-status";
 const BACKUP_STALE_SECONDS = 36 * 60 * 60;
 const STORAGE_WARN_PERCENT = 90;
 const STORAGE_WARN_FREE_BYTES = 1024 * 1024 * 1024;
-
-type FaceHeartbeat = {
-  lastSeenAt: string;
-  pollIntervalMs: number;
-  pid: number | null;
-  status: string;
-  detail: string | null;
-};
 
 type BackupFile = {
   status: "success" | "failed";
@@ -54,14 +45,13 @@ type StorageUsage = {
 export type SystemHealthInput = {
   config: Pick<
     AppConfig,
-    "appConfigured" | "faceDetectionEnabled" | "thumbnailEnabled" | "eventRetentionDays" | "eventPollIntervalMs"
+    "appConfigured" | "thumbnailEnabled" | "eventRetentionDays" | "eventPollIntervalMs"
   >;
   now?: number;
   database: { status: "ok" | "error"; events: number | null; users: number | null };
   dvr: HealthDvrState;
   media: MediaStatus | null;
   ingestion: { running: boolean; lastPoll: string | null; lastError: string | null };
-  face: { heartbeat: FaceHeartbeat | null; queue: FaceProcessingSummary | null };
   thumbnails: {
     enabled: boolean;
     worker: "running" | "idle" | "stopped" | "disabled" | "unknown";
@@ -108,41 +98,6 @@ export function buildSystemHealth(input: SystemHealthInput): SystemHealthBody {
   if (mediaReachable === false) warnings.push("MediaMTX is unreachable.");
   if (mediaReachable === null) warnings.push("MediaMTX status is unknown.");
   if (media?.drift) warnings.push("MediaMTX is using a different DVR address than this hub.");
-
-  // ---- face worker -------------------------------------------------------
-  let faceWorker: SystemHealthBody["faceDetection"]["worker"] = "disabled";
-  let faceWarning: string | null = null;
-  let heartbeatAge: number | null = null;
-  let faceStale = false;
-
-  if (input.config.faceDetectionEnabled) {
-    if (!input.face.heartbeat) {
-      faceWorker = "stopped";
-      faceWarning =
-        "Face detection is enabled, but the local face worker has never checked in. Start face-worker or the home-cctv-face-worker service.";
-    } else {
-      heartbeatAge = secondsSince(input.face.heartbeat.lastSeenAt, now);
-      const pollMs = Number.isFinite(input.face.heartbeat.pollIntervalMs)
-        ? Math.max(1000, input.face.heartbeat.pollIntervalMs)
-        : 5000;
-      const threshold = Math.max(30, (pollMs / 1000) * 4);
-      faceStale = heartbeatAge === null || heartbeatAge > threshold;
-      if (input.face.heartbeat.status === "error") {
-        faceWorker = "stopped";
-        faceWarning = "The face worker reported a failed cycle. Check its container logs.";
-      } else if (faceStale) {
-        faceWorker = "stopped";
-        faceWarning = `The face worker has not checked in for ${heartbeatAge ?? "an unknown number of"} seconds.`;
-      } else {
-        faceWorker = "running";
-      }
-    }
-    const pending = input.face.queue?.pending ?? 0;
-    if (faceWorker !== "running" && pending > 0) {
-      faceWarning = `${faceWarning ?? "The face worker is not running."} ${pending} job(s) are waiting.`;
-    }
-    if (faceWarning) warnings.push(faceWarning);
-  }
 
   // ---- thumbnails --------------------------------------------------------
   let thumbnailWorker: SystemHealthBody["thumbnails"]["worker"] = "disabled";
@@ -212,16 +167,6 @@ export function buildSystemHealth(input: SystemHealthInput): SystemHealthBody {
       ingestion: input.ingestion.running ? "running" : input.ingestion.lastPoll ? "stopped" : "unknown",
       lastPoll: input.ingestion.lastPoll,
       lastError: cleanDetail(input.ingestion.lastError),
-    },
-    faceDetection: {
-      enabled: input.config.faceDetectionEnabled,
-      worker: faceWorker,
-      lastHeartbeat: input.face.heartbeat?.lastSeenAt ?? null,
-      heartbeatAgeSeconds: heartbeatAge,
-      stale: faceStale,
-      queue: input.face.queue,
-      detail: cleanDetail(input.face.heartbeat?.detail ?? null),
-      warning: faceWarning,
     },
     thumbnails: {
       enabled: input.thumbnails.enabled,
@@ -380,18 +325,6 @@ export async function collectSystemHealth(): Promise<SystemHealthBody> {
     diskBytes: thumbDisk,
   };
 
-  let heartbeat: FaceHeartbeat | null = null;
-  let queue: FaceProcessingSummary | null = null;
-  if (store && config.faceDetectionEnabled) {
-    try {
-      heartbeat = store.faceWorkerHeartbeat();
-      queue = store.faceProcessingSummary();
-    } catch {
-      heartbeat = null;
-      queue = null;
-    }
-  }
-
   const [storage, backups] = await Promise.all([
     readStorage(config.dataDir),
     readBackupStatus(config.dataDir),
@@ -417,8 +350,6 @@ export async function collectSystemHealth(): Promise<SystemHealthBody> {
         notifications: status.notifications,
         snapshots: status.snapshots,
         orphanedSnapshots: status.orphanedSnapshots,
-        crops: status.crops,
-        orphanedCrops: status.orphanedCrops,
       };
       const row = store.db.prepare("SELECT COUNT(*) AS count FROM auth_sessions WHERE expires_at > ?").get(now) as {
         count: number;
@@ -441,7 +372,6 @@ export async function collectSystemHealth(): Promise<SystemHealthBody> {
     dvr: healthDvr(dvrOverview?.state ?? "disconnected"),
     media: media ?? null,
     ingestion: { running: ingestion.running || pollFresh, lastPoll, lastError },
-    face: { heartbeat, queue },
     thumbnails,
     storage,
     backups,

@@ -3,17 +3,14 @@ import { readFile, unlink } from "node:fs/promises";
 import type { AppConfig } from "@/lib/config";
 import { getConfig } from "@/lib/config";
 import type { TelegramMediaStatusResponse } from "@/lib/api-types";
-import { faceCropFile } from "@/lib/face-path";
 import { snapshotFile } from "@/lib/snapshot-path";
 import { openEventStore } from "@/server/events/event-store";
 import {
   buildTelegramMediaCaption,
-  sendTelegramMediaGroup,
   sendTelegramPhoto,
   sendTelegramVideo,
   telegramState,
   type TelegramFile,
-  type TelegramMediaKind,
   type TelegramResult,
 } from "@/server/notifications/telegram";
 import {
@@ -25,18 +22,17 @@ import {
 } from "@/server/notifications/event-clip";
 
 /**
- * Background delivery of the Telegram event snapshot and clip, for both the
- * face channel and ordinary rule notifications.
+ * Background delivery of the Telegram event snapshot and clip for accepted
+ * notification-rule decisions.
  *
  * The notification decision never waits for this: it enqueues a job and
  * returns. One worker drains the queue one job at a time, so a slow DVR search
- * or an FFmpeg transcode can never delay event ingestion, face detection, the
- * browser notification or another job's text message.
+ * or an FFmpeg transcode can never delay event ingestion, the browser
+ * notification or another job's delivery.
  *
  * The queue lives in SQLite (the additive `telegram_media_jobs` table), so a hub
  * restart no longer drops a pending clip: a job that was in flight is requeued at
- * startup, and the UNIQUE event_id keeps the queue idempotent per event. The text
- * notification is sent by the decision itself and never goes through this queue.
+ * startup, and the UNIQUE event_id keeps the queue idempotent per event.
  */
 
 export const TELEGRAM_MEDIA_INTERVAL_MS = 1500;
@@ -45,12 +41,14 @@ export const TELEGRAM_MEDIA_QUEUE_LIMIT = 50;
 export const TELEGRAM_MEDIA_RETRY_MS = 3 * 60 * 1000;
 const CLEANUP_EVERY_MS = 10 * 60 * 1000;
 
-export type TelegramMediaChannel = "face" | "event";
-
-export type FaceMediaJob = {
+export type TelegramMediaJob = {
   eventId: string;
   cameraId: number;
   cameraName: string;
+  /**
+   * Residual columns of the `telegram_media_jobs` table. Always 0 for new
+   * person/vehicle jobs; never used by the delivery logic.
+   */
   faces: number;
   maxConfidence: number;
   /** Stored event timestamp (the real event time, used in the caption). */
@@ -63,31 +61,19 @@ export type FaceMediaJob = {
   confidence?: number | null;
   /**
    * Full camera snapshot for the event, relative to DATA_DIR/events, exactly as
-   * stored on `events.snapshot_path`. The face crop is never sent to Telegram.
+   * stored on `events.snapshot_path`.
    */
   snapshotPath: string | null;
-  /**
-   * Stored face crop for this event, relative to DATA_DIR/face-crops. Resolved
-   * by the worker when the job runs, because face detection may finish after the
-   * notification was queued. Preferred over the full snapshot.
-   */
-  cropPath?: string | null;
   /**
    * 1 on the first pass. A retry continues where the first pass stopped, so the
    * snapshot is not uploaded twice.
    */
   attempts?: number;
-  /**
-   * Which Telegram channel accepted this event. Face jobs follow
-   * TELEGRAM_FACE_NOTIFICATIONS; rule-event jobs follow
-   * TELEGRAM_EVENT_NOTIFICATIONS, so disabling one never strands the other.
-   */
-  channel?: TelegramMediaChannel;
 };
 
 export type MediaStep = "sent" | "skipped" | "failed";
 
-export type FaceMediaOutcome = {
+export type TelegramMediaOutcome = {
   eventId: string;
   image: MediaStep;
   imageCount: number;
@@ -96,13 +82,12 @@ export type FaceMediaOutcome = {
   detail: string | null;
 };
 
-export type FaceMediaDeps = {
+export type TelegramMediaDeps = {
   config?: AppConfig;
   dataDir?: string;
   readFileImpl?: (file: string) => Promise<Buffer>;
   unlinkImpl?: (file: string) => Promise<void>;
   sendPhoto?: typeof sendTelegramPhoto;
-  sendMediaGroup?: typeof sendTelegramMediaGroup;
   sendVideo?: typeof sendTelegramVideo;
   generateClip?: typeof generateEventClip;
   log?: (line: string) => void;
@@ -129,12 +114,11 @@ export function telegramMediaQueueDepth(dataDir: string = getConfig().dataDir): 
  * event was already queued, since the UNIQUE event_id makes that a no-op.
  */
 export function enqueueTelegramMedia(
-  job: FaceMediaJob,
+  job: TelegramMediaJob,
   config: AppConfig = getConfig(),
 ): "queued" | "disabled" | "full" {
   const state = telegramState(config);
-  const ready = job.channel === "event" ? state.eventReady : state.faceReady;
-  if (!state.enabled || !state.configured || !ready) return "disabled";
+  if (!state.enabled || !state.configured || !state.eventReady) return "disabled";
   try {
     const result = openEventStore(config.dataDir).enqueueTelegramMediaJob({
       ...job,
@@ -152,14 +136,9 @@ export function enqueueTelegramMedia(
   }
 }
 
-/** Queue the snapshot and clip for an accepted face-test notification. */
-export function enqueueFaceMedia(job: FaceMediaJob, config: AppConfig = getConfig()): "queued" | "disabled" | "full" {
-  return enqueueTelegramMedia({ ...job, channel: "face" }, config);
-}
-
 /** Queue the snapshot and clip for an accepted general rule notification. */
-export function enqueueEventMedia(job: FaceMediaJob, config: AppConfig = getConfig()): "queued" | "disabled" | "full" {
-  return enqueueTelegramMedia({ ...job, channel: "event" }, config);
+export function enqueueEventMedia(job: TelegramMediaJob, config: AppConfig = getConfig()): "queued" | "disabled" | "full" {
+  return enqueueTelegramMedia(job, config);
 }
 
 function logLine(message: string): void {
@@ -191,7 +170,6 @@ export function logVideoDiagnostics(
     `sourceFormat: ${diagnostics.sourceFormat ?? "-"}`,
     `ffmpegAvailable: ${diagnostics.ffmpegAvailable}`,
     `ffmpegExitCode: ${diagnostics.ffmpegExitCode ?? "-"}`,
-    `ffmpegAttempts: ${diagnostics.ffmpegAttempts}`,
     `outputExists: ${diagnostics.outputExists}`,
     `outputSize: ${diagnostics.outputSize}`,
     `outputDuration: ${diagnostics.outputDuration ?? "-"}`,
@@ -211,35 +189,28 @@ export function logVideoDiagnostics(
  * The caption uses the event's own timestamp and the detector confidence; the
  * Telegram send time is never used and nothing is derived from DVR labels.
  */
-function mediaCaption(job: FaceMediaJob): string | undefined {
-  // Jobs queued before the channel column existed are face jobs, matching the
-  // readiness rule above.
-  const kind: TelegramMediaKind | null =
-    job.channel === "event"
-      ? job.classification === "person"
-        ? "person"
-        : job.classification === "vehicle"
-          ? "vehicle"
-          : null
-      : "face";
+function mediaCaption(job: TelegramMediaJob): string | undefined {
+  const kind = job.classification === "person" ? "person" : job.classification === "vehicle" ? "vehicle" : null;
   if (!kind) return undefined;
-  const isFace = job.channel !== "event";
-  const confidence = job.confidence ?? (isFace && job.maxConfidence > 0 ? job.maxConfidence : null);
   return buildTelegramMediaCaption({
     kind,
     cameraName: job.cameraName,
     eventTimestamp: job.eventTimestamp,
-    confidence,
+    confidence: job.confidence ?? null,
   });
 }
 
 /**
- * Deliver the image(s) and the clip for one event.
+ * Deliver the image and the clip for one event.
  *
- * Each step is independent: a missing crop does not stop the clip, and a failed
- * clip does not undo the image or the text.
+ * Each step is independent: a missing snapshot does not stop the clip, and a
+ * failed clip does not undo the image. The accepted event produces exactly one
+ * notification, preferring the event-time clip over the full camera snapshot.
  */
-export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps = {}): Promise<FaceMediaOutcome> {
+export async function processTelegramMediaJob(
+  job: TelegramMediaJob,
+  deps: TelegramMediaDeps = {},
+): Promise<TelegramMediaOutcome> {
   const config = deps.config ?? getConfig();
   const dataDir = deps.dataDir ?? config.dataDir;
   const log = deps.log ?? logLine;
@@ -247,8 +218,7 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
   const unlinkImpl = deps.unlinkImpl ?? unlink;
 
   const state = telegramState(config);
-  const ready = job.channel === "event" ? state.eventReady : state.faceReady;
-  if (!state.enabled || !state.configured || !ready) {
+  if (!state.enabled || !state.configured || !state.eventReady) {
     return { eventId: job.eventId, image: "skipped", imageCount: 0, video: "skipped", videoReason: "disabled", detail: null };
   }
 
@@ -311,20 +281,18 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
     }
   }
 
-  /* ---- image fallback: face crop first, then the full snapshot ---------- */
+  /* ---- image fallback: the full camera snapshot ---------- */
   if (config.telegramFaceImage && (job.attempts ?? 1) <= 1) {
-    const cropFile = faceCropFile(dataDir, job.cropPath ?? null);
-    const snapshot = cropFile ? null : snapshotFile(dataDir, job.snapshotPath);
-    const file = cropFile ?? snapshot;
+    const file = snapshotFile(dataDir, job.snapshotPath);
     let photo: TelegramFile | null = null;
     if (file) {
       try {
         const bytes = await readFileImpl(file);
         if (bytes.length > 0) {
-          photo = { bytes, filename: cropFile ? "person.jpg" : "camera-snapshot.jpg", contentType: "image/jpeg" };
+          photo = { bytes, filename: "camera-snapshot.jpg", contentType: "image/jpeg" };
         }
       } catch {
-        // Removed by retention: fall through to the next source, if any.
+        // Removed by retention: fall through to the no-image path.
       }
     }
 
@@ -332,7 +300,7 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
       log(`event=${job.eventId} image=skipped reason=no_image`);
     } else {
       imageCount = 1;
-      log(`event=${job.eventId} image-upload started bytes=${photo.bytes.length} source=${cropFile ? "face-crop" : "snapshot"}`);
+      log(`event=${job.eventId} image-upload started bytes=${photo.bytes.length} source=snapshot`);
       const sendPhoto = deps.sendPhoto ?? sendTelegramPhoto;
       // Media only: the caption travels with the photo.
       const result: TelegramResult = await sendPhoto({ photo, caption, config });
@@ -343,7 +311,7 @@ export async function processFaceMediaJob(job: FaceMediaJob, deps: FaceMediaDeps
   }
 
   if (image !== "sent") {
-    // Deliberately no text fallback: the chat must not receive the old verbose
+    // Deliberately no text fallback: the chat must not receive a verbose text
     // message when the event has no usable media.
     log(`event=${job.eventId} MEDIA_UNAVAILABLE`);
   }
@@ -390,7 +358,7 @@ async function mediaTick(): Promise<void> {
 
     const claimed = store.claimNextTelegramMediaJob(new Date().toISOString());
     if (!claimed) return;
-    const job: FaceMediaJob = {
+    const job: TelegramMediaJob = {
       eventId: claimed.eventId,
       cameraId: claimed.cameraId,
       cameraName: claimed.cameraName,
@@ -401,13 +369,9 @@ async function mediaTick(): Promise<void> {
       classification: claimed.classification,
       confidence: claimed.confidence,
       snapshotPath: claimed.snapshotPath,
-      // Face detection can finish after the notification was queued, so the
-      // crop is resolved here, when the job actually runs.
-      cropPath: store.cropPathForEvent(claimed.eventId),
-      channel: claimed.channel,
       attempts: claimed.attempts,
     };
-    const outcome = await processFaceMediaJob(job, { config });
+    const outcome = await processTelegramMediaJob(job, { config });
     const now = new Date().toISOString();
 
     /*
@@ -460,10 +424,9 @@ export async function telegramMediaStatus(config: AppConfig = getConfig()): Prom
   return {
     enabled: state.enabled,
     configured: state.configured,
-    faceNotifications: config.telegramFaceNotifications,
     eventNotifications: config.telegramEventNotifications,
-    faceImage: config.telegramFaceImage,
-    faceVideo: config.telegramFaceVideo,
+    eventImage: config.telegramFaceImage,
+    eventVideo: config.telegramFaceVideo,
     videoPreSeconds: config.telegramVideoPreSeconds,
     videoPostSeconds: config.telegramVideoPostSeconds,
     clipSeconds: config.telegramVideoPreSeconds + config.telegramVideoPostSeconds,

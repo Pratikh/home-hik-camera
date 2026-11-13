@@ -8,7 +8,6 @@ function input(overrides: Partial<SystemHealthInput> = {}): SystemHealthInput {
   return {
     config: {
       appConfigured: true,
-      faceDetectionEnabled: true,
       thumbnailEnabled: true,
       eventRetentionDays: 30,
       eventPollIntervalMs: 5000,
@@ -18,16 +17,6 @@ function input(overrides: Partial<SystemHealthInput> = {}): SystemHealthInput {
     dvr: "connected",
     media: { reachable: true, paths: [], drift: false, message: null },
     ingestion: { running: true, lastPoll: "2026-10-21T09:59:00Z", lastError: null },
-    face: {
-      heartbeat: {
-        lastSeenAt: "2026-10-21T09:59:55Z",
-        pollIntervalMs: 5000,
-        pid: 12,
-        status: "running",
-        detail: null,
-      },
-      queue: { pending: 1, processing: 0, completed: 20, failed: 1 },
-    },
     thumbnails: {
       enabled: true,
       worker: "idle",
@@ -49,7 +38,7 @@ function input(overrides: Partial<SystemHealthInput> = {}): SystemHealthInput {
       lastRunAt: "2026-10-21T09:00:00Z",
       lastError: null,
       enabled: true,
-      removed: { events: 1, notifications: 1, snapshots: 1, orphanedSnapshots: 0, crops: 0, orphanedCrops: 0 },
+      removed: { events: 1, notifications: 1, snapshots: 1, orphanedSnapshots: 0 },
     },
     activeSessions: 2,
     ...overrides,
@@ -60,56 +49,8 @@ describe("system health", () => {
   it("reports healthy only when every check is known and good", () => {
     const report = buildSystemHealth(input());
     expect(report.status).toBe("healthy");
-    expect(report.faceDetection.worker).toBe("running");
     expect(report.warnings).toEqual([]);
     expect(report.mediamtx.status).toBe("ok");
-  });
-
-  it("reports a face worker that never checked in as stopped, with a warning", () => {
-    const report = buildSystemHealth(input({ face: { heartbeat: null, queue: { pending: 4, processing: 0, completed: 0, failed: 0 } } }));
-    expect(report.faceDetection.worker).toBe("stopped");
-    expect(report.faceDetection.warning).toMatch(/never checked in/i);
-    expect(report.status).toBe("degraded");
-    expect(report.warnings.join(" ")).toMatch(/4 job/i);
-  });
-
-  it("reports a stale heartbeat as stopped rather than healthy", () => {
-    const report = buildSystemHealth(
-      input({
-        face: {
-          heartbeat: {
-            lastSeenAt: "2026-10-21T09:50:00Z",
-            pollIntervalMs: 5000,
-            pid: null,
-            status: "running",
-            detail: null,
-          },
-          queue: null,
-        },
-      }),
-    );
-    expect(report.faceDetection.worker).toBe("stopped");
-    expect(report.faceDetection.stale).toBe(true);
-    expect(report.faceDetection.heartbeatAgeSeconds).toBe(600);
-  });
-
-  it("does not report an error when face detection is disabled", () => {
-    const report = buildSystemHealth(
-      input({
-        config: {
-          appConfigured: true,
-          faceDetectionEnabled: false,
-          thumbnailEnabled: true,
-          eventRetentionDays: 30,
-          eventPollIntervalMs: 5000,
-        },
-        face: { heartbeat: null, queue: null },
-      }),
-    );
-    expect(report.faceDetection.worker).toBe("disabled");
-    expect(report.faceDetection.warning).toBeNull();
-    expect(report.warnings).toEqual([]);
-    expect(report.status).toBe("healthy");
   });
 
   it("treats a busy DVR during thumbnail extraction as expected, not as an error", () => {

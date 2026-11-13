@@ -48,9 +48,12 @@ test.describe("SHELL - public assets", () => {
       expect([302, 307]).toContain(page.status());
       expect(page.headers()["location"]).toContain("/login");
 
-      // …and an API answers 401 rather than HTML.
-      const api = await anonymous.request.get("/api/faces", { maxRedirects: 0 });
+      // …and an API answers 401 rather than HTML. The removed face API is
+      // blocked by the same session guard, so its namespace is not a blind spot.
+      const api = await anonymous.request.get("/api/events", { maxRedirects: 0 });
       expect(api.status()).toBe(401);
+      const gone = await anonymous.request.get("/api/faces", { maxRedirects: 0 });
+      expect(gone.status()).toBe(401);
 
       // A path that does not exist is not made public by the manifest exclusion.
       const unknown = await anonymous.request.get("/manifest.webmanifest.bak", { maxRedirects: 0 });

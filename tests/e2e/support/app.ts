@@ -13,7 +13,6 @@ export const ROUTES = {
   playback: "/playback",
   events: "/events",
   eventStats: "/events/stats",
-  faces: "/faces",
   notifications: "/notifications",
   device: "/device",
   account: "/account",

@@ -310,9 +310,6 @@ export function DashboardView() {
                       <span className="section__hint" style={{ textAlign: "right" }} title={health.warnings.map((w) => humanizeSecondsInText(w)).join(" ")}>
                         {[
                           health.storage.usedPercent === null ? null : `Storage ${health.storage.usedPercent}%`,
-                          health.faceDetection.enabled
-                            ? `worker ${health.faceDetection.worker === "running" ? "running" : "stopped"}`
-                            : null,
                           health.backups.status === "stale" ? "backups stale" : null,
                         ]
                           .filter(Boolean)

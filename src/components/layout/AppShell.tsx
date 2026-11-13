@@ -6,7 +6,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { DvrStatusResponse } from "@/lib/api-types";
 import { api, navigate } from "@/lib/client-api";
 import { eventTitle, type CctvEvent } from "@/lib/events";
-import { faceNotificationOptions, type LiveFaceNotification } from "@/lib/faces";
 import { Messages } from "@/lib/messages";
 import { formatKolkataClock, formatKolkataDate, todayInKolkata } from "@/lib/time-kolkata";
 import { usePoll } from "@/components/hooks/usePoll";
@@ -31,7 +30,6 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: "Security",
     items: [
       { href: "/events", label: "Events", short: "Events", icon: "events" },
-      { href: "/faces", label: "Faces", short: "Faces", icon: "faces" },
       { href: "/notifications", label: "Notifications", short: "Alerts", icon: "bell" },
     ],
   },
@@ -56,7 +54,6 @@ const MOBILE_NAV: NavItem[] = [
 /** Path prefix -> section name shown in the app bar breadcrumb. */
 const SECTIONS: [string, string][] = [
   ["/events", "Investigate"],
-  ["/faces", "Investigate"],
   ["/notifications", "Investigate"],
   ["/playback", "Monitor"],
   ["/cameras", "Configure"],
@@ -139,7 +136,6 @@ function EventNotifier() {
       let payload: {
         notify?: boolean;
         event?: CctvEvent & { cameraName?: string };
-        face?: LiveFaceNotification;
       };
       try {
         payload = JSON.parse(message.data) as typeof payload;
@@ -149,22 +145,6 @@ function EventNotifier() {
       if (!payload.event) return;
       window.dispatchEvent(new CustomEvent("cctv-event", { detail: payload }));
       if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-
-      /*
-       * Temporary face-detection test notification. It is a separate branch so
-       * the existing motion/person notification below is untouched, and it says
-       * "Face detected" — never a name, because nothing is recognised.
-       */
-      if (payload.face) {
-        const options = faceNotificationOptions(payload.face);
-        const faceNote = new Notification(options.title, { body: options.body, tag: options.tag });
-        faceNote.onclick = () => {
-          window.focus();
-          navigate(options.href);
-          faceNote.close();
-        };
-        return;
-      }
 
       if (!payload.notify) return;
       const when = formatKolkataClock(new Date(payload.event.timestamp)).slice(0, 5);
@@ -419,9 +399,6 @@ function AppShellInner({ children, role }: { children: React.ReactNode; role: "A
           </button>
         </div>
         <div className="sheet__grid">
-          <Link href="/faces" className="sheet__item" onClick={() => setMoreOpen(false)}>
-            <Icon name="faces" /> Faces
-          </Link>
           <Link href="/cameras" className="sheet__item" onClick={() => setMoreOpen(false)}>
             <Icon name="camera" /> Camera setup
           </Link>

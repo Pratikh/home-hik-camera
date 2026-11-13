@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import type { CctvEvent } from "@/lib/events";
 
 /**
- * The browser delivery link for the temporary face notification.
+ * The browser delivery link for temporary event notifications.
  *
  * The notifier publishes through the existing in-memory hub; this proves the
- * existing server-sent event route forwards a `face` payload unchanged, so no
- * second delivery mechanism was introduced.
+ * existing server-sent event route forwards a `person`/`vehicle` event payload
+ * unchanged, so no second delivery mechanism was introduced.
  */
 
 vi.mock("@/server/http/require-user", () => ({
@@ -39,7 +39,7 @@ const EVENT: CctvEvent = {
 };
 
 describe("GET /api/events/stream", () => {
-  it("forwards a face notification payload to the browser", async () => {
+  it("forwards a classified event notification payload to the browser", async () => {
     const response = await GET();
     expect(response.headers.get("content-type")).toBe("text/event-stream");
     const reader = response.body!.getReader();
@@ -52,21 +52,14 @@ describe("GET /api/events/stream", () => {
     publishLiveEvent({
       notify: true,
       event: { ...EVENT, cameraName: "Parking" },
-      face: { eventId: EVENT.id, cameraId: 1, cameraName: "Parking", faces: 2, maxConfidence: 0.91 },
     });
 
     const frame = decoder.decode((await reader.read()).value);
     expect(frame.startsWith("data: ")).toBe(true);
     const payload = JSON.parse(frame.slice("data: ".length)) as Record<string, unknown>;
     expect(payload.notify).toBe(true);
-    expect(payload.face).toEqual({
-      eventId: EVENT.id,
-      cameraId: 1,
-      cameraName: "Parking",
-      faces: 2,
-      maxConfidence: 0.91,
-    });
-    // Nothing private travels to the browser: no crop path, no image bytes.
+    expect((payload.event as CctvEvent).classification).toBe("person");
+    // Nothing private travels to the browser: no path and no image bytes.
     expect(frame).not.toContain("face-crops");
     expect(frame).not.toContain(".jpg");
     expect(frame).not.toContain("confidence!==undefined");

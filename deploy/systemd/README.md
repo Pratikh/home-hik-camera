@@ -6,8 +6,6 @@ not change the architecture, add Docker, or start anything from application code
 - `home-cctv.service` — MediaMTX + web (`podman compose up -d`). Compose's
   `depends_on: service_healthy` keeps the web container waiting for MediaMTX, and
   both services use `restart: unless-stopped` for a crashed process.
-- `home-cctv-face-worker.service` — optional; install only when
-  `FACE_DETECTION_ENABLED=true` and the model is present.
 - `home-cctv-backup.service` + `.timer` — daily `scripts/backup.sh` at 03:30
   with `Persistent=true`.
 - `home-cctv-reboot-dvr.service` + `.timer` — optional daily Hikvision DVR
@@ -38,8 +36,6 @@ sudo install -m 644 deploy/systemd/home-cctv-backup.timer /etc/systemd/system/
 # Optional: daily DVR reboot (skip if the DVR handles its own schedule):
 sudo install -m 644 deploy/systemd/home-cctv-reboot-dvr.service /etc/systemd/system/
 sudo install -m 644 deploy/systemd/home-cctv-reboot-dvr.timer /etc/systemd/system/
-# Optional, only when face detection is enabled:
-sudo install -m 644 deploy/systemd/home-cctv-face-worker.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
 # .env contains DVR credentials, the session secret, the Telegram token and the
@@ -50,7 +46,6 @@ sudo chmod 600 /opt/home-cctv/.env
 sudo systemctl enable --now home-cctv.service
 sudo systemctl enable --now home-cctv-backup.timer
 # Optional:
-sudo systemctl enable --now home-cctv-face-worker.service
 sudo systemctl enable --now home-cctv-reboot-dvr.timer
 ```
 

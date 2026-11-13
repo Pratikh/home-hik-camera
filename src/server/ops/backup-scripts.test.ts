@@ -15,7 +15,6 @@ const ROOT = process.cwd();
 const HAS_SQLITE = spawnSync("sh", ["-c", "command -v sqlite3"], { encoding: "utf8" }).status === 0;
 const EVENT_ID = "evt_aaaaaaaaaaaaaaaaaaaaaaaa";
 const SNAPSHOT = `2026/10/09/1-${EVENT_ID}.jpg`;
-const CROP = `2026/10/${EVENT_ID}-face-1.jpg`;
 
 type Fixture = { dataDir: string; backupDir: string };
 
@@ -24,9 +23,7 @@ function makeFixture(): Fixture {
   const dataDir = path.join(root, "data");
   const backupDir = path.join(root, "backups");
   mkdirSync(path.join(dataDir, "events", "2026", "10", "09"), { recursive: true });
-  mkdirSync(path.join(dataDir, "face-crops", "2026", "10"), { recursive: true });
   writeFileSync(path.join(dataDir, "events", SNAPSHOT), "snapshot");
-  writeFileSync(path.join(dataDir, "face-crops", CROP), "crop");
   writeFileSync(path.join(dataDir, "cameras.json"), JSON.stringify({ 1: "Front door" }));
 
   const db = new DatabaseSync(path.join(dataDir, "events.sqlite"));
@@ -39,15 +36,9 @@ function makeFixture(): Fixture {
     CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE audit_logs (id TEXT PRIMARY KEY);
     CREATE TABLE telegram_media_jobs (id INTEGER PRIMARY KEY);
-    CREATE TABLE event_faces (id TEXT PRIMARY KEY, event_id TEXT, crop_path TEXT);
-    CREATE TABLE face_processing (event_id TEXT PRIMARY KEY);
   `);
   db.prepare("INSERT INTO events (id, snapshot_path) VALUES (?, ?)").run(EVENT_ID, SNAPSHOT);
   db.prepare("INSERT INTO users (id, username) VALUES ('u1', 'home')").run();
-  db.prepare("INSERT INTO event_faces (id, event_id, crop_path) VALUES ('face_111111111111111111111111', ?, ?)").run(
-    EVENT_ID,
-    CROP,
-  );
   db.close();
   return { dataDir, backupDir };
 }
@@ -85,7 +76,6 @@ describe.skipIf(!HAS_SQLITE)("operational scripts", () => {
     const dir = path.join(fixture.backupDir, latest!);
     expect(existsSync(path.join(dir, "database.sqlite"))).toBe(true);
     expect(existsSync(path.join(dir, "events", SNAPSHOT))).toBe(true);
-    expect(existsSync(path.join(dir, "face-crops", CROP))).toBe(true);
     expect(existsSync(path.join(dir, "manifest.json"))).toBe(true);
     expect(existsSync(path.join(dir, "manifest.json"))).toBe(true);
 

@@ -228,10 +228,8 @@ function cleanup(): void {
     const testRequestCutoff = formatKolkataIso(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
     const presenceBeforeMs = Date.now() - 24 * 60 * 60 * 1000;
     /*
-     * Snapshots and face crops belong to the event rows just deleted. This
-     * removes files this hub wrote; it never touches DVR or MediaMTX
-     * recordings. Face crops are cleaned in the same pass so detection cannot
-     * leave orphaned files behind.
+     * Snapshots belong to the event rows just deleted. This removes files this
+     * hub wrote; it never touches DVR or MediaMTX recordings.
      */
     void runRetention({
       store,
@@ -245,8 +243,6 @@ function cleanup(): void {
         if (result.events > 0) console.info("[events] retention removed", result.events);
         if (result.notifications > 0) console.info("[events] retention removed notifications", result.notifications);
         if (result.orphanedSnapshots > 0) console.info("[events] retention removed orphan snapshots", result.orphanedSnapshots);
-        if (result.crops > 0) console.info("[events] retention removed face crops", result.crops);
-        if (result.orphanedCrops > 0) console.info("[events] retention removed orphan face crops", result.orphanedCrops);
         if (result.detectionTracks > 0) console.info("[events] retention removed detection tracks", result.detectionTracks);
         if (result.auditLogs > 0) console.info("[events] retention removed audit rows", result.auditLogs);
         if (result.testRequests > 0) console.info("[events] retention removed test requests", result.testRequests);
@@ -264,8 +260,6 @@ function cleanup(): void {
         record("retention_last_notifications", result.notifications);
         record("retention_last_snapshots", result.snapshots);
         record("retention_last_orphaned_snapshots", result.orphanedSnapshots);
-        record("retention_last_crops", result.crops);
-        record("retention_last_orphaned_crops", result.orphanedCrops);
         record("retention_last_detection_tracks", result.detectionTracks);
         record("retention_last_audit_logs", result.auditLogs);
         record("retention_last_test_requests", result.testRequests);

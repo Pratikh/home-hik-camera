@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 /**
  * ADMIN-only operational health. The public `/api/health` endpoint stays small
  * and stable; this one is for the System page and for scripts that need to see
- * the face worker, backups, retention and disk usage.
+ * the backups, retention and disk usage.
  */
 export async function GET() {
   const auth = await requireAdmin();

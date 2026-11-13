@@ -19,7 +19,6 @@ segmentation is deliberately **not** part of this phase (Phase 3 owns it).
 | `web` (Next.js standalone) | `Dockerfile` | `cctv` — uid/gid **10001** | read-only; tmpfs `/tmp` (FFmpeg/thumbnail scratch) and `/app/.next/cache`; `./data` bind-mounted read-write |
 | `mediamtx` | `mediamtx/Dockerfile` | `cctv` — uid/gid **10001** | read-only; tmpfs `/tmp` (rendered config) |
 | `object-worker` | `object-worker/Dockerfile` | `cctv` — uid/gid **10001** | read-only; tmpfs `/tmp`; `./data` read-write; `./object-worker/models` **read-only** |
-| `face-worker` | `face-worker/Dockerfile` | `cctv` — uid/gid **10001** | read-only; tmpfs `/tmp`; `./data` read-write; `./face-worker/models` read-only |
 
 Every service also gets:
 
@@ -31,8 +30,7 @@ Every service also gets:
 - the existing `restart` policies, healthchecks and JSON log rotation.
 
 The limits fit the documented 4 GB production host with headroom for the OS and
-Podman: `768m + 384m + 1g = 2.2 GB` for the default stack, plus the optional
-face worker profile. tmpfs pages count against the container's memory limit, so
+Podman: `768m + 384m + 1g = 2.2 GB`. tmpfs pages count against the container's memory limit, so
 the tmpfs sizes are upper bounds for scratch data, not additional reservations.
 
 ### Per-service environments
@@ -46,8 +44,7 @@ Telegram, detection settings, shared SQLite). The other services get explicit
 | Service | Variables passed | Not passed (on purpose) |
 | --- | --- | --- |
 | `mediamtx` | `DVR_HOST`, `HIKVISION_IP`, `DVR_RTSP_PORT`, `DVR_USERNAME`, `HIKVISION_USERNAME`, `DVR_PASSWORD`, `HIKVISION_PASSWORD`, `MEDIAMTX_AUTH_USER`, `MEDIAMTX_AUTH_PASSWORD`, `MEDIAMTX_ALLOW_ANONYMOUS` (development escape hatch), `WEBRTC_ADDITIONAL_HOST` | `SESSION_SECRET`, `TELEGRAM_*`, `APP_*`, `DVR_HTTP_PORT`, detection/thumbnail settings |
-| `object-worker` | `DATA_DIR`, `OBJECT_DETECTION_MODEL_PATH`, `MEDIAMTX_RTSP_URL`, `OBJECT_DETECTION_STREAM`, `MEDIAMTX_AUTH_USER`, `MEDIAMTX_AUTH_PASSWORD`, `OBJECT_DETECTION_SETTINGS_POLL_MS`, `OBJECT_DETECTION_HEARTBEAT_MS`, `OBJECT_DETECTION_FRAME_STALE_MS`, `OBJECT_DETECTION_RECONNECT_BACKOFF_MS`, `OBJECT_DETECTION_MAX_TRACKS_PER_CAMERA` | `SESSION_SECRET`, `TELEGRAM_*`, `APP_*`, `DVR_*`/`HIKVISION_*` (the worker reads MediaMTX, never the DVR), face/thumbnail settings |
-| `face-worker` | `DATA_DIR`, `FACE_DETECTION_MODEL_PATH`, `FACE_DETECTION_ENABLED`, `FACE_DETECTION_CONFIDENCE`, `FACE_DETECTION_MAX_FACES`, `FACE_DETECTION_POLL_INTERVAL_MS`, `FACE_DETECTION_BACKFILL_DAYS`, `FACE_DETECTION_MAX_ATTEMPTS`, `FACE_DETECTION_STALE_AFTER_S`, `FACE_DETECTION_BATCH_SIZE`, `FACE_DETECTION_MAX_WIDTH`, `FACE_DETECTION_JPEG_QUALITY` | `SESSION_SECRET`, `TELEGRAM_*`, `APP_*`, `DVR_*`/`HIKVISION_*`, MediaMTX credentials |
+| `object-worker` | `DATA_DIR`, `OBJECT_DETECTION_MODEL_PATH`, `MEDIAMTX_RTSP_URL`, `OBJECT_DETECTION_STREAM`, `MEDIAMTX_AUTH_USER`, `MEDIAMTX_AUTH_PASSWORD`, `OBJECT_DETECTION_SETTINGS_POLL_MS`, `OBJECT_DETECTION_HEARTBEAT_MS`, `OBJECT_DETECTION_FRAME_STALE_MS`, `OBJECT_DETECTION_RECONNECT_BACKOFF_MS`, `OBJECT_DETECTION_MAX_TRACKS_PER_CAMERA` | `SESSION_SECRET`, `TELEGRAM_*`, `APP_*`, `DVR_*`/`HIKVISION_*` (the worker reads MediaMTX, never the DVR), thumbnail settings |
 
 An empty variable (`${VAR:-}` with `VAR` unset) means "use the default in the
 code", exactly as before. Compose still reads the project `.env` for the
@@ -91,11 +88,11 @@ own the trees first, then start the stack:
 
 ```bash
 cd /opt/home-cctv
-mkdir -p data backups object-worker/models face-worker/models
+mkdir -p data backups object-worker/models
 
 # Provision the object-detection model (see §1), then hand everything to 10001.
 sudo python3 object-worker/scripts/download_model.py
-sudo chown -R 10001:10001 data backups object-worker/models face-worker/models
+sudo chown -R 10001:10001 data backups object-worker/models
 sudo chmod 700 data backups
 
 # .env stays root-only and is never mounted into a container.
@@ -104,10 +101,6 @@ sudo chown root:root .env && sudo chmod 600 .env
 sudo podman compose up -d --build
 ```
 
-`face-worker/models` is listed for completeness; it is only required when the
-`faces` profile is used (download its model with
-`python3 face-worker/scripts/download_model.py`).
-
 ## 2. Migrating an existing rootful host
 
 These steps assume the documented production layout: `/opt/home-cctv`, rootful
@@ -115,7 +108,7 @@ Podman, `sudo podman compose` available, systemd units installed. The container
 user uid/gid **10001** maps directly to host uid/gid 10001 under rootful Podman,
 but the existing `./data` tree was written by containers running as **root** and
 is therefore root-owned. Without the ownership fix below the containers start
-but cannot write SQLite, snapshots, face crops, thumbnails or backups.
+but cannot write SQLite, snapshots, thumbnails or backups.
 
 ### 2.1 Prepare (backup first)
 
@@ -151,11 +144,6 @@ sudo chmod 700 data backups
 # Model tree: the container user owns it; the file stays readable by that user.
 sudo chmod 755 object-worker/models
 sudo chmod 644 object-worker/models/yolox_nano.onnx
-
-# Optional: only when the face-worker profile is used.
-sudo chown -R 10001:10001 face-worker/models
-sudo chmod 755 face-worker/models
-sudo chmod 644 face-worker/models/face_detection_yunet_2023mar.onnx
 
 # Never chown .env: it is not mounted into any container. Keep it root-only.
 sudo chown root:root .env
@@ -215,14 +203,10 @@ recreating — `podman compose up -d` alone keeps the old images.
 cd /opt/home-cctv
 
 sudo podman compose build web mediamtx object-worker
-sudo podman compose --profile faces build face-worker    # optional profile
 
 sudo podman compose up -d --remove-orphans
 # or, when using the systemd units:
 sudo systemctl reload home-cctv
-
-# If the face profile is installed:
-sudo podman compose --profile faces up -d face-worker
 ```
 
 If the build cache complains about changed owners, a `sudo podman compose build
@@ -242,7 +226,7 @@ name differs (`podman ps` shows them, e.g. `home-cctv-web-1`).
 for c in home-cctv-web-1 home-cctv-mediamtx-1 home-cctv-object-worker-1; do
   echo "== $c"; podman inspect "$c" --format '{{.Config.User}}'; podman exec "$c" id
 done
-# expected: 10001:10001 and uid=10001 gid=10001 groups=10001 (face worker: same)
+# expected: 10001:10001 and uid=10001 gid=10001 groups=10001
 
 # 2. Hardening flags are actually applied by the runtime.
 podman inspect home-cctv-web-1 --format \
@@ -253,8 +237,6 @@ podman inspect home-cctv-web-1 --format \
 podman exec home-cctv-mediamtx-1 env | grep -E 'SESSION_SECRET|TELEGRAM_|APP_' || echo "OK: no app secrets in mediamtx"
 podman exec home-cctv-object-worker-1 env | grep -E 'SESSION_SECRET|TELEGRAM_|APP_|DVR_|HIKVISION_' \
   || echo "OK: no app/DVR secrets in object-worker"
-podman exec home-cctv-face-worker-1 env | grep -E 'SESSION_SECRET|TELEGRAM_|APP_|DVR_|HIKVISION_|MEDIAMTX_AUTH' \
-  || echo "OK: no app/DVR/MediaMTX secrets in face-worker"
 # The web container still has them (it needs them); that is expected.
 
 # 4. Healthchecks and the public health endpoint.
@@ -296,15 +278,10 @@ podman logs --tail 50 home-cctv-object-worker-1
 2. **Event snapshot write:** trigger a motion/person event (or wait for one) and
    confirm a new file appears under `data/events/` owned by 10001:
    `sudo find data/events -type f -newermt '-15 minutes' | head`.
-3. **Face crops** (only with `FACE_DETECTION_ENABLED=true` and the face worker
-   running): keep detection enabled, wait for a qualifying event, then
-   `sudo find data/face-crops -type f -newermt '-15 minutes' | head` and
-   `sudo ls -ln data/face-crops | head`. New crops must be owned by 10001, and
-   `/settings/system` must show a fresh face-worker heartbeat.
-4. **Thumbnails:** hover a playback timeline; sprite files appear under
+3. **Thumbnails:** hover a playback timeline; sprite files appear under
    `data/playback-thumbnails/` (owner 10001). If they do not, check the web log
    for `/tmp` or FFmpeg errors.
-5. **Backup:** `sudo systemctl start home-cctv-backup.service &&
+4. **Backup:** `sudo systemctl start home-cctv-backup.service &&
    sudo journalctl -u home-cctv-backup -n 30 --no-pager`, then
    `sudo ls -lt backups | head` and
    `sudo ./scripts/verify-backup.sh backups/<timestamp>` — expected `PASS`.
@@ -312,10 +289,10 @@ podman logs --tail 50 home-cctv-object-worker-1
    `podman exec home-cctv-web-1 sh -c 'test -r /app/data/backup-status.json &&
    echo "backup status readable"'`. If that fails, the backup unit still runs as
    root — see §2.3.
-6. **Retention:** open `/settings/system` (ADMIN) and confirm storage, retention
-   and last-backup state are healthy; snapshots/crops older than the retention
+5. **Retention:** open `/settings/system` (ADMIN) and confirm storage, retention
+   and last-backup state are healthy; snapshots older than the retention
    window are still pruned by the web process (now as uid 10001).
-7. **Restore rehearsal:** after a restore, confirm the data tree is back under
+6. **Restore rehearsal:** after a restore, confirm the data tree is back under
    the container uid (`sudo ls -ln data | head` should show 10001) and the hub
    can write again (§2.3).
 
@@ -331,10 +308,10 @@ cd /opt/home-cctv
 # 1. Back up the current state first.
 sudo ./scripts/backup.sh
 
-# 2. Revert the Phase 2 files (compose.yml, the four Dockerfiles, the
+# 2. Revert the Phase 2 files (compose.yml, the three Dockerfiles, the
 #    object-worker entrypoint) to the previous commit, e.g.:
 sudo git checkout <previous-commit> -- compose.yml Dockerfile \
-  face-worker/Dockerfile object-worker/Dockerfile object-worker/docker-entrypoint.sh \
+  object-worker/Dockerfile object-worker/docker-entrypoint.sh \
   mediamtx/Dockerfile
 
 # 3. Rebuild and recreate the old images.
@@ -418,7 +395,6 @@ Phase 3 (STR-01/STR-02) adds, on top of the hardening above:
     web `172.28.0.10`, MediaMTX `172.28.0.11`, object-worker `172.28.0.12`;
   - `egress` — the outbound-only network used by web (DVR ISAPI + Telegram) and
     MediaMTX (DVR RTSP). Workers are not attached to it.
-  - `face-worker` uses `network_mode: "none"` (it only touches the database).
   The static addresses are duplicated in `scripts/render-mediamtx-config.mjs`
   (`MEDIAMTX_NETWORK`); a regression test asserts the two stay in sync.
 - **Credential-redacted MediaMTX logs.** `mediamtx/entrypoint.sh` runs the binary
