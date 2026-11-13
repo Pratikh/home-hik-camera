@@ -1,0 +1,116 @@
+# Continuous integration for Home CCTV Hub.
+#
+# Validates every push to `main` (and pull requests targeting `main`) with
+# deterministic checks only:
+#
+#   * JavaScript / Next.js: install, typecheck, lint, Vitest, production build
+#   * Python object-worker: install test deps, pytest
+#
+# The two jobs are independent and run in parallel.
+#
+# By design this workflow never touches live infrastructure: no Hikvision DVR,
+# no MediaMTX on the production host, no Telegram Bot API, no Cloudflare tunnel,
+# no production SQLite database or recordings. It needs no repository secrets —
+# `npm run build` succeeds with an empty environment because every route is
+# `force-dynamic`, so no request-time DVR/Telegram code runs at build time.
+#
+# The Playwright suite (`npm run test:e2e`) is intentionally NOT part of CI: it
+# targets an already-running hub backed by a real DVR and MediaMTX, so it is not
+# deterministic. Add it as a separate `workflow_dispatch` workflow if ever needed.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only by default; no job here needs to write to the repository.
+permissions:
+  contents: read
+
+# A newer push to the same ref supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Never send Next.js build telemetry from CI.
+  NEXT_TELEMETRY_DISABLED: "1"
+  CI: "1"
+
+jobs:
+  javascript:
+    name: JavaScript / Next.js
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Node 24 is the project's supported runtime: the Dockerfile builds on
+      # node:24-alpine. It also satisfies every dependency's `engines` range
+      # (vitest 5 needs ^22.12 || ^24 || >=26; eslint 10 needs >=24).
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npm run typecheck
+
+      - name: ESLint
+        run: npm run lint
+
+      # src/server/ops/backup-scripts.test.ts exercises the real backup/restore
+      # shell scripts and skips itself when `sqlite3` is absent. Fail loudly
+      # instead of silently losing that coverage.
+      - name: Ensure sqlite3 is available for operational script tests
+        run: sqlite3 --version
+
+      - name: Unit tests (Vitest)
+        run: npm test
+
+      # No environment variables are provided on purpose: this proves the
+      # production build does not require real DVR or Telegram credentials.
+      - name: Production build
+        run: npm run build
+
+  python-object-worker:
+    name: Python object-worker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: object-worker
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # Matches the object-worker Dockerfile base image (python:3.12-slim).
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            object-worker/requirements.txt
+            object-worker/requirements-dev.txt
+
+      - name: Install object-worker test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      # The YOLOX-Nano ONNX model is deliberately not downloaded: the suite
+      # stubs the inference session (see tests/test_detector.py) and only uses
+      # temporary directories, so no weights or production data are needed.
+      - name: Object-worker tests (pytest)
+        run: python -m pytest tests -v
